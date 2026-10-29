@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تفاعل متسلسل</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none}</style></head>
+<body class="bg-purple-950 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-3xl text-purple-200 font-bold mb-1" id="score">النقاط: 0</div>
+<div class="text-purple-400 text-sm mb-1" id="best">الأفضل: 0</div>
+<div class="text-purple-300 text-sm mb-3">الحركات: <span id="moves">30</span></div>
+<div class="text-purple-200 text-sm mb-3">التقدم نحو الهدف: <span id="prog">0</span>/500</div>
+<div class="bg-purple-900/50 p-3 rounded-2xl border border-purple-700">
+<div class="grid gap-1" id="grid"></div>
+</div>
+<div id="win" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-4xl mb-2">💥</div>
+<div class="text-3xl text-green-400 font-bold mb-4" id="wmsg"></div>
+<button onclick="startGame()" class="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl">أعد المحاولة</button></div></div>
+<script>
+const K='chain-react-best';
+let best=0;try{best=parseInt(localStorage.getItem(K)||0);}catch(e){}
+const audio=new(window.AudioContext||window.webkitAudioContext)();
+function play(f,d,t='sine'){const o=audio.createOscillator(),g=audio.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+d);o.stop(audio.currentTime+d);}
+const ROWS=8,COLS=8,COLORS=['#ef4444','#3b82f6','#22c55e','#f59e0b','#a855f7'];
+let grid,score,moves,target,alive=true;
+function startGame(){
+grid=[];score=0;moves=30;target=500;alive=true;
+for(let r=0;r<ROWS;r++){grid[r]=[];for(let c=0;c<COLS;c++)grid[r][c]={color:Math.floor(Math.random()*5),count:0};}
+document.getElementById('win').classList.add('hidden');render();
+}
+function neighbors(r,c){let n=[];if(r>0)n.push([r-1,c]);if(r<ROWS-1)n.push([r+1,c]);if(c>0)n.push([r,c-1]);if(c<COLS-1)n.push([r,c+1]);return n;}
+function threshold(r,c){return neighbors(r,c).length;}
+function render(){
+document.getElementById('score').textContent='النقاط: '+score;
+document.getElementById('best').textContent='الأفضل: '+best;
+document.getElementById('moves').textContent=moves;
+document.getElementById('prog').textContent=score;
+const g=document.getElementById('grid');g.innerHTML='';
+g.style.gridTemplateColumns='repeat('+COLS+',1fr)';
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+const d=document.createElement('div');const cell=grid[r][c];
+d.className='w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-lg cursor-pointer transition-all';
+if(cell.count===0){d.style.background=COLORS[cell.color]+'33';d.style.border='2px solid '+COLORS[cell.color]+'66';d.textContent='';}
+else{d.style.background=COLORS[cell.color];d.textContent=cell.count;d.className+=' shadow-lg';}
+d.onclick=()=>tapCell(r,c);g.appendChild(d);
+}
+}
+function tapCell(r,c){
+if(moves<=0||!alive)return;
+const cell=grid[r][c];cell.count++;
+if(cell.count>=threshold(r,c)){chainReact(r,c);}
+moves--;render();checkWin();
+}
+function chainReact(r,c){
+const cell=grid[r][c];if(cell.count<threshold(r,c))return;
+const pts=cell.count*cell.count*10;score+=pts;
+play(300+cell.count*100,0.15);cell.count=0;
+const nbs=neighbors(r,c);
+nbs.forEach(([nr,nc])=>{grid[nr][nc].count++;grid[nr][nc].color=cell.color;
+setTimeout(()=>{chainReact(nr,nc);render();},150);
+});
+render();
+}
+function checkWin(){
+if(moves<=0&&alive){
+alive=false;
+let won=score>=target;
+let nb=score>best;
+if(nb){best=score;try{localStorage.setItem(K,best);}catch(e){}}
+document.getElementById('wmsg').innerHTML=(won?'🎉 فزت! النتيجة: '+score:'💀 النتيجة: '+score+' — هدفك: '+target)+(nb?'<br>🏆 رقم قياسي!':'');
+document.getElementById('win').classList.remove('hidden');
+}
+}
+startGame();render();
+</script>
+</body>
+</html>

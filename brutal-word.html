@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الكلمة المعلقة ⛓</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fdfdf8;color:#000}
+.bcard{border:4px solid #000;box-shadow:8px 8px 0 #000;background:#fff}
+.key{border:2px solid #000;background:#fff;font-weight:900;transition:all .06s;box-shadow:3px 3px 0 #000}
+.key:hover:not(:disabled){background:#FFD500}
+.key:active:not(:disabled){transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+.key:disabled{background:#000;color:#fff;opacity:.35;box-shadow:none;text-decoration:line-through}
+.slot{min-width:44px;height:56px;display:flex;align-items:center;justify-content:center;border-bottom:5px solid #000;font-size:2rem;font-weight:900}
+.lifecell{width:26px;height:26px;border:3px solid #000;background:#FFD500;display:inline-block}
+.lifeoff{background:#fff;position:relative}
+.lifeoff::after{content:'✗';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#000}
+#tfill{transition:width .15s linear;background:#FFD500}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+.hl{background:#FFD500;padding:.05em .25em;box-shadow:5px 5px 0 #000;display:inline-block}
+</style>
+</head>
+<body class="min-h-screen p-4 md:p-8 select-none">
+
+<div class="max-w-3xl mx-auto">
+
+<header class="flex items-end justify-between mb-8 flex-wrap gap-4">
+<h1 class="text-4xl md:text-5xl font-black leading-tight">الكلمة <span class="hl">المعلّقة</span>⛓</h1>
+<div class="text-sm font-bold flex flex-col gap-1 items-start">
+<span class="bcard px-3 py-1">النقاط <span id="scoreEl" class="text-lg">0</span></span>
+<span class="bcard px-3 py-1">أفضل <span id="bestEl" class="text-lg">—</span></span>
+</div>
+</header>
+
+<div id="startScr" class="bcard p-8 md:p-12 text-center">
+<p class="text-xl font-black mb-4">٦ أخطاء مسموحة فقط.<br>٧٥ ثانية لكل كلمة.</p>
+<p class="mb-8 leading-relaxed">عندك تلميح الفئة… والباقي على حروفك.<br>كل حرف صح قبل انتهاء المحاولات = نقاط أضعاف.</p>
+<button onclick="start()" class="key px-12 py-3 text-xl">ابدأ ⟵</button>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="bcard px-5 py-3 mb-6 flex items-center justify-between gap-4 flex-wrap">
+<span class="font-black">الفئة: <span id="catEl" class="bg-[#FFD500] px-2 py-0.5"></span></span>
+<span class="flex items-center gap-1.5" id="livesEl"></span>
+<button onclick="togglePause()" id="pauseBt" class="key !bg-[#FFD500] text-black px-4 py-1 text-sm">⏸ وقفة</button>
+</div>
+
+<div class="h-5 border-4 border-black mb-10"><div id="tfill" class="h-full" style="width:100%"></div></div>
+
+<div id="wordEl" class="flex flex-wrap justify-center gap-x-3 gap-y-2 mb-10" dir="rtl"></div>
+
+<div id="kb" class="grid grid-cols-8 sm:grid-cols-10 gap-2 mb-6"></div>
+
+<div id="msg" class="h-9 text-center font-black text-xl"></div>
+</div>
+
+<div id="endScr" class="hidden bcard p-10 md:p-14 text-center">
+<div class="text-7xl font-black mb-2">☠</div>
+<h2 class="text-3xl font-black mb-6">انتهت اللعبة!</h2>
+<div class="text-6xl font-black mb-6" id="finalScore">0</div>
+<p id="endMsg" class="font-bold mb-8 leading-relaxed"></p>
+<button onclick="start()" class="key px-12 py-3 text-xl">من جديد ↻</button>
+</div>
+
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const LIVES=6,QTIME=75,bestKey='brutal-word-best';
+const BANK=[
+{w:'أرخبيل',c:'جغرافيا'},
+{w:'هيروغليفية',c:'كتابات قديمة'},
+{w:'ستراتوسفير',c:'طبقات الجو'},
+{w:'مخطوطات',c:'تراث'},
+{w:'ديناصورات',c:'حفريات'},
+{w:'بورتريه',c:'فن تشكيلي'},
+{w:'سيمفونية',c:'موسيقى'},
+{w:'مرجانيات',c:'أحياء بحرية'},
+{w:'فسيولوجيا',c:'طب'},
+{w:'جيولوجيا',c:'علوم الأرض'},
+{w:'بلاتين',c:'معادن'},
+{w:'ساعة شمسية',c:'اختراعات قديمة'},
+{w:'كوارتز',c:'معادن'},
+{w:'اندماج نووي',c:'فيزياء'},
+{w:'أوركيد',c:'نباتات'},
+{w:'عمود فقري',c:'تشريح'},
+{w:'تماثل ضلعي',c:'رياضيات'},
+{w:'متحجرات',c:'حفريات'},
+{w:'برج إيفل',c:'معالم عالمية'}
+];
+const LETTERS='ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('').concat(['ء']);
+const norm=s=>s.replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[ؤ]/g,'و').replace(/[ئ]/g,'ي');
+let word='',narr=[],cat='',guessed=new Set(),lives=LIVES,score=0,streak=0,solved=0,tLeft=QTIME,timer=null,over=false,paused=false,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestEl').textContent=v||'—';}
+loadBest();
+function start(){
+score=0;solved=0;$('scoreEl').textContent='0';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+buildKB();
+nextWord();
+}
+function buildKB(){
+const kb=$('kb');kb.innerHTML='';
+LETTERS.forEach(L=>{
+const b=document.createElement('button');
+b.className='key py-2.5 text-lg';b.textContent=L;b.dataset.l=L;
+b.onclick=()=>guess(L,b);
+kb.appendChild(b);
+});
+}
+let lastWord='';
+function nextWord(){
+let pick;
+do{pick=BANK[Math.floor(Math.random()*BANK.length)];}while(pick.w===lastWord&&BANK.length>1);
+lastWord=pick.w;
+word=pick.w;narr=norm(word).split('');cat=pick.c;
+guessed.clear();lives=LIVES;tLeft=QTIME;over=false;paused=false;
+if($('pauseBt')){$('pauseBt').textContent='⏸ وقفة';$('pauseBt').style.filter='none';}
+$('catEl').textContent=cat;
+$('msg').textContent='';
+drawLives();drawWord();
+$('tfill').style.width='100%';
+clearInterval(timer);
+timer=setInterval(()=>{
+if(paused)return;
+tLeft-=.15;
+if(tLeft<=0)return timeUp();
+$('tfill').style.width=(tLeft/QTIME*100)+'%';
+},150);
+}
+function drawLives(){
+const el=$('livesEl');el.innerHTML='';
+for(let i=0;i<LIVES;i++){
+const s=document.createElement('span');
+s.className='lifecell'+(i<lives?'':' lifeoff');
+el.appendChild(s);
+}
+}
+function drawWord(){
+const el=$('wordEl');el.innerHTML='';
+let done=true;
+narr.forEach((ch,i)=>{
+const d=document.createElement('div');
+if(word[i]===' '){d.className='slot';d.style.border='none';d.style.minWidth='18px';}
+else if(guessed.has(ch)){d.className='slot';d.textContent=word[i];}
+else{done=false;d.className='slot';d.innerHTML='<span style="opacity:.25">?</span>';}
+el.appendChild(d);
+});
+return done;
+}
+function togglePause(){
+if(over||!timer)return;
+paused=!paused;
+const pb=$('pauseBt');
+pb.textContent=paused?'▶ كمّل':'⏸ وقفة';
+pb.style.filter=paused?'grayscale(1)':'none';
+$('msg').textContent=paused?'⏸ وقفة':'';
+}
+function guess(L,btn){
+if(over||paused)return;
+btn.disabled=true;
+if(narr.includes(L)){
+snd(720,.09,'triangle',.06);
+btn.style.background='#FFD500';
+guessed.add(L);
+if(drawWord()){
+over=true;clearInterval(timer);
+winWord();
+}
+}else{
+lives--;
+streak=0;
+drawLives();
+snd(130,.25,'sawtooth',.07);
+$('wordEl').classList.add('shake');
+setTimeout(()=>$('wordEl').classList.remove('shake'),400);
+$('msg').textContent='✗ مو موجودة!';
+$('msg').style.color='#000';
+if(lives<=0){
+over=true;clearInterval(timer);
+loseWord(false);
+}
+}
+}
+function winWord(){
+streak++;solved++;
+const gained=100+lives*15+Math.ceil(tLeft)+streak*20;
+score+=gained;
+$('scoreEl').textContent=score;
+$('msg').innerHTML=`صح عليك! ✓ +${gained}${streak>1?` (سلسلة ×${streak})`:''}`;
+$('msg').style.color='#000';
+[660,880,1100].forEach((f,i)=>setTimeout(()=>snd(f,.13,'triangle',.06),i*110));
+setTimeout(nextWord,1800);
+}
+function loseWord(timeout){
+streak=0;
+narr.forEach(ch=>{if(word[narr.indexOf(ch)]!==' ')guessed.add(ch);});
+drawWord();
+$('msg').textContent=(timeout?'⏱ خلص الوقت':'☠')+' الكلمة كانت: '+word;
+[220,160,110].forEach((f,i)=>setTimeout(()=>snd(f,.22,'sawtooth',.06),i*150));
+setTimeout(gameOver,2200);
+}
+function timeUp(){loseWord(true);}
+function gameOver(){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=score;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m=`حليت ${solved} ${solved===1?'كلمة':'كلمات'}.`;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+v;
+$('endMsg').textContent=m;
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'){togglePause();return;}
+const ch=norm(e.key);
+if(!over&&!paused&&/[ء-ي]/.test(e.key)&&e.key.length===1){
+const btn=[...document.querySelectorAll('.key')].find(b=>b.dataset.l===ch&&!b.disabled);
+if(btn)guess(ch,btn);
+}
+});
+</script>
+</body>
+</html>

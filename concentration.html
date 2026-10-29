@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لعبة الذاكرة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#8B6914;background-image:url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' fill='%238B6914'/%3E%3Ccircle cx='50' cy='50' r='40' fill='%239A7418' opacity='.15'/%3E%3C/svg%3E")}
+.card{perspective:600px;width:70px;height:70px}
+.card-inner{width:100%;height:100%;transition:transform .4s;transform-style:preserve-3d;position:relative}
+.card.flipped .card-inner{transform:rotateY(180deg)}
+.card-face{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px}
+.card-back{background:linear-gradient(135deg,#D2691E,#A0522D);color:#FFF8DC;font-size:24px}
+.card-front{background:#FFF8DC;transform:rotateY(180deg)}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4" style="font-family:sans-serif">
+<h1 class="text-3xl font-bold text-amber-100 mb-2">لعبة الذاكرة</h1>
+<div class="flex gap-8 mb-4 text-amber-200 text-lg">
+<div>المحاولات: <span id="moves" class="font-bold">0</span></div>
+<div>النتيجة: <span id="score" class="font-bold">0</span></div>
+<div>الأفضل: <span id="best" class="font-bold">0</span></div>
+</div>
+<div id="grid" class="grid grid-cols-4 gap-2 mb-4"></div>
+<button id="restart" class="bg-amber-700 hover:bg-amber-800 text-white px-6 py-2 rounded-lg text-lg font-bold hidden">جديد</button>
+<script>
+const EMOJIS=['🍎','🍊','🍋','🍇','🌸','⭐','💎','🎯'];
+let cards,flipped,matched,moves,canFlip;
+let audioCtx;
+try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+function playTone(f,d,t='sine'){if(!audioCtx)return;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}
+function init(){
+if(!audioCtx)try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+cards=[];flipped=[];matched=0;moves=0;canFlip=true;
+const pairs=[...EMOJIS,...EMOJIS];
+for(let i=pairs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pairs[i],pairs[j]]=[pairs[j],pairs[i]]}
+pairs.forEach((emoji,i)=>{cards.push({id:i,emoji,matched:false})});
+document.getElementById('moves').textContent='0';
+document.getElementById('score').textContent='0';
+let sb='0';try{sb=localStorage.getItem('concent-best')||'0';}catch(e){}
+document.getElementById('best').textContent=sb;
+render();
+}
+function render(){
+const g=document.getElementById('grid');g.innerHTML='';
+cards.forEach(c=>{
+const d=document.createElement('div');d.className='card';d.dataset.id=c.id;
+d.innerHTML=`<div class="card-inner"><div class="card-face card-back">❓</div><div class="card-face card-front">${c.emoji}</div></div>`;
+d.addEventListener('click',()=>flipCard(c.id));
+g.appendChild(d);
+});
+document.getElementById('restart').classList.add('hidden');
+}
+function flipCard(id){
+if(!canFlip)return;
+const c=cards[id];
+if(c.matched||flipped.includes(id))return;
+playTone(600,.1);
+flipped.push(id);
+document.querySelectorAll('.card')[id].classList.add('flipped');
+if(flipped.length===2){
+moves++;document.getElementById('moves').textContent=moves;
+canFlip=false;
+const a=cards[flipped[0]],b=cards[flipped[1]];
+if(a.emoji===b.emoji){
+matched+=2;a.matched=true;b.matched=true;
+playTone(900,.2);playTone(1200,.3);
+setTimeout(()=>{flipped=[];canFlip=true;
+if(matched===16)endGame();
+},400);
+}else{
+playTone(200,.3,'sawtooth');
+setTimeout(()=>{
+document.querySelectorAll('.card')[flipped[0]].classList.remove('flipped');
+document.querySelectorAll('.card')[flipped[1]].classList.remove('flipped');
+flipped=[];canFlip=true;
+},800);
+}
+}
+}
+function endGame(){
+const s=Math.max(0,1000-moves*10);
+document.getElementById('score').textContent=s;
+let b=0;try{b=parseInt(localStorage.getItem('concent-best'))||0;}catch(e){}
+if(s>b){try{localStorage.setItem('concent-best',s)}catch(e){};document.getElementById('best').textContent=s}
+document.getElementById('restart').classList.remove('hidden');
+playTone(523,.15);setTimeout(()=>playTone(659,.15),150);setTimeout(()=>playTone(784,.3),300);
+}
+document.getElementById('restart').addEventListener('click',init);
+init();
+</script>
+</body>
+</html>

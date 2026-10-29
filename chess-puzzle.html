@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لغز الشطرنج</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;overflow:hidden;background:#1e1e2e;font-family:sans-serif}
+.cell{display:flex;align-items:center;justify-content:center;font-size:2rem;cursor:pointer;user-select:none}
+.cell:hover{filter:brightness(1.2)}
+</style>
+</head>
+<body>
+<div class="flex flex-col items-center justify-center h-screen">
+<div class="text-amber-300 text-xl mb-2 font-bold">لغز الشطرنج — كش ملك في حركة واحدة</div>
+<div class="flex gap-6 text-amber-200 mb-2 text-sm">
+<span>اللغز: <b id="pz">1</b>/8</span>
+<span>الوقت: <b id="timer">30</b></span>
+<span>النتيجة: <b id="score">0</b></span>
+<span>الأفضل: <b id="best">0</b></span>
+<button onclick="togglePause()" class="bg-amber-700 hover:bg-amber-600 text-amber-100 px-3 py-1 rounded font-bold text-sm" id="pauseBtn">⏸ وقفة</button>
+</div>
+<div id="board" class="grid grid-cols-6 gap-0" style="width:360px;height:360px"></div>
+<div id="msg" class="text-amber-200 mt-3 text-lg font-bold h-6"></div>
+</div>
+<script>
+const PZ=[
+{b:'r.b..q...........B..R..............r.k..',w:[3,3],to:[5,3],note:'الفيل يكش بال Semaphore'},
+{b:'r..k.............n......Q........R......',w:[2,5],to:[2,3],note:'الملكة تتحرك عمودياً'},
+{b:'r.b.k.............R....................',w:[2,2],to:[2,3],note:'الرخ يكش'},
+{b:'r..k............R........n...........Q..',w:[5,5],to:[5,3],note:'الملكة تتقدم'},
+{b:'.r..k............P........b...........',w:[2,4],to:[2,5],note:'البيدق يكش'},
+{b:'r.k..............B.............R.......',w:[2,3],to:[2,5],note:'الفيل من الخلف'},
+{b:'r..k............q..R...................',w:[3,2],to:[3,3],note:'الرخ يتقدم'},
+{b:'.r.k.............N.......b............',w:[2,3],to:[3,5],note:'الحصان يكش'},
+];
+const PIECES={r:'♜',n:'♞',b:'♝',q:'♛',k:'♚',p:'♟',R:'♖',N:'♘',B:'♗',Q:'♕',K:'♔',P:'♙'};
+let board=[],cur=0,sel=null,score=0,best=0,timerI=null,timeLeft=30,done=false,paused=false;
+try{best=parseInt(localStorage.getItem('chess-puz-best'))||0;}catch(e){}
+document.getElementById('best').textContent=best;
+
+function loadPuzzle(idx){
+const d=PZ[idx];board=Array(36).fill(null);
+for(let i=0;i<d.b.length;i++){const c=d.b[i];if(c!=='.')board[i]=PIECES[c];}
+sel=null;done=false;timeLeft=30;paused=false;
+document.getElementById('pauseBtn').textContent='⏸ وقفة';
+document.getElementById('timer').textContent=timeLeft;
+document.getElementById('msg').textContent='اختر القطعة ثم الوجهة';
+document.getElementById('pz').textContent=idx+1;
+if(timerI)clearInterval(timerI);
+timerI=setInterval(()=>{
+if(done)return;
+if(paused){return;}
+timeLeft--;
+document.getElementById('timer').textContent=timeLeft;
+if(timeLeft<=0){document.getElementById('msg').textContent='⏰ انتهى الوقت!';done=true;setTimeout(()=>nextPuzzle(),1500);}
+},1000);
+render();
+}
+
+function render(){
+const el=document.getElementById('board');el.innerHTML='';
+for(let r=0;r<6;r++)for(let c=0;c<6;c++){
+const d=document.createElement('div');d.className='cell';
+d.style.background=(r+c)%2===0?'#d4a76a':'#8b6914';
+d.style.width='60px';d.style.height='60px';
+const p=board[r*6+c];
+if(p)d.textContent=p;
+if(sel&&sel.r===r&&sel.c===c){d.style.background='#ffeb3b';}
+d.onclick=()=>clickCell(r,c);
+el.appendChild(d);
+}
+}
+
+function clickCell(r,c){
+if(done||paused)return;
+const d=PZ[cur];
+if(!sel){
+if(board[r*6+c]&&board[r*6+c]===PIECES[d.w[0]]||board[r*6+c]===PIECES[d.w[1]]){
+sel={r,c};render();return;
+}
+if(board[r*6+c]&&board[r*6+c].match(/[A-Z]/)){
+const sr=d.w[0],sc=d.w[1];
+sel={r:sr,c:sc};render();return;
+}
+sel={r:d.w[0],c:d.w[1]};render();return;
+}
+if(r===d.to[0]&&c===d.to[1]&&!done){
+const piece=board[sel.r*6+sel.c];
+board[sel.r*6+sel.c]=null;board[r*6+c]=piece;
+done=true;
+score+=timeLeft;
+if(score>best){best=score;try{localStorage.setItem('chess-puz-best',best);}catch(e){}}
+document.getElementById('best').textContent=best;
+document.getElementById('score').textContent=score;
+document.getElementById('msg').textContent='✓ '+d.note;
+render();
+setTimeout(()=>nextPuzzle(),1800);
+}else if(r===sel.r&&c===sel.c){
+sel=null;render();
+}else{
+sel={r,c};render();
+}
+}
+
+function nextPuzzle(){
+if(cur<7){cur++;loadPuzzle(cur);}
+else{
+document.getElementById('msg').textContent='🎉 أتممت! النتيجة: '+score;
+if(score>best){best=score;try{localStorage.setItem('chess-puz-best',best);}catch(e){}}
+document.getElementById('best').textContent=best;
+done=true;if(timerI)clearInterval(timerI);
+}
+}
+
+function togglePause(){
+if(done)return;
+paused=!paused;
+document.getElementById('pauseBtn').textContent=paused?'▶ كمّل':'⏸ وقفة';
+document.getElementById('msg').textContent=paused?'⏸ وقفة':'اختر القطعة ثم الوجهة';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();});
+
+loadPuzzle(0);
+</script>
+</body>
+</html>

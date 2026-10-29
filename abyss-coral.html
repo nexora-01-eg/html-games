@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>صيد المرجان 🪸</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#023e63,#012a44,#000f1c);color:#d7f1ff;min-height:100vh;overflow:hidden}
+.rays{position:fixed;top:-30%;left:-25%;width:150%;height:90%;background:repeating-linear-gradient(75deg,rgba(142,202,230,.06) 0 40px,transparent 40px 110px);animation:sway 14s ease-in-out infinite alternate;pointer-events:none}
+@keyframes sway{to{transform:translateX(60px)}}
+.bub{position:fixed;border-radius:50%;border:1.5px solid rgba(160,220,255,.5);background:rgba(160,220,255,.08);bottom:-40px;pointer-events:none;animation:rise linear infinite}
+@keyframes rise{to{transform:translateY(-115vh)}}
+.pad{aspect-ratio:1;border-radius:1.3rem;background:rgba(10,60,95,.55);border:2px solid rgba(120,190,235,.28);box-shadow:inset 0 0 22px rgba(0,180,216,.08);cursor:pointer;transition:all .07s;display:flex;align-items:center;justify-content:center;font-size:1.9rem}
+.pad:hover{background:rgba(16,84,128,.6)}
+.pad.lit{background:radial-gradient(circle at 40% 32%,#bde0fe,#00b4d8);border-color:#caf0f8;box-shadow:0 0 34px rgba(0,180,216,.85)}
+.pad.trap{background:radial-gradient(circle at 40% 32%,#ffd166,#f77f00);border-color:#ffe29a;box-shadow:0 0 30px rgba(247,127,0,.8)}
+.chip{background:rgba(8,50,80,.7);border:1px solid rgba(120,190,235,.35);border-radius:999px;padding:.32rem 1rem;font-weight:800}
+.btn-sea{background:#00b4d8;color:#031c2b;border-radius:999px;font-weight:900;box-shadow:0 6px 0 #0077a3;transition:all .09s}
+.btn-sea:hover{filter:brightness(1.1)}
+.btn-sea:active{transform:translateY(4px);box-shadow:0 2px 0 #0077a3}
+.fish{position:absolute;font-size:1.6rem;opacity:.4;pointer-events:none;animation:swimx linear infinite}
+@keyframes swimx{from{transform:translateX(-70px)}to{transform:translateX(calc(100vw + 70px))}}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+#tfill{transition:width .1s linear;background:#48cae4}
+.pop{position:absolute;pointer-events:none;font-weight:900;font-size:1.35rem;animation:pop .72s ease-out forwards;z-index:20;text-shadow:0 0 8px rgba(0,0,0,.5)}
+@keyframes pop{to{opacity:0;transform:translateY(-36px)}}
+</style>
+</head>
+<body class="select-none">
+<div class="rays"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="text-center max-w-lg relative">
+<span class="fish" style="top:0;left:0;animation-duration:19s">🐠</span>
+<div class="text-7xl mb-2">🪸</div>
+<h1 class="text-5xl font-black mb-3" style="color:#48cae4;text-shadow:0 0 26px rgba(72,202,228,.65)">صيد المرجان</h1>
+<p class="leading-relaxed mb-1">أي مرجع يضيء <b style="color:#48cae4">أزرق</b> — اضغطه بأسرع صيد!<br>اللي يضيء <b style="color:#ffb703">برتقالي</b> قنديل سام… <b>لا تلمسه!</b></p>
+<p class="text-sm opacity-60 mb-8">٤٥ ثانية · كلما كنت أسرع زادت النقاط 🫧</p>
+<button onclick="start()" class="btn-sea px-14 py-3.5 text-xl">اغمر! 🌊</button>
+<p class="mt-6 text-sm opacity-60">أفضل صيدية: <span id="bestStart" class="font-bold text-[#48cae4]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-sm relative">
+<span class="fish" style="top:-30px;left:0;animation-duration:23s">🐟</span>
+<div class="flex justify-between items-center mb-4 flex-wrap gap-1.5">
+<span class="chip">⭐ <span id="scoreEl" class="text-[#48cae4]">٠</span></span>
+<span class="chip">🏆 <span id="bestPlayEl" class="text-[#48cae4]">—</span></span>
+<span class="chip">🔥 <span id="comboEl">×١</span></span>
+<span class="chip"><span id="secsEl" class="text-[#48cae4] font-black">45</span>ث</span>
+<span class="chip !cursor-pointer" onclick="togglePause()" id="pauseChip">⏸ وقفة</span>
+</div>
+<div class="w-full h-2.5 rounded-full bg-white/10 overflow-hidden mb-4"><div id="tfill" class="h-full" style="width:100%"></div></div>
+
+<div id="gridEl" class="grid grid-cols-3 gap-3"></div>
+
+<div id="msg" class="h-9 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden text-center relative">
+<div class="text-6xl mb-2">🫧</div>
+<h2 class="text-4xl font-black mb-6" style="color:#48cae4">طلعت من الماء!</h2>
+<div class="flex gap-8 justify-center mb-4">
+<div><div id="finalScore" class="text-5xl font-black text-[#48cae4]">٠</div><div class="text-xs opacity-60 mt-1">النقاط</div></div>
+<div><div id="finalHits" class="text-5xl font-black text-emerald-300">٠</div><div class="text-xs opacity-60 mt-1">مرجان</div></div>
+<div><div id="finalTraps" class="text-5xl font-black text-[#ffb703]">٠</div><div class="text-xs opacity-60 mt-1">قناديل 😖</div></div>
+</div>
+<p id="endMsg" class="opacity-70 mb-8"></p>
+<button onclick="start()" class="btn-sea px-12 py-3 text-lg">غوصة أخرى ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const DUR=45,bestKey='abyss-coral-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let score=0,combo=0,hits=0,traps=0,tLeft=DUR,timer=null,current=null,currentType='',lockUntil=0,over=true,ac=null,paused=false,spawnId=null,litId=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestStart').textContent=v?AR(v):'—';if($('bestPlayEl'))$('bestPlayEl').textContent=v?AR(v):'—';}
+loadBest();
+for(let i=0;i<18;i++){
+const b=document.createElement('span');
+b.className='bub';
+const s=4+Math.random()*14;
+b.style.width=b.style.height=s+'px';
+b.style.left=Math.random()*100+'vw';
+b.style.animationDuration=(6+Math.random()*9)+'s';
+b.style.animationDelay=(Math.random()*8)+'s';
+document.body.appendChild(b);
+}
+const pads=[];
+(function(){
+const g=$('gridEl');
+const icons=['🪸','🐚','⭐','🦀','🐡','🌊','🪼','🐙','🐬'];
+for(let i=0;i<9;i++){
+const p=document.createElement('button');
+p.className='pad';p.textContent=icons[i];
+p.onclick=()=>hit(i);
+g.appendChild(p);
+pads.push(p);
+}
+})();
+function clearAll(){pads.forEach(p=>p.classList.remove('lit','trap'));current=null;}
+function popup(i,txt,col){
+const r=pads[i].getBoundingClientRect(),g=$('gridEl').getBoundingClientRect();
+const s=document.createElement('div');
+s.className='pop';s.textContent=txt;s.style.color=col||'#fff';
+s.style.left=(r.left-g.left+r.width/2)+'px';s.style.top=(r.top-g.top)+'px';
+$('gridEl').appendChild(s);
+setTimeout(()=>s.remove(),720);
+}
+function spawn(){
+if(over||paused)return;
+clearAll();
+const i=Math.floor(Math.random()*9);
+const trapOdds=.24+((DUR-tLeft)/DUR)*.2;
+const isTrap=Math.random()<trapOdds;
+current=i;
+currentType=isTrap?'trap':'lit';
+pads[i].classList.add(currentType);
+window.__litAt=performance.now();
+snd(isTrap?260:720,.08,isTrap?'square':'sine',.04);
+litId=setTimeout(()=>{
+if(current===i){
+clearAll();
+if(!isTrap&&combo>0){combo=0;$('comboEl').textContent='×١';$('msg').textContent='فلت مرجع… 💨';}
+startGap();
+}
+},isTrap?750:1450);
+}
+function startGap(){const el=(DUR-tLeft);const gap=Math.max(180,410-el*7)+Math.random()*Math.max(80,420-el*6);spawnId=setTimeout(spawn,gap);}
+function hit(i){
+if(over||paused)return;
+if(current===null)return;
+if(i!==current){
+combo=0;
+$('comboEl').textContent='×١';
+return;
+}
+const wasTrap=currentType==='trap';
+clearAll();
+current=null;
+if(wasTrap){
+traps++;combo=0;
+score=Math.max(0,score-20);
+$('msg').textContent='😵 قنديل سام! −٢٠';
+$('msg').style.color='#ffb703';
+$('gridEl').classList.add('shake');
+setTimeout(()=>$('gridEl').classList.remove('shake'),380);
+navigator.vibrate&&navigator.vibrate(80);
+snd(110,.3,'sawtooth',.06);
+popup(i,'−٢٠','#ffb703');
+}else{
+hits++;
+combo++;
+const dt=(performance.now()-window.__litAt)/1000;
+let gain=combo*3;
+gain+=dt<.5?15:dt<.9?10:5;
+score+=gain;
+$('msg').textContent=`✓ +${AR(gain)}${combo>=3?` · كومبو ×${AR(combo)}`:''}`;
+$('msg').style.color='#7fd8c8';
+snd(600+Math.min(combo*40,400),.1,'triangle',.06);
+popup(i,'+'+AR(gain),'#7fd8c8');
+}
+$('scoreEl').textContent=AR(score);
+$('comboEl').textContent='×'+AR(Math.max(combo,1));
+startGap();
+}
+function start(){
+score=0;combo=0;hits=0;traps=0;tLeft=DUR;over=false;paused=false;window.__litAt=performance.now();
+$('scoreEl').textContent='٠';$('comboEl').textContent='×١';$('secsEl').textContent=DUR;
+$('msg').textContent='';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+clearInterval(timer);
+if(spawnId)clearTimeout(spawnId);
+if(litId)clearTimeout(litId);
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0)return finish();
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/DUR*100)+'%';
+},100);
+startGap();
+snd(480,.12,'sine',.05);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+$('pauseChip').textContent=paused?'▶ كمّل':'⏸ وقفة';
+if(paused){
+clearInterval(timer);
+if(spawnId)clearTimeout(spawnId);
+if(litId)clearTimeout(litId);
+clearAll();
+$('msg').textContent='⏸ وقفة — اضغط كمّل أو Escape';
+}else{
+$('msg').textContent='';
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0)return finish();
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/DUR*100)+'%';
+},100);
+startGap();
+}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();});
+function finish(){
+clearInterval(timer);
+if(spawnId)clearTimeout(spawnId);
+if(litId)clearTimeout(litId);
+over=true;
+clearAll();
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+$('finalHits').textContent=AR(hits);
+$('finalTraps').textContent=AR(traps);
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m=traps===0?'بدون لمسة قنديل واحدة! غوصة مثالية 🏅':hits>traps*4?'مهارة صيد رفيعة 👌':'القناديل حبّتك اليوم 😅';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+$('endMsg').textContent=m;
+[520,660,784].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.05),i*130));
+}
+</script>
+</body>
+</html>

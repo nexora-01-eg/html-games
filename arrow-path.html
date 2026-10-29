@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مسار الأسهم</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-slate-100 to-slate-200 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">➡️</div>
+<h1 class="text-3xl font-bold text-slate-800 mb-2">مسار الأسهم</h1>
+<p class="text-slate-500 mb-6">تتبع الأسهم من البداية إلى النهاية</p>
+<div class="bg-slate-100 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-600">الأفضل: <span id="best-display" class="font-bold text-emerald-600">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-6">
+<div class="flex justify-between items-center mb-4">
+<span class="text-slate-600 font-bold">الجولة: <span id="round-display">1</span>/8</span>
+<span class="text-emerald-600 font-bold">النقاط: <span id="score-display">0</span></span>
+</div>
+<div id="grid-container" class="grid gap-1 mx-auto mb-4" style="width:fit-content"></div>
+<p class="text-slate-500 text-sm mb-2">من أي خلية ينتهي المسار؟</p>
+<div id="options-container" class="flex flex-wrap gap-2 justify-center mb-4"></div>
+<div id="feedback" class="h-8 text-lg font-bold"></div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">🎉</div>
+<h2 class="text-2xl font-bold text-slate-800 mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-500 mb-2">النقاط: <span id="final-score" class="font-bold text-emerald-600"></span></p>
+<p class="text-slate-500 mb-6" id="new-record">الأفضل: <span id="final-best" class="font-bold text-emerald-600"></span></p>
+<button onclick="startGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let arrows = ['⬆️','↗️','➡️','↘️','⬇️','↙️','⬅️','↖️'];
+let dx = [0,1,1,1,0,-1,-1,-1];
+let dy = [-1,-1,0,1,1,1,0,-1];
+let gridSize = 4;
+let round = 0, score = 0, totalRounds = 8;
+let best = 0;
+try { best = parseInt(localStorage.getItem('arrow-path-best') || '0') || 0; } catch (e) {}
+let currentPath = [], correctEnd = '';
+let locked = false;
+function startGame() {
+initAudio(); round = 0; score = 0; locked = false;
+$('start-screen').classList.add('hidden');
+$('finish-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+nextRound();
+}
+function nextRound() {
+if (round >= totalRounds) { endGame(); return; }
+round++;
+locked = false;
+gridSize = gridFor(round);
+$('round-display').textContent = round;
+$('score-display').textContent = score;
+$('feedback').textContent = '';
+let grid = [];
+for (let i = 0; i < gridSize; i++) {
+grid[i] = [];
+for (let j = 0; j < gridSize; j++) {
+let ai = Math.floor(Math.random() * 8);
+grid[i][j] = ai;
+}
+}
+let startR = 0, startC = 0;
+let r = startR, c = startC;
+currentPath = [`${r},${c}`];
+for (let i = 0; i < gridSize + 1; i++) {
+let ai = grid[r][c];
+let nr = r + dx[ai];
+let nc = c + dy[ai];
+if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize) {
+r = nr; c = nc;
+currentPath.push(`${r},${c}`);
+} else break;
+}
+correctEnd = `${r},${c}`;
+let container = $('grid-container');
+container.innerHTML = '';
+container.style.gridTemplateColumns = `repeat(${gridSize}, 60px)`;
+container.style.gridTemplateRows = `repeat(${gridSize}, 60px)`;
+for (let i = 0; i < gridSize; i++) {
+for (let j = 0; j < gridSize; j++) {
+let cell = document.createElement('div');
+cell.className = 'w-[60px] h-[60px] rounded-lg flex items-center justify-center text-2xl border-2 border-slate-200 bg-slate-50';
+cell.textContent = arrows[grid[i][j]];
+if (i === 0 && j === 0) cell.classList.add('!bg-emerald-100', '!border-emerald-400');
+container.appendChild(cell);
+}
+}
+let options = new Set();
+options.add(correctEnd);
+while (options.size < 4) {
+let ri = Math.floor(Math.random() * gridSize);
+let rj = Math.floor(Math.random() * gridSize);
+options.add(`${ri},${rj}`);
+}
+let optArr = [...options].sort(() => Math.random() - 0.5);
+let optContainer = $('options-container');
+optContainer.innerHTML = '';
+optArr.forEach(pos => {
+let [oi, oj] = pos.split(',').map(Number);
+let btn = document.createElement('button');
+btn.textContent = `صف ${oi + 1}، عمود ${oj + 1}`;
+btn.className = 'bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition';
+btn.onclick = () => checkAnswer(pos);
+optContainer.appendChild(btn);
+});
+}
+function checkAnswer(pos) {
+if (locked) return;
+locked = true;
+initAudio();
+if (pos === correctEnd) {
+playSound(523, 'sine', 0.3);
+score += 10;
+$('feedback').textContent = '✅ صحيح!';
+$('feedback').className = 'h-8 text-lg font-bold text-emerald-600';
+} else {
+playSound(200, 'square', 0.3);
+$('feedback').textContent = '❌ خطأ!';
+$('feedback').className = 'h-8 text-lg font-bold text-red-600';
+}
+setTimeout(nextRound, 1000);
+}
+function gridFor(r){return r<=3?4:r<=6?5:6;}
+function endGame() {
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-score').textContent = score;
+let nb = false;
+if (score > best) {
+best = score;
+nb = true;
+try{localStorage.setItem('arrow-path-best', best);}catch(e){}
+}
+$('final-best').textContent = best;
+$('new-record').innerHTML = nb ? '🎉 رقم قياسي جديد! · الأفضل: <span id="final-best" class="font-bold text-emerald-600"></span>' : 'الأفضل: <span id="final-best" class="font-bold text-emerald-600"></span>';
+$('final-best').textContent = best;
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+document.addEventListener('keydown', function(e) {
+if ($('play-screen').classList.contains('hidden')) return;
+let n = parseInt(e.key, 10);
+if (n >= 1 && n <= 4) {
+let btns = $('options-container').querySelectorAll('button');
+if (btns[n - 1]) btns[n - 1].click();
+}
+});
+</script>
+</body>
+</html>

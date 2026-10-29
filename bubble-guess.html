@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فقاعة التخمين 🫧</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fdf1f7;color:#3a2b45;min-height:100vh;overflow-x:hidden}
+.blob{position:absolute;border-radius:9999px;filter:blur(40px);opacity:.5}
+.card{background:#fff;border-radius:2.2rem;box-shadow:0 12px 0 rgba(167,139,250,.25)}
+.chunk{border-radius:999px;font-weight:900;color:#fff;transition:transform .08s,filter .12s}
+.chunk:hover:not(:disabled){filter:brightness(1.07)}
+.chunk:active:not(:disabled){transform:translateY(4px)}
+.pink{background:#ff6b9d;box-shadow:0 6px 0 #d94f7f}
+.teal{background:#4ecdc4;box-shadow:0 6px 0 #35a99f}
+input:focus{outline:none;border-color:#a78bfa!important}
+.guessbub{animation:bub .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes bub{0%{transform:scale(.4)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
+#mascot{display:inline-block}
+.happy{animation:bounce .5s}
+@keyframes bounce{30%{transform:translateY(-14px) rotate(-6deg)}60%{transform:translateY(0)}80%{transform:translateY(-6px)}}
+.sad{animation:wob .45s}
+@keyframes wob{25%{transform:rotate(-9deg)}75%{transform:rotate(9deg)}}
+#rangeFill{transition:all .35s ease}
+.popmsg{animation:bub .35s cubic-bezier(.34,1.56,.64,1)}
+</style>
+</head>
+<body class="select-none">
+<div class="blob" style="width:220px;height:220px;background:#ffd93d;top:-60px;left:-50px"></div>
+<div class="blob" style="width:180px;height:180px;background:#4ecdc4;bottom:-40px;right:-40px"></div>
+<div class="blob" style="width:140px;height:140px;background:#ff6b9d;top:40%;left:-70px"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="card px-10 py-12 text-center max-w-lg w-full">
+<div id="mascotStart" class="text-7xl mb-2">🫧</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3" style="color:#ff6b9d">فقاعة التخمين</h1>
+<p class="leading-relaxed mb-2">خبّأت رقمًا سرّيًا بين <b>١</b> و<b>١٠٠٠</b>…<br>عندك <b>١٠ محاولات</b> بس!</p>
+<p class="text-sm opacity-60 mb-8">كل تخمين يقولك: أعلى ⬆️ أو أقل ⬇️ — والصوت يعلّمك إنك قرّبت 😉</p>
+<button onclick="start()" class="chunk pink px-14 py-3.5 text-xl">انفجر اللعبة 💥</button>
+<p class="mt-6 text-sm opacity-60">سلسلة الانتصارات: <span id="bestStart" class="font-bold text-teal-500">٠</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="card px-6 py-8">
+<div class="flex justify-between items-center mb-5 text-sm font-bold">
+<span>المحاولة <span id="triesEl" class="text-pink-500">٠</span>/<span>١٠</span></span>
+<span><span id="mascot" class="text-3xl">🫧</span></span>
+<span>المدى <b id="rangeLbl" class="text-purple-400">١–١٠٠٠</b></span>
+</div>
+
+<div class="h-4 rounded-full bg-purple-100 overflow-hidden mb-2"><div id="rangeFill" class="h-full rounded-full" style="background:linear-gradient(90deg,#4ecdc4,#ffd93d,#ff6b9d);margin-inline:auto;width:100%"></div></div>
+<p class="text-[11px] text-center opacity-45 mb-6">هذا هو نطاق البحث المتبقي</p>
+
+<div id="feedback" class="h-16 flex items-center justify-center mb-4">
+<span class="text-2xl font-black opacity-40">خمّن… 🔢</span>
+</div>
+
+<div class="flex gap-2 mb-5">
+<input id="inp" type="number" inputmode="numeric" placeholder="رقم؟"
+class="flex-1 text-center text-2xl font-black rounded-full border-4 border-purple-200 py-2.5 transition-colors">
+<button onclick="makeGuess()" class="chunk teal px-7 py-2.5 text-xl">جرّب!</button>
+</div>
+
+<div id="historyEl" class="flex flex-wrap gap-2 justify-center min-h-[2.2rem]"></div>
+</div>
+</div>
+
+<div id="endScr" class="hidden card px-12 py-12 text-center max-w-md w-full">
+<div id="endIcon" class="text-7xl mb-2">🎉</div>
+<h2 id="endTitle" class="text-4xl font-black mb-4" style="color:#ff6b9d">طلعتها!</h2>
+<p id="endMsg" class="leading-relaxed mb-3"></p>
+<p class="text-lg mb-8">الرقم السري كان: <b id="secretReveal" class="text-purple-400 text-2xl"></b></p>
+<button onclick="start()" class="chunk pink px-12 py-3 text-lg">رقم جديد ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const MAXT=10,bestKey='toy-guess-streak';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let secret=0,lo=1,hi=1000,tries=0,streak=0,over=false,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.055,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}$('bestStart').textContent=AR(v);}
+loadBest();
+function start(){
+secret=1+Math.floor(Math.random()*1000);
+lo=1;hi=1000;tries=0;over=false;
+$('triesEl').textContent='٠';
+$('rangeLbl').textContent='١–١٠٠٠';
+$('rangeFill').style.width='100%';
+$('historyEl').innerHTML='';
+setFeedback('خمّن… 🔢',true);
+mood('idle');
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+setTimeout(()=>$('inp').focus(),60);
+snd(520,.09,'triangle',.05);
+}
+function setFeedback(txt,dim){
+$('feedback').innerHTML=`<span class="popmsg text-2xl md:text-3xl font-black ${dim?'opacity-40':''}">${txt}</span>`;
+}
+function mood(m){
+const el=$('mascot');
+el.className='';
+if(m==='happy'){el.textContent='😄';el.classList.add('happy');}
+else if(m==='sad'){el.textContent='😵‍💫';el.classList.add('sad');}
+else if(m==='think')el.textContent='🤔';
+else el.textContent='🫧';
+}
+function makeGuess(){
+if(over||tries>=MAXT)return;
+const v=+$('inp').value;
+if(!v||v<1||v>1000){
+setFeedback('⚠️ أدخل رقمًا من ١ إلى ١٠٠٠');
+snd(160,.15,'square',.04);
+return;
+}
+tries++;
+$('triesEl').textContent=AR(tries);
+if(v===secret){
+addBubble(v,true);
+return win(v);
+}
+addBubble(v,v<secret);
+const dist=Math.abs(v-secret);
+let fb;
+if(v<secret){
+lo=Math.max(lo,v+1);
+fb='أعلى ⬆️';
+}else{
+hi=Math.min(hi,v-1);
+fb='أقل ⬇️';
+}
+if(dist<=25)fb+=' · سخن سخن 🔥';
+else if(dist<=80)fb+=' · دفي 🌤';
+else fb+=' · بردانة ❄️';
+setFeedback(fb);
+mood('think');
+proximity(dist);
+updateRange();
+$('inp').value='';$('inp').focus();
+if(tries>=MAXT)setTimeout(()=>{if(!over)lose();},600);
+}
+function proximity(d){
+const f=d<=20?900:d<=60?700:d<=150?480:300;
+snd(f,.1,'triangle',.05);
+}
+function addBubble(v,isLower){
+const b=document.createElement('span');
+b.className='guessbub inline-flex items-center gap-1 px-3 py-1 rounded-full font-black text-sm text-white';
+b.style.background=isLower?'#4ecdc4':'#ff6b9d';
+b.innerHTML=AR(v)+(isLower?' ↑':' ↓');
+$('historyEl').appendChild(b);
+}
+function updateRange(){
+const pct=Math.max(2,(hi-lo)/999*100);
+const fill=$('rangeFill');
+fill.style.width=pct+'%';
+$('rangeLbl').textContent=`${AR(lo)}–${AR(hi)}`;
+snd(340,.06,'sine',.03);
+}
+function win(v){
+if(over)return;
+over=true;
+streak++;
+try{localStorage.setItem(bestKey,streak);}catch(e){}
+const left=MAXT-tries;
+const bonus=left*100;
+showEnd(true,v,left,bonus);
+}
+function lose(){
+if(over)return;
+over=true;streak=0;
+try{localStorage.setItem(bestKey,0);}catch(e){}
+showEnd(false,secret,0,0);
+}
+function showEnd(won,v,left,bonus){
+mood(won?'happy':'sad');
+setTimeout(()=>{
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('endIcon').textContent=won?'🎉':'🎈';
+$('endTitle').textContent=won?'طلعتها!':'خلصت المحاولات!';
+$('endTitle').style.color=won?'#ff6b9d':'#a78bfa';
+$('secretReveal').textContent=AR(v);
+$('endMsg').innerHTML=won
+?`خمنتها في ${AR(tries)} ${tries===1?'محاولة':'محاولات'}!<br>مكافأة المحاولات الباقية: <b>${AR(bonus)}</b> نقطة`
+:`ما حصلتها هالمرة — سلسلة الانتصارات تصفّرت.`;
+won?[660,880,1100].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.055),i*120))
+:[200,150].forEach((f,i)=>setTimeout(()=>snd(f,.28,'sawtooth',.05),i*150));
+loadBest();
+},won?650:450);
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='Enter'&&!$('playScr').classList.contains('hidden'))makeGuess();
+});
+</script>
+</body>
+</html>

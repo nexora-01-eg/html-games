@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>كلمـ٥ 📼</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#efe6d4;color:#33291c;
+background-image:linear-gradient(rgba(51,41,28,.05) 1px,transparent 1px);background-size:100% 26px}
+.cass{background:#dccdb2;border:3px solid #33291c;border-radius:14px;
+box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 12px 30px rgba(51,41,28,.25)}
+.chipc{background:#cdbb99;border:2px solid #33291c;border-radius:999px;padding:.26rem .95rem;font-weight:800;font-size:.83rem}
+.tile{width:52px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.55rem;font-weight:900;
+background:#efe6d4;border:2.5px solid #a89878;border-radius:8px;color:#33291c;
+transition:transform .25s ease,background .25s,border-color .25s}
+.tile.flip{animation:fl .45s ease forwards}
+@keyframes fl{50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.tile.hit{background:#3a9188;border-color:#25635d;color:#fff}
+.tile.pres{background:#e8a13c;border-color:#b07420;color:#fff}
+.tile.miss{background:#8d8069;border-color:#6b6154;color:#efe6d4}
+.keyk{min-width:34px;height:46px;border-radius:7px;background:#cdbb99;font-weight:900;font-size:1.05rem;color:#33291c;
+border:2px solid #33291c;box-shadow:0 3px 0 #33291c;transition:all .07s}
+.keyk:hover{background:#e0d2b8}
+.keyk:active{transform:translateY(3px);box-shadow:none}
+.keyk.hit{background:#3a9188;color:#fff}
+.keyk.pres{background:#e8a13c;color:#fff}
+.keyk.miss{background:#a89a80;color:#efe6d4;opacity:.55}
+.btnca{background:#e8842c;color:#fff;font-weight:900;border-radius:10px;padding:.55rem 1.6rem;
+border:3px solid #33291c;box-shadow:0 5px 0 #33291c;transition:all .08s}
+.btnca:hover{filter:brightness(1.06)}
+.btnca:active{transform:translateY(4px);box-shadow:0 1px 0 #33291c}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
+
+<header class="text-center">
+<h1 class="text-4xl font-black" style="color:#e8842c">كلمـ٥ 📼</h1>
+<p class="text-sm mt-1 opacity-65">ست محاولات لكلمة من خمسة حروف<br><b class="text-[#3a9188]">■ في مكانها</b> · <b class="text-[#e8a13c]">■ موجودة بمكان غلط</b></p>
+</header>
+
+<div class="flex gap-2 flex-wrap justify-center">
+<span class="chipc">🔥 فوز متتالي <span id="stkEl" class="font-black">٠</span></span>
+<span class="chipc">🏆 أفضل سلسلة <span id="bestEl" class="font-black">—</span></span>
+<button onclick="newGame()" class="btnca !py-1 !px-4 text-sm">↻ كلمة جديدة</button>
+</div>
+
+<div id="boardEl" class="grid gap-1.5 mx-auto" dir="rtl"></div>
+
+<p id="msgEl" class="h-7 font-black text-center" style="color:#b05309"></p>
+
+<div id="keysEl" class="flex flex-col items-center gap-1.5"></div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='cassette-wordle-best';
+const BANK=['مدرسة','مكتبة','سيارة','سفينة','طائرة','حديقة','نافذة','مصباح','غسالة','ثلاجة','مروحة','وسادة',
+'سحابة','جزيرة','صحراء','عصفور','جميلة','مستشفى','بطيخة','مانجو','عنقود','زيتون','أمطار','مدينة','مملكة',
+'ملعقة','عاصفة','دراجة','حقيبة','نظارة','رسالة','صحيفة'];
+const NORM=w=>w.replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي');
+const DICT=new Set(BANK.map(NORM));
+const ROWS=6,COLS=5;
+let answer='',answerN='',row=0,col=0,cur=[],locked=false,gameToken=0,
+streak=0,bestStreak=0,wins=0,ac=null;
+try{bestStreak=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestEl').textContent=bestStreak?AR(bestStreak):'—';
+function snd(f,d,type){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=type||'triangle';o.frequency.value=f;g.gain.setValueAtTime(.045,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+const KB=[
+['ض','ص','ث','ق','ف','غ','ع','ه','خ','ح','ج','د'],
+['ش','س','ي','ب','ل','ا','ت','ن','م','ك','ط'],
+['ظ','ء','ذ','د','ز','ر','و','ى']
+];
+function buildBoard(){
+const b=$('boardEl');
+b.style.gridTemplateColumns=`repeat(${COLS},52px)`;
+b.innerHTML='';
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+const t=document.createElement('div');
+t.className='tile';t.id=`t${r}-${c}`;
+b.appendChild(t);
+}
+}
+function buildKeys(){
+const k=$('keysEl');
+k.innerHTML='';
+KB.forEach(rw=>{
+const line=document.createElement('div');
+line.className='flex gap-1';
+rw.forEach(ch=>{
+const key=document.createElement('button');
+key.className='keyk';key.textContent=ch;key.dataset.k=NORM(ch);
+key.onclick=()=>press(ch);
+line.appendChild(key);
+});
+k.appendChild(line);
+});
+const last=document.createElement('div');
+last.className='flex gap-1 mt-1';
+const del=document.createElement('button');
+del.className='keyk px-4';del.textContent='⌫';del.style.minWidth='60px';
+del.onclick=()=>back();
+const enter=document.createElement('button');
+enter.className='keyk px-4';enter.textContent='دخول';enter.style.minWidth='80px';enter.style.background='#e8842c';enter.style.color='#fff';
+enter.onclick=()=>submit();
+last.append(del,enter);
+k.appendChild(last);
+}
+function press(ch){
+if(locked||col>=COLS)return;
+cur.push(ch);
+$('t'+row+'-'+col).textContent=ch;
+col++;
+snd(480,.04,'sine',.03);
+}
+function back(){
+if(locked||!col)return;
+col--;
+cur.pop();
+$('t'+row+'-'+col).textContent='';
+}
+function submit(){
+if(locked)return;
+if(cur.length<COLS){
+flash('الخلية ناقصة!');
+return;
+}
+const g=cur.join(''),gN=NORM(g);
+if(!DICT.has(gN)){
+flash('مش من الكلمات المعروفة 🤔');
+shakeRow();
+return;
+}
+locked=true;
+const myToken=++gameToken;
+const aArr=[...answerN],res=Array(COLS).fill('miss');
+for(let i=0;i<COLS;i++)if(gN[i]===aArr[i]){res[i]='hit';aArr[i]=null;}
+for(let i=0;i<COLS;i++){
+if(res[i]==='hit')continue;
+const j=aArr.indexOf(gN[i]);
+if(j>-1){res[i]='pres';aArr[j]=null;}
+}
+for(let i=0;i<COLS;i++){
+const t=$('t'+row+'-'+i);
+setTimeout(()=>{
+t.classList.add('flip');
+setTimeout(()=>{
+t.classList.add(res[i]);
+paintKey(cur[i],res[i]);
+},220);
+},i*140);
+}
+setTimeout(()=>{
+if(myToken!==gameToken)return;
+row++;col=0;cur=[];locked=false;
+if(res.every(v=>v==='hit'))return win();
+if(row>=ROWS)return lose();
+snd(520,.06);
+},COLS*140+320);
+}
+function paintKey(ch,res){
+const n=NORM(ch);
+document.querySelectorAll('.keyk[data-k]').forEach(k=>{
+if(k.dataset.k!==n)return;
+if(k.classList.contains('hit'))return;
+if(k.classList.contains('pres')&&res==='miss')return;
+k.classList.remove('pres','miss');
+k.classList.add(res);
+});
+}
+function shakeRow(){
+for(let i=0;i<COLS;i++){
+const t=$('t'+row+'-'+i);
+t.animate([{transform:'translateX(0)'},{transform:'translateX(-7px)'},{transform:'translateX(7px)'},{transform:'translateX(0)'}],{duration:280});
+}
+snd(150,.16,'sawtooth',.05);
+}
+function flash(m){
+$('msgEl').textContent=m;
+clearTimeout(flash.t);
+flash.t=setTimeout(()=>$('msgEl').textContent='',1800);
+}
+function win(){
+wins++;streak++;
+if(streak>bestStreak){bestStreak=streak;try{localStorage.setItem(bestKey,bestStreak);}catch(e){}}
+$('stkEl').textContent=AR(streak);
+$('bestEl').textContent=AR(bestStreak);
+flash(`🎉 صح! «${answer}» — سلسلة ${AR(streak)}`);
+if(streak>1)$('msgEl').textContent=`🎉 صح! «${answer}» — سلسلة ${AR(streak)} (${AR(wins)} فوز)`;
+[600,800,1050].forEach((f,i)=>setTimeout(()=>snd(f,.13),i*130));
+lockBoard();
+}
+function lose(){
+streak=0;
+$('stkEl').textContent='٠';
+for(let i=0;i<COLS;i++){const tt=$('t'+(ROWS-1)+'-'+i);if(tt&&!tt.textContent){tt.textContent=answerN[i];tt.classList.add('pres');}}
+flash(`😅 كانت: ${answer}`);
+snd(200,.25);setTimeout(()=>snd(150,.3),170);
+lockBoard();
+}
+function lockBoard(){
+setTimeout(newGame,2600);
+}
+function newGame(){
+gameToken++;
+answer=BANK[Math.floor(Math.random()*BANK.length)];
+answerN=NORM(answer);
+row=0;col=0;cur=[];locked=false;
+buildBoard();
+document.querySelectorAll('.keyk').forEach(k=>{
+if(!k.dataset.k)k.dataset.k=NORM(k.textContent.trim());
+k.classList.remove('hit','pres','miss');
+});
+$('msgEl').textContent='';
+}
+buildKeys();
+newGame();
+document.addEventListener('keydown',e=>{
+if(e.key==='Enter'){submit();return;}
+if(e.key==='Backspace'){back();return;}
+const ch=e.key?.trim();
+if(ch&&ch.length===1&&/[ء-ي]/.test(ch))press(NORM(ch));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>امسك الكرة</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none;overflow:hidden}</style></head>
+<body class="bg-blue-800 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-2xl text-white font-bold mb-1" id="score">النقاط: 0</div>
+<div class="text-blue-200 text-sm mb-1" id="best">الأفضل: 0</div>
+<div class="text-red-300 text-sm mb-2" id="lives">❤️❤️❤️</div>
+<canvas id="c" class="rounded-xl border-2 border-blue-400"></canvas>
+<div class="flex gap-8 mt-3">
+<button id="bl" class="text-4xl p-2 bg-blue-700/50 rounded-xl active:bg-blue-600">◀</button>
+<button id="br" class="text-4xl p-2 bg-blue-700/50 rounded-xl active:bg-blue-600">▶</button>
+<button id="bp" class="text-2xl p-2 bg-blue-700/50 rounded-xl active:bg-blue-600">⏸</button>
+</div>
+<div id="go" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-4xl text-red-400 font-bold mb-4">انتهت اللعبة!</div>
+<div class="text-xl text-yellow-300 mb-4" id="fs"></div>
+<button onclick="startGame()" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl text-lg">أعد المحاولة</button></div></div>
+<script>
+const K='basket-catch-best';
+let best=0;try{best=parseInt(localStorage.getItem(K)||0)||0;}catch(e){}
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=360;canvas.height=420;
+const audio=new(window.AudioContext||window.webkitAudioContext)();
+function play(f,d,t='sine'){const o=audio.createOscillator(),g=audio.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+d);o.stop(audio.currentTime+d);}
+const COLORS=['#ef4444','#3b82f6','#22c55e','#f59e0b'];
+const CNAME=['أحمر','أزرق','أخضر','أصفر'];
+let basket,balls,score,lives,alive,speed,targetColor,timer,spawnTimer,paused=false,pops=[],flash=0,startBest=0;
+function startGame(){
+basket={x:160,w:70};balls=[];score=0;lives=3;alive=true;speed=2;spawnTimer=0;timer=0;paused=false;pops=[];flash=0;startBest=best;
+targetColor=Math.floor(Math.random()*4);
+document.getElementById('go').classList.add('hidden');updateUI();
+}
+function updateUI(){
+document.getElementById('score').textContent='النقاط: '+score;
+if(score>best){best=score;try{localStorage.setItem(K,best);}catch(e){}}
+document.getElementById('best').textContent='الأفضل: '+best;
+document.getElementById('lives').textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));
+}
+function spawnBall(){balls.push({x:20+Math.random()*320,y:-10,vy:speed,color:Math.floor(Math.random()*4)});}
+document.getElementById('bl').addEventListener('click',()=>{basket.x=Math.max(35,basket.x-40);});
+document.getElementById('br').addEventListener('click',()=>{basket.x=Math.min(325,basket.x+40);});
+document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')basket.x=Math.max(35,basket.x-40);if(e.key==='ArrowRight')basket.x=Math.min(325,basket.x+40);});
+canvas.addEventListener('touchstart',e=>{const r=canvas.getBoundingClientRect();const x=(e.touches[0].clientX-r.left)*(360/r.width);basket.x=Math.max(35,Math.min(325,x));});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();const x=(e.touches[0].clientX-r.left)*(360/r.width);basket.x=Math.max(35,Math.min(325,x));},{passive:false});
+function togglePause(){if(!alive)return;paused=!paused;document.getElementById('bp').textContent=paused?'▶':'⏸';}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();if(e.key==='p'||e.key==='P')togglePause();});
+document.getElementById('bp').addEventListener('click',togglePause);
+function update(){
+if(!alive||paused)return;timer++;
+if(flash>0)flash--;
+pops=pops.filter(p=>{p.t++;return p.t<40;});
+if(timer%180===0){targetColor=(targetColor+1)%4;speed=Math.min(6,speed+0.3);play(600,0.1);pops.push({x:180,y:60,txt:'أسرع ⚡',col:'#fde047',t:0});}
+spawnTimer++;if(spawnTimer>Math.max(20,40-Math.floor(timer/150))){spawnTimer=0;spawnBall();}
+balls=balls.filter(b=>{
+b.y+=b.vy;
+if(b.y>410){return false;}
+if(b.y>380&&Math.abs(b.x-basket.x)<35){
+if(b.color===targetColor){score+=10;play(880,0.1);pops.push({x:b.x,y:385,txt:'+10',col:'#4ade80',t:0});}
+else{lives--;play(200,0.2,'sawtooth');flash=25;pops.push({x:b.x,y:385,txt:'−❤',col:'#f87171',t:0});if(lives<=0){alive=false;
+if(score>best){best=score;try{localStorage.setItem(K,best);}catch(e){}}
+document.getElementById('fs').innerHTML='النقاط: '+score+(score>startBest&&score>0?'<br>🎉 رقم قياسي جديد!':'');
+document.getElementById('go').classList.remove('hidden');}}
+updateUI();
+return false;
+}
+return true;
+});
+}
+function draw(){
+ctx.fillStyle='#1e3a5f';ctx.fillRect(0,0,360,420);
+ctx.fillStyle='rgba(255,255,255,0.1)';for(let i=0;i<8;i++)ctx.fillRect(0,i*52+40,360,2);
+ctx.fillStyle='#92400e';ctx.beginPath();ctx.roundRect(basket.x-35,395,70,20,8);ctx.fill();
+ctx.fillStyle='#a16207';ctx.beginPath();ctx.roundRect(basket.x-30,398,60,14,6);ctx.fill();
+balls.forEach(b=>{ctx.fillStyle=COLORS[b.color];ctx.beginPath();ctx.arc(b.x,b.y,12,0,Math.PI*2);ctx.fill();});
+ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='right';
+ctx.fillText('التقط: '+CNAME[targetColor],350,25);
+if(flash>0){ctx.fillStyle='rgba(248,113,113,'+(flash/25*0.25)+')';ctx.fillRect(0,0,360,420);}
+pops.forEach(p=>{ctx.globalAlpha=1-p.t/40;ctx.fillStyle=p.col;ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y-p.t*2);ctx.globalAlpha=1;});
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+startGame();loop();
+</script>
+</body>
+</html>

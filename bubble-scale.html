@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ميزان العلكة ⚖️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fff;color:#2b2d42;
+background-image:
+radial-gradient(circle at 12% 18%,rgba(255,122,184,.16) 0 90px,transparent 110px),
+radial-gradient(circle at 88% 12%,rgba(126,200,255,.16) 0 80px,transparent 100px),
+radial-gradient(circle at 82% 85%,rgba(255,224,102,.18) 0 95px,transparent 115px)}
+.cardg{background:#fff;border:3px solid #2b2d42;border-radius:1.6rem;box-shadow:8px 8px 0 rgba(43,45,66,.14)}
+.chipg{background:#f4f4fb;border:2px solid #2b2d42;border-radius:999px;padding:.26rem .95rem;font-weight:800;font-size:.83rem}
+.coin{width:44px;height:44px;border-radius:50%;font-weight:900;font-size:1rem;display:flex;align-items:center;justify-content:center;
+border:3px solid #2b2d42;background:#ffe066;color:#2b2d42;cursor:pointer;transition:all .1s;user-select:none}
+.coin:hover{transform:translateY(-3px)}
+.coin.inL{background:#ff9ec7}
+.coin.inR{background:#7ec8ff}
+.coin.cleared{background:#e8e8ef;opacity:.35;pointer-events:none}
+.coin.accuse{background:#b197fc!important;transform:scale(1.15);box-shadow:0 0 0 4px rgba(177,151,252,.35)}
+.beamwrap{position:relative;height:150px}
+.beam{position:absolute;top:34px;left:10%;right:10%;height:10px;background:#2b2d42;border-radius:99px;
+transition:transform .7s cubic-bezier(.34,1.4,.64,1);transform-origin:center}
+.pan{position:absolute;width:120px;height:46px;border-radius:0 0 60px 60px;background:#ff7ab8;border:3px solid #2b2d42;
+display:flex;align-items:flex-start;justify-content:center;padding-top:4px;font-weight:900;color:#fff;font-size:.85rem}
+.pL{left:-24px;top:44px}.pR{right:-24px;top:44px}
+.fulc{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;
+border-left:26px solid transparent;border-right:26px solid transparent;border-bottom:52px solid #ffd43b;filter:drop-shadow(0 3px 0 #2b2d42)}
+.btng{background:#ff7ab8;color:#fff;font-weight:900;border-radius:999px;padding:.55rem 1.6rem;
+border:3px solid #2b2d42;box-shadow:0 5px 0 #2b2d42;transition:all .08s;font-size:.92rem}
+.btng:hover{filter:brightness(1.05)}
+.btng:active{transform:translateY(4px);box-shadow:0 1px 0 #2b2d42}
+.btng.alt{background:#7ec8ff}
+.btng.warn{background:#ffd43b;color:#2b2d42}
+.histline{background:#f8f8fc;border:1.5px dashed #c9c9dd;border-radius:.6rem;padding:.35rem .8rem;font-size:.82rem;font-weight:700}
+</style>
+</head>
+<body class="select-none">
+
+<main class="max-w-xl mx-auto px-4 py-8">
+
+<header class="text-center mb-5">
+<h1 class="text-4xl font-black">ميزان العلكة ⚖️</h1>
+<p class="text-sm mt-1 opacity-60">فيه عملة واحدة <b style="color:#e8590c">أخف</b> من الباقي — دوّر عليها بأقل وزنات!</p>
+</header>
+
+<div id="startScr" class="cardg p-8 text-center">
+<div class="text-5xl mb-2">🍬</div>
+<p class="leading-relaxed mb-2">دوس على أي عملة تتنقل:<br><b class="text-pink-400">كرة وردية = كفة يسرى</b> · <b class="text-sky-400">زرقاء = كفة يمنى</b></p>
+<p class="text-sm opacity-65 mb-6">٤ جولات بتزيد العملات · كل وزنة زيادة بتخصم نقاط<br>ولما تتأكد… اتهم العملة اللي تستاهل!</p>
+<button onclick="start()" class="btng px-12 py-3 text-lg">ابدأ التحقيق 🕵</button>
+<p class="mt-5 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-pink-500">—</span></p>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipg">جولة <span id="rdEl" class="text-pink-500 font-black">١</span>/٤</span>
+<span class="chipg">عملات <span id="cntEl" class="font-black">٠</span></span>
+<span class="chipg">وزنات <span id="wEl" class="text-orange-500 font-black">٠</span> / المثالي <span id="parEl" class="font-black">٢</span></span>
+<span class="chipg">⭐ <span id="scoreEl" class="text-pink-500 font-black">٠</span></span>
+<span class="chipg">🏆 <span id="bestPlay" class="font-black">—</span></span>
+</div>
+
+<div class="cardg p-5">
+<div class="beamwrap mb-1">
+<div class="beam" id="beamEl"><div class="pan pL" id="panLEl">يسرى: ٠</div><div class="pan pR" id="panREl">يمنى: ٠</div></div>
+<div class="fulc"></div>
+</div>
+<div id="verdictEl" class="text-center h-9 font-black text-lg"></div>
+
+<div id="poolEl" class="flex flex-wrap justify-center gap-2 my-4 min-h-[48px]"></div>
+
+<div class="flex justify-center gap-2 flex-wrap">
+<button onclick="weigh()" class="btng">⚖️ زِن!</button>
+<button onclick="clearPans()" class="btng alt">🧹 فضّى الكفات</button>
+<button onclick="restartRound()" class="btng">↺ الجولة</button>
+<button onclick="toggleAccuse()" class="btng warn" id="accuseBtn">👉 اتهم عملة</button>
+</div>
+</div>
+
+<div id="histEl" class="mt-4 space-y-1.5 max-h-40 overflow-y-auto"></div>
+<div id="msg" class="h-8 mt-3 text-center font-bold text-pink-600"></div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='bubble-scale-best';
+const ROUNDS=[{n:4,par:2},{n:9,par:2},{n:18,par:3},{n:27,par:3}];
+let rd=0,fake=0,score=0,weighCount=0,totalW=0,state=[],accuseMode=false,
+pendingResolve=false,over=true,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestStart').textContent=v?AR(v):'—';let bp=document.getElementById('bestPlay');if(bp)bp.textContent=v?AR(v):'—';}
+loadBest();
+function buildRound(){
+const {n,par}=ROUNDS[rd];
+fake=Math.floor(Math.random()*n);
+state=Array(n).fill('');
+weighCount=0;
+$('rdEl').textContent=AR(rd+1);
+$('cntEl').textContent=AR(n);
+$('wEl').textContent='٠';
+$('parEl').textContent=AR(par);
+$('verdictEl').textContent='';
+$('msg').textContent='';
+$('histEl').innerHTML='';
+setBeam(0);
+if(accuseMode)toggleAccuse();
+renderPool();
+snd(500,.09,'triangle');
+}
+function renderPool(){
+const box=$('poolEl');box.innerHTML='';
+state.forEach((pos,i)=>{
+const c=document.createElement('button');
+c.className='coin'+(pos==='L'?' inL':pos==='R'?' inR':'')+(accuseMode?' accuse':'');
+c.textContent=AR(i+1);
+c.onclick=()=>clickCoin(i);
+box.appendChild(c);
+});
+updateCoinStyles();
+updatePanLabels();
+}
+function updateCoinStyles(){
+[...$('poolEl').children].forEach((c,i)=>{
+c.classList.toggle('inL',state[i]==='L');
+c.classList.toggle('inR',state[i]==='R');
+});
+}
+function clickCoin(i){
+if(pendingResolve)return;
+if(accuseMode)return accuse(i);
+state[i]=state[i]===''?'L':state[i]==='L'?'R':'';
+updateCoinStyles();
+updatePanLabels();
+snd(state[i]==='L'?620:520,.05,'sine',.04);
+}
+function updatePanLabels(){
+const l=state.filter(s=>s==='L').length,r=state.filter(s=>s==='R').length;
+$('panLEl').textContent=`يسرى: ${AR(l)}`;
+$('panREl').textContent=`يمنى: ${AR(r)}`;
+}
+function setBeam(dir){
+$('beamEl').style.transform=`rotate(${dir*-7}deg)`;
+}
+function weigh(){
+if(pendingResolve)return;
+const L=[],R=[];
+state.forEach((p,i)=>{if(p==='L')L.push(i);if(p==='R')R.push(i);});
+if(!L.length||!R.length){
+$('msg').textContent='لازم شمال ويمين فيهم عملات 😅';
+return;
+}
+weighCount++;
+totalW++;
+$('wEl').textContent=AR(weighCount);
+const w=i=>i===fake?.5:1;
+const lw=L.reduce((a,i)=>a+w(i),0),rw=R.reduce((a,i)=>a+w(i),0);
+let res,lbl;
+if(Math.abs(lw-rw)<.01){res=0;lbl='⚖️ توازن تام — الفك في البرّا!';}
+else if(lw<rw){res=-1;lbl='⬆️ اليسرى خفّت — الشك فيها!';}
+else{res=1;lbl='⬆️ اليمنى خفّت — الشك فيها!';}
+setBeam(res);
+addHist(L,R,res);
+$('verdictEl').textContent=lbl;
+$('verdictEl').style.color=res===0?'#5f3dc4':'#e8590c';
+snd(res===0?440:res<0?380:480,.16,'triangle');
+}
+function addHist(L,R,res){
+const d=document.createElement('div');
+d.className='histline';
+d.innerHTML=`وزنة ${AR(weighCount)}: <b dir="rtl">${L.map(i=>AR(i+1)).join('،')}</b> ⟷ <b>${R.map(i=>AR(i+1)).join('،')}</b> → ${res===0?'توازن ⚖️':res<0?'اليسرى أخف ⬆️':'اليمنى أخف ⬆️'}`;
+$('histEl').prepend(d);
+}
+function restartRound(){if(pendingResolve||over)return;buildRound();}
+function clearPans(){
+if(pendingResolve)return;
+state=state.map(s=>'');
+updateCoinStyles();
+updatePanLabels();
+setBeam(0);
+snd(300,.07,'sine',.04);
+}
+function toggleAccuse(){
+accuseMode=!accuseMode;
+$('accuseBtn').textContent=accuseMode?'🚫 إلغاء الاتهام':'👉 اتهم عملة';
+$('accuseBtn').classList.toggle('alt',accuseMode);
+$('msg').textContent=accuseMode?'دوس على العملة اللي بتقول إنها المغشوشة':'';
+[...$('poolEl').children].forEach(c=>c.classList.toggle('accuse',false));
+}
+function accuse(i){
+if(!accuseMode||pendingResolve)return;
+accuseMode=false;
+$('accuseBtn').textContent='👉 اتهم عملة';
+$('accuseBtn').classList.remove('alt');
+if(i===fake){
+pendingResolve=true;
+const gain=Math.max(60,340-(weighCount-ROUNDS[rd].par)*80+rd*40);
+score+=gain;
+$('scoreEl').textContent=AR(score);
+$('verdictEl').textContent=`🎯 صح! عملة ${AR(i+1)} هي المغشوشة +${AR(gain)}`;
+$('verdictEl').style.color='#2f9e44';
+[...$('poolEl').children][i].classList.add('cleared');
+snd(700,.1);setTimeout(()=>snd(950,.13),110);
+setTimeout(()=>{
+rd++;
+pendingResolve=false;
+if(rd>=ROUNDS.length)finish();
+else buildRound();
+},1400);
+}else{
+score=Math.max(0,score-80);
+$('scoreEl').textContent=AR(score);
+$('verdictEl').textContent=`❌ ${AR(i+1)} سليمة! (−${AR(80)})`;
+$('verdictEl').style.color='#e03131';
+snd(160,.22,'sawtooth',.06);
+}
+}
+function start(){
+rd=0;score=0;over=false;
+$('scoreEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+buildRound();
+}
+function finish(){
+over=true;
+$('playScr').innerHTML=`
+<div class="cardg p-10 text-center">
+<div class="text-6xl mb-3">⚖️</div>
+<h2 class="text-3xl font-black mb-3 text-pink-500">عدالة كاملة!</h2>
+<div class="text-5xl font-black mb-3 text-orange-500">${AR(score)}</div>
+<p class="opacity-70 mb-2" id="finMsg"></p>
+<button onclick="location.reload()" class="btng px-10 py-2.5 mt-4">قضية جديدة ↻</button>
+</div>`;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+document.getElementById('finMsg').textContent=
+(score>v&&score>0?'🏆 رقم قياسي جديد! ':``)+`${AR(totalW)} وزنات عبر ${AR(ROUNDS.length)} قضايا`+(score>v&&score>0?'':` · أفضل نتيجة لك: ${AR(Math.max(v,score))}`);
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score);}catch(e){}
+[650,820,1050].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle'),i*140));
+}
+</script>
+</body>
+</html>

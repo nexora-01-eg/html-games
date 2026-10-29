@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تذكّر مسار الألوان</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:0.5}}
+.activated{animation:glow 0.3s}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-violet-950 via-fuchsia-900 to-pink-950 text-white">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black">🌈 تذكّر مسار الألوان</h1>
+  <p class="text-xl text-fuchsia-200 max-w-lg">يظهر مسار من الألوان على الشبكة ثم يختفي. أعد النقر على المربعات بنفس الترتيب. المسار يزداد طولاً كل جولة!</p>
+  <div class="bg-fuchsia-800/50 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-fuchsia-200">المسار يطول مع كل جولة</p>
+  </div>
+  <button onclick="startGame()" class="bg-pink-500 hover:bg-pink-400 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ التحدي</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-4">
+  <div class="w-full max-w-lg flex items-center justify-between">
+    <p class="text-lg">الجولة: <span id="round" class="font-black">1</span></p>
+    <p class="text-lg">النتيجة: <span id="score" class="font-black">0</span></p>
+  </div>
+  <div id="pathGrid" class="grid grid-cols-4 gap-2 w-72 rounded-2xl p-3 bg-fuchsia-900/40 shadow-2xl"></div>
+  <p id="status" class="text-lg font-bold text-fuchsia-100 min-h-7 text-center">انظر جيداً...</p>
+  <button id="retryBtn" onclick="startGame()" class="hidden bg-pink-500 hover:bg-pink-400 font-bold px-8 py-3 rounded-full transition">العب مرة أخرى</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 id="ftitle" class="text-6xl font-black">انتهت الجولات</h1>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-2xl">تذكّرت <span id="fRounds" class="font-black">0</span> خطوة</p>
+  <p class="text-fuchsia-200">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <button onclick="backStart()" class="bg-pink-500 hover:bg-pink-400 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let colors=['#f43f5e','#f97316','#facc15','#34d399','#3b82f6','#a855f7','#f472b6','#22d3ee'];
+let path=[],pathIdx,state,score,round,grid=[],showTimers=[];
+let best=0;
+try{best=+localStorage.getItem('col-mem-path-best')||0;}catch(e){}
+$('startBest').textContent=best;$('finishBest').textContent=best;
+function tone(f,dur,type='sine',vol=0.2){
+  let ac;
+  try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  showTimers.forEach(t=>clearTimeout(t));showTimers=[];
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('retryBtn').classList.add('hidden');
+  score=0;round=0;newRound();
+}
+function newRound(){
+  round++;
+  $('round').textContent=round;
+  let len=Math.min(3+Math.ceil(round/2),16);
+  path=[];
+  let last=-1;
+  for(let i=0;i<len;i++){
+    let n;
+    do{n=Math.floor(Math.random()*16)}while(n===last);
+    last=n;path.push(n);
+  }
+  state='show';pathIdx=0;
+  $('status').textContent='انظر جيداً...';
+  renderGrid();
+  showPath();
+}
+function renderGrid(){
+  let box=$('pathGrid');box.innerHTML='';grid=[];
+  for(let i=0;i<16;i++){
+    let d=document.createElement('button');
+    d.className='aspect-square rounded-xl bg-fuchsia-700/60';
+    d.style.pointerEvents='none';
+    d.dataset.i=i;
+    d.onclick=()=>cellClick(i,d);
+    box.appendChild(d);grid.push(d);
+  }
+}
+function showPath(){
+  let timer=0;
+  path.forEach((cellIdx,i)=>{
+    showTimers.push(setTimeout(()=>{
+      let d=grid[cellIdx];
+      d.classList.add('activated');d.style.background=colors[cellIdx%colors.length];
+      tone(300+cellIdx*40,0.12,'triangle',0.15);
+      showTimers.push(setTimeout(()=>{d.style.background='';d.classList.remove('activated')},300));
+    },timer));
+    timer+=600;
+  });
+  showTimers.push(setTimeout(()=>{
+    state='input';pathIdx=0;
+    grid.forEach(d=>d.style.pointerEvents='auto');
+    $('status').textContent='أعد ترتيب المسار بالضغط على المربعات!';
+  },timer+400));
+}
+function cellClick(i,d){
+  if(state!=='input')return;
+  let expected=path[pathIdx];
+  if(i===expected){
+    d.classList.add('activated');
+    d.style.background=colors[i%colors.length];
+    tone(500+pathIdx*80,0.1,'square',0.13);
+    pathIdx++;
+    if(pathIdx===path.length){
+      state='done';
+      score+=round*10;round%3===0?score+=20:0;
+      $('score').textContent=score;
+      grid.forEach(d=>d.style.pointerEvents='none');
+      $('status').textContent='أحسنت!';
+      tone(700,0.2,'triangle',0.2);setTimeout(()=>tone(900,0.25,'triangle',0.2),180);
+      setTimeout(newRound,900);
+    }
+  }else{
+    state='done';
+    d.classList.add('activated');d.style.background='#ffffff';
+    tone(150,0.4,'sawtooth',0.25);
+    grid.forEach(g=>g.style.pointerEvents='none');
+    $('status').textContent='خطأ! التوقّف';
+    $('retryBtn').classList.remove('hidden');
+    finish();
+  }
+}
+function finish(){
+  showTimers.forEach(t=>clearTimeout(t));showTimers=[];
+  if(score>best){best=score;try{localStorage.setItem('col-mem-path-best',best)}catch(e){}}
+  $('finalScore').textContent=score;$('fRounds').textContent=round-1;$('finishBest').textContent=best;
+  $('ftitle').textContent=round-1>=8?'🚀 ذاكرة حديدية':round-1>=5?'🌟 ذاكرة جيدة':'🧠 ذاكرة متوسطة';
+  setTimeout(()=>{
+    $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+    $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+  },500);
+}
+function backStart(){
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('finishScreen').classList.remove('flex');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

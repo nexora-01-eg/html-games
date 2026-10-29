@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>كرة ترتد</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;overflow:hidden;background:#0a1628;font-family:sans-serif}
+</style>
+</head>
+<body>
+<div class="flex flex-col items-center justify-center h-screen">
+<div class="text-sky-300 text-xl mb-2 font-bold">كرة ترتد وتخترق الهدف</div>
+<div class="flex gap-6 text-sky-200 mb-2 text-sm">
+<span>المستوى: <b id="lvl">1</b></span>
+<span>الكررات: <b id="shots">5</b></span>
+<span>النتيجة: <b id="score">0</b></span>
+<span>الأفضل: <b id="best">0</b></span>
+</div>
+<canvas id="c" width="600" height="400" class="border-2 border-sky-600 rounded"></canvas>
+<div class="flex gap-4 mt-2">
+<label class="text-sky-300 text-sm">الزاوية: <input type="range" id="ang" min="0" max="360" value="45" class="w-32"></label>
+<label class="text-sky-300 text-sm">القوة: <input type="range" id="pow" min="10" max="200" value="100" class="w-32"></label>
+<button id="fire" class="bg-sky-600 text-white px-4 py-1 rounded font-bold hover:bg-sky-500">إطلاق</button>
+</div>
+<div id="msg" class="text-sky-200 mt-1 text-sm font-bold h-5"></div>
+</div>
+<div id="endOv" class="hidden fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+<div class="bg-sky-900 rounded-2xl p-8 text-center border border-sky-500">
+<div class="text-4xl mb-2">🏆</div>
+<div class="text-xl text-sky-200 font-bold mb-4">انتهت اللعبة!</div>
+<div class="text-5xl text-sky-300 font-bold mb-2"><span id="endScore">0</span></div>
+<div class="text-sky-400 mb-1">الأفضل: <b id="endBest">0</b></div>
+<button onclick="fullRestart()" class="mt-5 bg-sky-600 hover:bg-sky-500 text-white px-8 py-3 rounded-xl font-bold text-lg">العب من جديد</button>
+</div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+const W=600,H=400;
+let level=1,shots=5,score=0,best=0;
+try{best=parseInt(localStorage.getItem('bounce-ph-best'))||0;}catch(e){}
+let ball=null,tx,ty,tr,running=false,frames=0,parts=[],pops=[];
+document.getElementById('best').textContent=best;
+let startBest=best;
+
+function resetTarget(){
+tr=Math.max(10,35-level*3);
+let ok=false;
+while(!ok){
+tx=Math.random()*(W-140)+70;
+ty=Math.random()*(H-140)+70;
+ok=Math.hypot(tx-50,ty-(H-50))>tr+100&&tx-tr>5&&tx+tr<W-5&&ty-tr>5&&ty+tr<H-5;
+}
+}
+
+function draw(){
+X.fillStyle='#0a1628';X.fillRect(0,0,W,H);
+X.fillStyle='rgba(255,255,255,0.03)';
+for(let i=0;i<20;i++){X.fillRect(i*30,0,1,H);X.fillRect(0,i*30,W,1);}
+X.strokeStyle='rgba(255,255,255,0.1)';X.strokeRect(0,0,W,H);
+X.fillStyle='rgba(255,80,80,0.3)';X.beginPath();X.arc(tx,ty,tr,0,Math.PI*2);X.fill();
+X.strokeStyle='#ff5050';X.lineWidth=2;X.beginPath();X.arc(tx,ty,tr,0,Math.PI*2);X.stroke();
+X.fillStyle='#ff5050';X.beginPath();X.arc(tx,ty,3,0,Math.PI*2);X.fill();
+const sx=50,sy=H-50;
+X.fillStyle='rgba(100,200,255,0.3)';X.beginPath();X.arc(sx,sy,12,0,Math.PI*2);X.fill();
+X.strokeStyle='#66ccff';X.lineWidth=2;X.beginPath();X.arc(sx,sy,12,0,Math.PI*2);X.stroke();
+const ang=parseFloat(document.getElementById('ang').value)*Math.PI/180;
+const len=parseFloat(document.getElementById('pow').value)/2;
+X.strokeStyle='#66ccff';X.lineWidth=2;X.beginPath();X.moveTo(sx,sy);
+X.lineTo(sx+Math.cos(ang)*len,sy-Math.sin(ang)*len);X.stroke();
+X.beginPath();X.arc(sx+Math.cos(ang)*len,sy-Math.sin(ang)*len,4,0,Math.PI*2);X.fill();
+if(ball){
+X.fillStyle='#66ccff';X.beginPath();X.arc(ball.x,ball.y,8,0,Math.PI*2);X.fill();
+X.strokeStyle='#aaeeff';X.lineWidth=1;X.beginPath();X.arc(ball.x,ball.y,8,0,Math.PI*2);X.stroke();
+}
+parts.forEach(p=>{X.globalAlpha=1-p.t/p.life;X.fillStyle='#ffd166';X.beginPath();X.arc(p.x,p.y,3,0,Math.PI*2);X.fill();X.globalAlpha=1;});
+pops.forEach(p=>{X.globalAlpha=1-p.t/45;X.fillStyle='#a7f3d0';X.font='bold 16px sans-serif';X.textAlign='center';X.fillText(p.txt,p.x,p.y-p.t*1.5);X.globalAlpha=1;});
+}
+
+function shoot(){
+if(running)return;
+const ang=parseFloat(document.getElementById('ang').value)*Math.PI/180;
+const spd=parseFloat(document.getElementById('pow').value)/20;
+ball={x:50,y:H-50,vx:Math.cos(ang)*spd,vy:-Math.sin(ang)*spd};
+running=true;frames=0;
+}
+
+function update(){
+if(!ball)return;
+ball.x+=ball.vx;ball.y+=ball.vy;ball.vy+=0.15;
+frames++;
+if(ball.x<8){ball.x=8;ball.vx*=-0.9;}
+if(ball.x>W-8){ball.x=W-8;ball.vx*=-0.9;}
+if(ball.y<8){ball.y=8;ball.vy*=-0.9;}
+const dx=ball.x-tx,dy=ball.y-ty;
+if(Math.sqrt(dx*dx+dy*dy)<tr+8){
+score+=level*shots;
+document.getElementById('score').textContent=score;
+document.getElementById('msg').textContent='🎯 أصبت!';
+for(let i=0;i<16;i++){const a=Math.random()*6.283,v=1.5+Math.random()*3;parts.push({x:tx,y:ty,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0,life:35});}
+pops.push({x:tx,y:ty-24,txt:'+'+level*shots,t:0});
+running=false;ball=null;
+if(score>best){best=score;try{localStorage.setItem('bounce-ph-best',best);}catch(e){}}
+document.getElementById('best').textContent=best;
+setTimeout(()=>{
+if(level<8){level++;shots=5;resetTarget();}
+else{showEnd(true);}
+document.getElementById('lvl').textContent=level;
+document.getElementById('shots').textContent=shots;
+},1000);
+return;
+}
+if(ball.y>H+20||frames>300){
+shots--;
+running=false;ball=null;
+document.getElementById('shots').textContent=shots;
+if(shots<=0){
+document.getElementById('msg').textContent='انتهت الكررات!';
+setTimeout(()=>{showEnd(false);},1500);
+}
+}
+}
+
+function loop(){
+parts=parts.filter(p=>{p.t++;p.x+=p.vx;p.y+=p.vy;p.vy+=0.08;return p.t<p.life;});
+pops=pops.filter(p=>{p.t++;return p.t<45;});
+draw();update();requestAnimationFrame(loop);
+}
+
+function showEnd(won){
+let nb=false;
+if(score>best){best=score;nb=true;try{localStorage.setItem('bounce-ph-best',best);}catch(e){}document.getElementById('best').textContent=best;}
+document.getElementById('endScore').textContent=score;
+document.getElementById('endBest').textContent=best;
+document.getElementById('msg').textContent=(won?'🎉 فزت! أكملت كل المستويات':'انتهت الكررات')+(nb&&score>startBest&&score>0?' · 🏆 رقم قياسي!':'');
+document.getElementById('endOv').classList.remove('hidden');
+}
+function fullRestart(){
+document.getElementById('endOv').classList.add('hidden');
+level=1;shots=5;score=0;startBest=best;resetTarget();
+document.getElementById('lvl').textContent=level;
+document.getElementById('shots').textContent=shots;
+document.getElementById('score').textContent=score;
+document.getElementById('msg').textContent='';
+}
+document.getElementById('fire').onclick=shoot;
+document.addEventListener('keydown',function(e){
+if(e.code==='Space'){e.preventDefault();shoot();}
+if(e.code==='ArrowUp'){if(running)return;let a=document.getElementById('ang');a.value=Math.max(0,parseInt(a.value)+5);}
+if(e.code==='ArrowDown'){if(running)return;let a=document.getElementById('ang');a.value=Math.max(0,parseInt(a.value)-5);}
+if(e.code==='ArrowLeft'){if(running)return;let p=document.getElementById('pow');p.value=Math.min(200,parseInt(p.value)-5);}
+if(e.code==='ArrowRight'){if(running)return;let p=document.getElementById('pow');p.value=Math.min(200,parseInt(p.value)+5);}
+});
+resetTarget();loop();
+</script>
+</body>
+</html>

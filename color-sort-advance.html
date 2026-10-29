@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ترتيب الألوان المتقدم</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-pink-200 via-rose-100 to-purple-200 min-h-screen flex items-center justify-center">
+<div id="app" class="w-full max-w-md p-6 bg-white/80 rounded-3xl shadow-2xl text-center">
+<div id="startScreen">
+<h1 class="text-4xl font-black mb-4">🌈 ترتيب الألوان المتقدم</h1>
+<p class="text-slate-600 mb-6">رتّب الألوان في ٦ أنابيب بحيث يتجمع كل لون في ٨ مستويات!</p>
+<button id="startBtn" class="px-8 py-4 bg-pink-500 hover:bg-pink-400 text-white rounded-2xl text-xl font-bold shadow-lg">ابدأ اللعب</button>
+<div class="mt-6 text-sm text-slate-500">الأفضل: <span id="bestDisplay">٠</span></div>
+</div>
+<div id="playScreen" class="hidden">
+<div class="flex justify-between items-center mb-4 text-sm font-bold">
+<span>المستوى: <span id="level">١</span>/٨</span>
+<span>التحركات: <span id="moves">٠</span></span>
+</div>
+<div id="tubes" class="flex justify-center gap-2 mb-5"></div>
+<div id="msg" class="text-sm h-6"></div>
+</div>
+<div id="finishScreen" class="hidden">
+<h2 class="text-3xl font-black mb-4">أكملت المستويات! 🎉</h2>
+<p class="text-xl mb-4">إجمالي التحركات: <span id="finalMoves">٠</span></p>
+<p id="isNewBest" class="text-yellow-500 text-sm mb-6">🎖️ رقم قياسي جديد!</p>
+<div class="text-slate-500 mb-6">الأفضل: <span id="finalBest">٠</span></div>
+<button id="restartBtn" class="px-8 py-4 bg-pink-500 hover:bg-pink-400 text-white rounded-2xl text-xl font-bold">العب مرة أخرى</button>
+</div>
+</div>
+<script>
+let ctx,best,level,moves,totalMoves,tubes,selected,winTimer;
+const COLORS=['#ef4444','#3b82f6','#22c55e','#f59e0b','#8b5cf6','#ec4899'];
+function init(){ctx=new (window.AudioContext||window.webkitAudioContext)();best=0;try{best=parseInt(localStorage.getItem('color-sort-adv-best'))||0;}catch(e){}document.getElementById('bestDisplay').textContent=best;}
+function tone(f,x,d){let o=ctx.createOscillator(),g=ctx.createGain();o.type=f;o.frequency.value=x;o.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.12,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.start();o.stop(ctx.currentTime+d);}
+function setScreen(s){document.getElementById('startScreen').classList.toggle('hidden',s!=='start');document.getElementById('playScreen').classList.toggle('hidden',s!=='play');document.getElementById('finishScreen').classList.toggle('hidden',s!=='finish');}
+function toAr(n){return n.toLocaleString('ar-EG');}
+function setupLevel(){moves=0;tubes=[];let size=4+Math.floor(level/2);let slots=size*size;let pool=[];for(let c=0;c<size;c++){for(let i=0;i<size;i++)pool.push(c);}for(let i=pool.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));let t=pool[i];pool[i]=pool[j];pool[j]=t;}for(let i=0;i<size;i++){tubes.push(pool.slice(i*size,i*size+size));}for(let i=0;i<2;i++)tubes.push([]);selected=null;render();}
+function render(){document.getElementById('level').textContent=toAr(level);document.getElementById('moves').textContent=toAr(moves);let c=document.getElementById('tubes');c.innerHTML='';for(let i=0;i<tubes.length;i++){let t=tubes[i];let d=document.createElement('div');d.className='w-12 flex flex-col-reverse items-center bg-slate-200 rounded-b-xl pb-1 cursor-pointer relative h-32';if(selected===i)d.classList.add('ring-2','ring-yellow-400');for(let j=0;j<t.length;j++){let seg=document.createElement('div');seg.className='w-10 h-6 rounded';seg.style.background=COLORS[t[j]];d.appendChild(seg);}d.onclick=function(){selectTube(i);};c.appendChild(d);}if(checkWin()){document.getElementById('msg').textContent='🎉 اكتمل الترتيب!';clearTimeout(winTimer);winTimer=setTimeout(function(){level++;if(level>8){finish();}else{setupLevel();}},1300);}}
+function selectTube(i){tone('sine',500,0.06);if(selected===null){if(tubes[i].length>0)selected=i;return;}if(selected===i){selected=null;return;}let src=tubes[selected],dst=tubes[i];if(selected!==null&&src.length>0){let color=src[src.length-1];if(dst.length<4&&(dst.length===0||dst[dst.length-1]===color)){dst.push(src.pop());moves++;totalMoves++;tone('sine',700,0.08);}else{tone('sawtooth',200,0.12);}}selected=null;render();}
+function checkWin(){for(let i=0;i<tubes.length;i++){let t=tubes[i];if(t.length>0){for(let j=0;j<t.length;j++){if(t[j]!==t[0])return false;}if(t.length<4&&t[0]!==undefined)return false;}}return true;}
+function finish(){setScreen('finish');document.getElementById('finalMoves').textContent=toAr(totalMoves);let nb=false;if(best===0||totalMoves<best){best=totalMoves;try{localStorage.setItem('color-sort-adv-best',String(best))}catch(e){}nb=true;}document.getElementById('isNewBest').classList.toggle('hidden',!nb);document.getElementById('finalBest').textContent=toAr(best);tone('triangle',800,0.2);setTimeout(()=>tone('triangle',1000,0.2),150);}
+document.getElementById('startBtn').onclick=function(){if(!ctx)init();level=1;totalMoves=0;clearTimeout(winTimer);tone('sine',500,0.15);setScreen('play');setupLevel();};
+document.getElementById('restartBtn').onclick=function(){setScreen('start');init();};
+init();
+</script>
+</body>
+</html>

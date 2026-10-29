@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>توقيت الزر 🔘</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#e8f0e4,#c8e0c0);color:#2d4a2d;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#2d6a2d}
+.sub{font-size:.75rem;color:rgba(45,74,45,.5);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:2px solid #6aaa6a;border-radius:999px;color:#2d6a2d}
+.btn{font-family:inherit;background:#2d6a2d;color:#e8f0e4;border:none;padding:.55rem 1.5rem;font-weight:900;border-radius:999px;cursor:pointer;box-shadow:0 4px 0 #1a3a1a;transition:all .08s}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:translateY(3px);box-shadow:none}
+.targetBtn{width:140px;height:140px;border-radius:50%;border:4px solid #2d6a2d;background:rgba(255,255,255,.5);
+cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;
+font-size:2rem;font-weight:900;color:#2d6a2d;user-select:none;touch-action:none}
+.targetBtn.ready{background:rgba(255,80,80,.2);border-color:#c0524f;color:#c0524f;animation:pulse 1s infinite}
+.targetBtn.go{background:rgba(74,222,128,.25);border-color:#2d6a2d;color:#2d6a2d;transform:scale(1.05)}
+@keyframes pulse{50%{transform:scale(1.04)}}
+.result{font-size:3rem;font-weight:900;color:#2d6a2d;margin:.5rem 0}
+.result.good{color:#16a34a}.result.mid{color:#d97706}.result.bad{color:#c0524f}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;color:#2d6a2d}
+.graph{display:flex;gap:3px;align-items:flex-end;height:80px;margin:.8rem 0}
+.graph .bar{width:20px;border-radius:4px 4px 0 0;transition:height .3s}
+</style>
+</head>
+<body>
+<h1>🔘 توقيت الزر</h1>
+<p class="sub">اضغط في اللحظة الصح!</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">اهتدي على اللون الأخضر — اضغط في ثانية بالظبط<br>القريب من الثانية = نقاط أكتر</p>
+<button onclick="start()" class="btn">ابدأ التوقيت 🔘</button>
+<p style="font-size:.7rem;opacity:.5;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/١٠</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>🔥 <b id="streakEl">٠</b></span>
+<span>🏆 <b id="bestPlay">—</b></span>
+</div>
+<div class="targetBtn ready" id="tapBtn">انتظر</div>
+<div class="result" id="resultEl" style="visibility:hidden">—</div>
+<div class="graph" id="graph"></div>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='botan-timing-best';
+let rz=0,score=0,streak=0,best=0,ac=null,over=true,waitStart=0,phase='wait',goTimer=null,results=[];
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+let bp=document.getElementById('bestPlay');if(bp)bp.textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function start(){rz=0;score=0;streak=0;over=false;results=[];$('scoreEl').textContent='٠';$('streakEl').textContent='٠';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');$('graph').innerHTML='';nextRound();}
+function nextRound(){
+rz++;$('rzEl').textContent=AR(rz);$('rzMsg').textContent='';
+$('resultEl').style.visibility='hidden';
+const btn=$('tapBtn');
+btn.className='targetBtn ready';btn.textContent='انتظر';
+phase='wait';
+const delay=1000+Math.random()*3000;
+waitStart=performance.now()+delay;
+btn.onclick=()=>{
+if(phase==='done'||phase==='over')return;
+if(phase==='wait'){
+clearTimeout(goTimer);
+phase='done';over=true;
+$('rzMsg').textContent='❌ استعجلت! انتظر الأخضر';
+btn.className='targetBtn ready';btn.textContent='☠️';
+snd(150,.2,'sawtooth',.04);
+rz++;rz>=10?finish():setTimeout(nextRound,1200);
+return;
+}
+if(phase==='go'){
+const elapsed=(performance.now()-waitStart)/1000;
+showResult(Math.abs(elapsed-1));
+}
+};
+goTimer=setTimeout(()=>{
+if(phase==='wait'){
+phase='go';waitStart=performance.now();
+btn.className='targetBtn go';btn.textContent='▶ اضغط!';
+snd(600,.08,'sine',.05);
+}
+},delay);
+}
+function showResult(diff){
+over=true;phase='done';
+const btn=$('tapBtn');btn.className='targetBtn ready';btn.textContent='—';
+const ms=Math.round(diff*1000);
+let gain;
+if(diff<.05){gain=100;streak++;$('rzMsg').textContent='🎯 مثالي!';}
+else if(diff<.15){gain=80;streak++;$('rzMsg').textContent='✅ ممتاز! ('+AR(ms)+'ms)';}
+else if(diff<.35){gain=50;streak++;$('rzMsg').textContent='💛 كويس! ('+AR(ms)+'ms)';}
+else if(diff<.7){gain=20;streak=0;$('rzMsg').textContent='😐 مش بره ('+AR(ms)+'ms)';}
+else{gain=5;streak=0;$('rzMsg').textContent='🐢 بطيء ('+AR(ms)+'ms)';}
+score+=gain;$('scoreEl').textContent=AR(score);$('streakEl').textContent=AR(streak);
+results.push({ms,gain});
+const re=$('resultEl');re.style.visibility='visible';re.textContent=AR(ms)+'ms';
+re.className='result '+(diff<.15?'good':diff<.35?'mid':'bad');
+snd(diff<.15?700:diff<.35?500:250,.1,'triangle',.04);
+// Graph bar
+const bar=document.createElement('div');bar.className='bar';
+const h=Math.max(5,Math.min(80,gain*.8));
+bar.style.height=h+'px';
+bar.style.background=gain>=80?'#16a34a':gain>=40?'#d97706':'#c0524f';
+$('graph').appendChild(bar);
+rz++;rz>=10?finish():setTimeout(nextRound,1000);
+}
+function finish(){
+over=true;
+if(goTimer)clearTimeout(goTimer);
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid #6aaa6a;border-radius:16px;padding:2rem;max-width:320px;background:rgba(255,255,255,.4)">
+<p style="font-size:2rem">🔘</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#2d6a2d">انتهى التوقيت!</h2>
+<p style="font-size:2rem;font-weight:900;color:#2d6a2d">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score);}catch(e){}
+}
+</script>
+</body>
+</html>

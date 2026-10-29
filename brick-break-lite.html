@@ -1,0 +1,148 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>كاسر الطوب المصغّر</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-950 min-h-screen flex items-center justify-center font-sans"><div class="text-center">
+<canvas id="game" width="400" height="500" class="bg-gray-900 border-2 border-gray-700 rounded-xl"></canvas>
+<div class="mt-2 flex justify-between text-white text-sm px-1 max-w-[400px] mx-auto">
+<span>النتيجة: <span id="score" class="text-yellow-400 font-bold">0</span></span>
+<span>الأرواح: <span id="lives" class="text-red-400 font-bold">❤️❤️❤️</span></span>
+<span>المستوى: <span id="level" class="text-cyan-400 font-bold">1</span></span>
+<span><button id="pauseBtn" onclick="togglePause()" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded font-bold text-white">⏸ وقفة</button></span>
+</div>
+<div id="startScreen" class="absolute inset-0 flex items-center justify-center">
+<div class="bg-gray-900/95 p-8 rounded-2xl text-center text-white border border-gray-700">
+<div class="text-3xl font-bold mb-2">🧱 كاسر الطوب</div>
+<button onclick="startGame()" class="mt-4 bg-cyan-500 hover:bg-cyan-400 px-8 py-4 rounded-xl text-xl font-bold transition">ابدأ اللعب</button>
+<div id="bestDisp" class="text-gray-500 text-sm mt-3"></div>
+</div>
+</div>
+<div id="endScreen" class="absolute inset-0 hidden flex items-center justify-center">
+<div class="bg-gray-900/95 p-8 rounded-2xl text-center text-white border border-gray-700">
+<div class="text-4xl font-bold mb-4">🎮 انتهت!</div>
+<div class="text-xl mb-2">النتيجة: <span id="finalScore" class="text-yellow-400"></span></div>
+<div id="newBest" class="text-green-400 font-bold hidden">🏆 رقم قياسي!</div>
+<button onclick="startGame()" class="mt-4 bg-cyan-500 hover:bg-cyan-400 px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div>
+</div><script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let paddle={x:170,w:80,h:12,y:460},ball={x:200,y:460,r:6,dx:3,dy:-3},bricks=[],score=0,lives=3,level=1,gameRunning=false,best=0,paused=false;
+try{best=+(localStorage.getItem('brick-lite-best'))||0;}catch(e){}
+let powerUps=[],balls=[],pops=[],keysL=false,keysR=false;
+const COLORS=[['#f87171'],['#fb923c'],['#facc15'],['#4ade80'],['#60a5fa'],['#c084fc'],['#f472b6']];
+let audioCX=null;
+function playSound(f,d,t){if(!audioCX)audioCX=new(window.AudioContext||window.webkitAudioContext)();let o=audioCX.createOscillator(),g=audioCX.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,audioCX.currentTime+d);o.connect(g);g.connect(audioCX.destination);o.start();o.stop(audioCX.currentTime+d);}
+function updateUI(){document.getElementById('score').textContent=score;document.getElementById('lives').textContent='❤️'.repeat(lives)+'🖤'.repeat(Math.max(0,3-lives));document.getElementById('level').textContent=level;}
+function updateBest(){document.getElementById('bestDisp').textContent=best>0?'أفضل نتيجة: '+best+'':'';}
+updateBest();
+function buildBricks(){
+bricks=[];
+let rows=3+level-1;
+for(let r=0;r<rows;r++)for(let c=0;c<7;c++){
+bricks.push({x:10+c*56,y:40+r*24,w:50,h:18,alive:true,color:COLORS[r%COLORS.length][0],hits:level>=3&&r<2?2:1});
+}
+}
+function startGame(){
+score=0;lives=3;level=1;powerUps=[];balls=[];paused=false;
+document.getElementById('pauseBtn').textContent='⏸ وقفة';
+resetBall();paddle.w=80;
+buildBricks();
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+updateUI();gameRunning=true;
+loop();
+}
+function ballSpeed(){return Math.min(6.5,3+level*0.4);}
+function resetBall(){let s=ballSpeed();ball={x:200,y:460,r:6,dx:s*(Math.random()>0.5?1:-1),dy:-s};balls=[ball];}
+canvas.addEventListener('mousemove',e=>{
+if(!gameRunning)return;
+let rect=canvas.getBoundingClientRect();
+paddle.x=(e.clientX-rect.left)*(canvas.width/rect.width)-paddle.w/2;
+paddle.x=Math.max(0,Math.min(canvas.width-paddle.w,paddle.x));
+});
+canvas.addEventListener('touchmove',e=>{
+e.preventDefault();if(!gameRunning)return;
+let rect=canvas.getBoundingClientRect();
+let touch=e.touches[0];
+paddle.x=(touch.clientX-rect.left)*(canvas.width/rect.width)-paddle.w/2;
+paddle.x=Math.max(0,Math.min(canvas.width-paddle.w,paddle.x));
+},{passive:false});
+function togglePause(){
+if(!gameRunning)return;
+paused=!paused;
+document.getElementById('pauseBtn').textContent=paused?'▶ كمّل':'⏸ وقفة';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();});
+document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){keysL=true;}if(e.key==='ArrowRight'){keysR=true;}});
+document.addEventListener('keyup',e=>{if(e.key==='ArrowLeft'){keysL=false;}if(e.key==='ArrowRight'){keysR=false;}});
+function update(){
+if(paused)return;
+if(keysL)paddle.x-=8;
+if(keysR)paddle.x+=8;
+paddle.x=Math.max(0,Math.min(canvas.width-paddle.w,paddle.x));
+pops=pops.filter(p=>{p.t++;return p.t<40;});
+let allBalls=[...balls];
+allBalls.forEach(b=>{
+b.x+=b.dx;b.y+=b.dy;
+if(b.x-b.r<0||b.x+b.r>canvas.width){b.dx*=-1;playSound(300,0.05);}
+if(b.y-b.r<0){b.dy*=-1;playSound(300,0.05);}
+if(b.y+b.r>canvas.height){
+if(b===ball){
+lives--;playSound(150,0.4,'sawtooth');
+if(lives<=0){gameRunning=false;endGame();return;}
+resetBall();
+}else{
+balls=balls.filter(bb=>bb!==b);
+}
+}
+if(b.y+b.r>=paddle.y&&b.y+b.r<=paddle.y+paddle.h&&b.x>=paddle.x&&b.x<=paddle.x+paddle.w){
+b.dy=-Math.abs(b.dy);
+b.dx=(b.x-(paddle.x+paddle.w/2))/paddle.w*6;
+playSound(500,0.05);
+}
+});
+bricks.forEach(br=>{
+if(!br.alive)return;
+allBalls.forEach(b=>{
+if(b.y+b.r>br.x&&b.x-b.r<br.x+br.w&&b.y+b.r>br.y&&b.y-b.r<br.y+br.h){
+b.dy*=-1;br.hits--;
+if(br.hits<=0){br.alive=false;score+=10;pops.push({x:br.x+br.w/2,y:br.y,txt:'+10',t:0});playSound(700+score,0.1);
+if(Math.random()<Math.min(0.4,0.12+level*0.03))powerUps.push({x:br.x+br.w/2,y:br.y,type:Math.random()<0.5?'wide':'multi'});
+}
+}
+});
+});
+powerUps.forEach(p=>{p.y+=2;});
+powerUps=powerUps.filter(p=>{
+if(p.y>canvas.height)return false;
+if(p.y+10>=paddle.y&&p.x>=paddle.x&&p.x<=paddle.x+paddle.w){
+if(p.type==='wide'){paddle.w=Math.min(140,paddle.w+20);}
+else{balls.push({x:ball.x,y:ball.y,r:6,dx:ball.dx+1,dy:ball.dy});}
+playSound(900,0.15);return false;
+}
+return true;
+});
+if(bricks.every(b=>!b.alive)){
+level++;buildBricks();resetBall();paddle.w=80;
+playSound(800,0.3);playSound(1000,0.3);
+}
+updateUI();
+}
+function draw(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle='#374151';ctx.fillRect(paddle.x,paddle.y,paddle.w,paddle.h);
+balls.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fillStyle='#f8fafc';ctx.fill();});
+bricks.forEach(br=>{if(!br.alive)return;ctx.fillStyle=br.color;ctx.beginPath();ctx.roundRect(br.x,br.y,br.w,br.h,4);ctx.fill();
+if(br.hits>1){ctx.fillStyle='#fff';ctx.font='10px sans-serif';ctx.fillText(br.hits,br.x+br.w/2-3,br.y+br.h/2+4);}
+});
+powerUps.forEach(p=>{ctx.fillStyle=p.type==='wide'?'#22d3ee':'#f87171';ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.font='8px sans-serif';ctx.fillText(p.type==='wide'?'W':'M',p.x-4,p.y+3);});
+pops.forEach(p=>{ctx.globalAlpha=1-p.t/40;ctx.fillStyle='#fde047';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y-p.t*2);ctx.globalAlpha=1;});
+if(paused){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.fillText('⏸ وقفة',canvas.width/2,canvas.height/2);}
+}
+function loop(){if(!gameRunning)return;update();draw();requestAnimationFrame(loop);}
+function endGame(){
+document.getElementById('endScreen').classList.remove('hidden');
+document.getElementById('finalScore').textContent=score;
+let isNew=score>best;
+if(isNew){best=score;try{localStorage.setItem('brick-lite-best',best);}catch(e){}document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+updateBest();
+}
+</script></body></html>

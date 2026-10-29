@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ادفع المكعبات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-slate-800 to-slate-900 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">📦</div>
+<h1 class="text-3xl font-bold text-white mb-2">ادفع المكعبات</h1>
+<p class="text-slate-300 mb-6">ادفع المكعبات إلى المناطق الملونة</p>
+<div class="bg-white/10 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-300">الأفضل: <span id="best-display" class="font-bold text-amber-400">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-6 border border-white/20">
+<div class="flex justify-between items-center mb-4">
+<span class="text-slate-300 font-bold">المستوى: <span id="level-display">1</span>/5</span>
+<span class="text-amber-400 font-bold">الحركات: <span id="moves-display">0</span></span>
+</div>
+<div id="game-board" class="mx-auto mb-4" style="width:fit-content"></div>
+<p class="text-slate-400 text-xs mb-2">استخدم الأسهم للحركة · أو أزرار اللمس</p>
+<div id="feedback" class="h-6 text-sm font-bold"></div>
+<button onclick="restartLevel()" class="bg-slate-500 hover:bg-slate-400 text-white font-bold py-1.5 px-4 rounded-lg text-sm mb-2">↺ إعادة المستوى</button>
+<div class="mt-3 grid grid-cols-3 gap-1 mx-auto" style="width:150px">
+<span></span><button class="bg-white/15 hover:bg-white/25 text-white font-bold py-2 rounded-lg" onclick="touchMove(0,-1)">▲</button><span></span>
+<button class="bg-white/15 hover:bg-white/25 text-white font-bold py-2 rounded-lg" onclick="touchMove(-1,0)">◀</button>
+<button class="bg-white/15 hover:bg-white/25 text-white font-bold py-2 rounded-lg" onclick="touchMove(0,1)">▼</button>
+<button class="bg-white/15 hover:bg-white/25 text-white font-bold py-2 rounded-lg" onclick="touchMove(1,0)">▶</button>
+</div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">🏆</div>
+<h2 class="text-2xl font-bold text-white mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-300 mb-2">الحركات: <span id="final-moves" class="font-bold text-amber-400"></span></p>
+<p class="text-slate-300 mb-6">الأفضل: <span id="final-best" class="font-bold text-amber-400"></span></p>
+<button onclick="startGame()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let levels = [
+{size:5,boxes:[{x:1,y:1,c:'#ef4444',tx:3,ty:3}],wall:[[2,2],[2,3],[3,2]]},
+{size:5,boxes:[{x:1,y:1,c:'#3b82f6',tx:3,ty:1},{x:1,y:3,c:'#22c55e',tx:3,ty:3}],wall:[[2,1],[2,3]]},
+{size:6,boxes:[{x:1,y:1,c:'#ef4444',tx:4,ty:1},{x:1,y:4,c:'#3b82f6',tx:4,ty:4}],wall:[[2,2],[2,3],[3,2],[3,3]]},
+{size:6,boxes:[{x:1,y:1,c:'#ef4444',tx:4,ty:1},{x:1,y:4,c:'#22c55e',tx:4,ty:4},{x:4,y:1,c:'#eab308',tx:1,ty:4}],wall:[[2,2],[2,3],[3,2]]},
+{size:7,boxes:[{x:1,y:1,c:'#ef4444',tx:5,ty:1},{x:1,y:5,c:'#3b82f6',tx:5,ty:5},{x:5,y:1,c:'#22c55e',tx:1,ty:5},{x:5,y:5,c:'#eab308',tx:1,ty:1}],wall:[[3,2],[3,3],[3,4],[2,3],[4,3]]}
+];
+let level = 0, moves = 0, boardSize = 5;
+let playerPos = {x:0,y:0};
+let boxes = [], walls = [], targets = [];
+let best = 0;
+try { best = parseInt(localStorage.getItem('block-push-best') || '0') || 0; } catch (e) {}
+function startGame() {
+initAudio(); level = 0; moves = 0;
+$('start-screen').classList.add('hidden');
+$('finish-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+loadLevel();
+}
+function loadLevel() {
+let lv = levels[level];
+boardSize = lv.size;
+$('level-display').textContent = level + 1;
+$('moves-display').textContent = moves;
+$('feedback').textContent = '';
+playerPos = {x:0,y:0};
+boxes = lv.boxes.map(b => ({x:b.x,y:b.y,c:b.c}));
+targets = lv.boxes.map(b => ({x:b.tx,y:b.ty,c:b.c}));
+walls = lv.wall.map(w => ({x:w[0],y:w[1]}));
+renderBoard();
+}
+function renderBoard() {
+let container = $('game-board');
+container.innerHTML = '';
+let cellSize = 50;
+container.style.display = 'grid';
+container.style.gridTemplateColumns = `repeat(${boardSize}, ${cellSize}px)`;
+container.style.gridTemplateRows = `repeat(${boardSize}, ${cellSize}px)`;
+for (let y = 0; y < boardSize; y++) {
+for (let x = 0; x < boardSize; x++) {
+let cell = document.createElement('div');
+cell.style.width = cellSize + 'px';
+cell.style.height = cellSize + 'px';
+cell.className = 'border border-white/10 rounded flex items-center justify-center text-xl font-bold';
+let isTarget = targets.find(t => t.x === x && t.y === y);
+let isWall = walls.find(w => w.x === x && w.y === y);
+let isBox = boxes.find(b => b.x === x && b.y === y);
+let isPlayer = playerPos.x === x && playerPos.y === y;
+if (isTarget) {
+cell.style.background = isTarget.c + '33';
+cell.style.border = `2px dashed ${isTarget.c}`;
+}
+if (isWall) {
+cell.style.background = '#475569';
+cell.textContent = '🧱';
+}
+if (isBox) {
+cell.style.background = isBox.c;
+cell.textContent = '📦';
+cell.style.color = 'white';
+}
+if (isPlayer) {
+cell.textContent = '🧑';
+cell.style.background = '#1e293b';
+}
+container.appendChild(cell);
+}
+}
+}
+function handleKey(e) {
+let d = {ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[e.key];
+if (!d) return;
+e.preventDefault();
+doMove(d[0], d[1]);
+}
+function touchMove(dx, dy) {
+if ($('start-screen').classList.contains('hidden') && !$('play-screen').classList.contains('hidden')) {
+initAudio();
+doMove(dx, dy);
+}
+}
+function doMove(dx, dy) {
+const dir = {x:dx, y:dy};
+let nx = playerPos.x + dir.x;
+let ny = playerPos.y + dir.y;
+if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) return;
+if (walls.find(w => w.x === nx && w.y === ny)) return;
+let box = boxes.find(b => b.x === nx && b.y === ny);
+if (box) {
+let bx = nx + dir.x;
+let by = ny + dir.y;
+if (bx < 0 || bx >= boardSize || by < 0 || by >= boardSize) return;
+if (walls.find(w => w.x === bx && w.y === by)) return;
+if (boxes.find(b => b.x === bx && b.y === by)) return;
+box.x = bx; box.y = by;
+playSound(300, 'square', 0.1);
+} else {
+playSound(200, 'triangle', 0.05);
+}
+playerPos.x = nx;
+playerPos.y = ny;
+moves++;
+$('moves-display').textContent = moves;
+renderBoard();
+checkWin();
+}
+function restartLevel() {
+if ($('play-screen').classList.contains('hidden')) return;
+initAudio();
+loadLevel();
+}
+function checkWin() {
+let allPlaced = targets.every(t => boxes.find(b => b.x === t.x && b.y === t.y && b.c === t.c));
+if (allPlaced) {
+playSound(523, 'sine', 0.3);
+level++;
+if (level >= levels.length) { endGame(); }
+else {
+$('feedback').textContent = '✅ تم!';
+$('feedback').className = 'h-6 text-sm font-bold text-emerald-400';
+setTimeout(loadLevel, 800);
+}
+}
+}
+function endGame() {
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-moves').textContent = moves;
+let nb = false;
+if (moves < best || best === 0) { best = moves; nb = true; try{localStorage.setItem('block-push-best', best);}catch(e){} }
+$('final-best').textContent = best + (nb ? ' 🎉 رقم قياسي!' : '');
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best || '—';
+var swipeStart = null;
+var boardEl = $('game-board');
+boardEl.addEventListener('touchstart', function(e){ if(!$('play-screen').classList.contains('hidden')){ swipeStart = e.touches[0]; } }, {passive:true});
+boardEl.addEventListener('touchmove', function(e){ e.preventDefault(); }, {passive:false});
+boardEl.addEventListener('touchend', function(e){
+if(!swipeStart)return;
+var t = e.changedTouches[0];
+var dx = t.clientX - swipeStart.clientX, dy = t.clientY - swipeStart.clientY;
+swipeStart = null;
+if(Math.max(Math.abs(dx),Math.abs(dy)) < 20)return;
+if(Math.abs(dx) > Math.abs(dy)) touchMove(dx>0?1:-1, 0); else touchMove(0, dy>0?1:-1);
+});
+document.addEventListener('keydown', handleKey);
+</script>
+</body>
+</html>

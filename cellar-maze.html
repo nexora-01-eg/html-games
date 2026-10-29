@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>متاهة الكهف</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;overflow:hidden;background:#1a0e00;font-family:sans-serif}
+</style>
+</head>
+<body>
+<div id="app" class="flex flex-col items-center justify-center h-screen">
+<div class="text-amber-400 text-xl mb-2 font-bold">متاهة الكهف</div>
+<div class="flex gap-6 text-amber-300 mb-2 text-sm">
+<span>المستوى: <b id="lvl">1</b></span>
+<span>الوقت: <b id="timer">60</b></span>
+<span>النتيجة: <b id="score">0</b></span>
+<span>الأفضل: <b id="best">0</b></span>
+</div>
+<canvas id="c" class="border-4 border-amber-900 rounded"></canvas>
+<div id="msg" class="text-amber-200 mt-3 text-lg font-bold h-6"></div>
+</div>
+<div id="endOv" class="hidden fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+<div class="bg-amber-950 border-4 border-amber-700 rounded-2xl p-8 text-center">
+<div class="text-4xl mb-2">🏆</div>
+<div class="text-2xl text-amber-300 font-bold mb-4" id="endTitle">انتهت!</div>
+<div class="text-5xl text-amber-400 font-bold mb-2" id="endScore">0</div>
+<div class="text-amber-500 mb-5">الأفضل: <b id="endBest">0</b></div>
+<div class="text-amber-400 mb-2" id="endNew"></div>
+<button onclick="restartGame()" class="bg-amber-700 hover:bg-amber-600 text-white px-8 py-3 rounded-xl font-bold text-lg">العب من جديد</button>
+</div>
+</div>
+<script>
+const C=document.getElementById('c'),X=C.getContext('2d');
+const SZ=20,ROWS=12,COLS=12;
+C.width=COLS*SZ;C.height=ROWS*SZ;
+let maze=[],level=1,player={x:0,y:0},exit_={x:11,y:11},score=0,bestScore=0,timeLeft=60,timerI=null,playing=true,won=false,startBest=0;
+try{bestScore=parseInt(localStorage.getItem('cellar-maze-best'))||0;}catch(e){}
+document.getElementById('best').textContent=bestScore;
+
+function genMaze(){
+maze=[];
+for(let r=0;r<ROWS;r++){maze[r]=[];for(let c=0;c<COLS;c++)maze[r][c]={t:1,v:0};}
+const stack=[];maze[0][0].v=1;stack.push([0,0]);
+while(stack.length){
+const[cr,cc]=stack[stack.length-1];
+const nb=[];
+if(cr>0&&!maze[cr-1][cc].v)nb.push([cr-1,cc,'t']);
+if(cr<ROWS-1&&!maze[cr+1][cc].v)nb.push([cr+1,cc,'t']);
+if(cc>0&&!maze[cr][cc-1].v)nb.push([cr,cc-1,'l']);
+if(cc<COLS-1&&!maze[cr][cc+1].v)nb.push([cr,cc+1,'l']);
+if(nb.length){
+const[nr,nc,w]=nb[Math.floor(Math.random()*nb.length)];
+maze[nr][nc].v=1;maze[cr][cc][w]=0;
+if(w==='t')maze[nr][nc].t=0;else maze[nr][nc].l=0;
+stack.push([nr,nc]);
+}else stack.pop();
+}
+maze[0][0].l=0;maze[ROWS-1][COLS-1].l=0;
+}
+
+function draw(){
+X.fillStyle='#1a0e00';X.fillRect(0,0,C.width,C.height);
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+const x=c*SZ,y=r*SZ;
+if(maze[r][c].t){X.fillStyle='#5a3200';X.fillRect(x,y,SZ,2);}
+else{X.fillStyle='#2a1800';X.fillRect(x,y,SZ,2);}
+if(maze[r][c].l){X.fillStyle='#5a3200';X.fillRect(x,y,2,SZ);}
+else{X.fillStyle='#2a1800';X.fillRect(x,y,2,SZ);}
+}
+X.fillStyle='#ffcc00';
+X.beginPath();X.arc(player.x*SZ+SZ/2,player.y*SZ+SZ/2,6,0,Math.PI*2);X.fill();
+X.fillStyle='#ff4444';
+X.beginPath();X.arc(exit_.x*SZ+SZ/2,exit_.y*SZ+SZ/2,5,0,Math.PI*2);X.fill();
+}
+
+function move(dx,dy){
+if(!playing||paused)return;
+const nx=player.x+dx,ny=player.y+dy;
+if(nx<0||nx>=COLS||ny<0||ny>=ROWS)return;
+if(dx===1&&maze[player.y][player.x].l===1)return;
+if(dx===-1&&maze[ny][nx].l===1)return;
+if(dy===1&&maze[player.y][player.x].t===1)return;
+if(dy===-1&&maze[ny][nx].t===1)return;
+player.x=nx;player.y=ny;
+draw();
+if(player.x===exit_.x&&player.y===exit_.y){
+if(level<5){
+level++;score+=timeLeft;startLevel();
+document.getElementById('msg').textContent='المستوى '+AR(level)+'! +'+AR(timeLeft)+' ثانية كنقاط';
+setTimeout(()=>document.getElementById('msg').textContent='',1500);
+}else{
+score+=timeLeft;won=true;playing=false;
+if(timerI)clearInterval(timerI);
+saveBest();showEnd('🎉 فزت!',score);
+}
+}
+document.getElementById('lvl').textContent=AR(level);
+document.getElementById('score').textContent=AR(score);
+}
+
+// Number display helper
+function AR(n){return String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);}
+function strTime(t){var m=Math.floor(t/60),s=t%60;return AR(m)+':'+AR(s<10?'0'+s:s);}
+function pauseGame(){
+if(!playing||timerI===null)return;
+clearInterval(timerI);timerI=null;
+}
+function resumeGame(){
+if(!playing||timerI!==null)return;
+timerI=setInterval(()=>{
+if(!playing)return;
+timeLeft--;
+document.getElementById('timer').textContent=strTime(timeLeft);
+if(timeLeft<=0){playing=false;clearInterval(timerI);timerI=null;
+document.getElementById('msg').textContent='⏱ انتهى الوقت!';
+saveBest();showEnd('⏱ انتهى الوقت!',score);
+}
+},1000);
+}
+function startLevel(){
+player={x:0,y:0};exit_={x:COLS-1,y:ROWS-1};
+timeLeft=60+level*5;won=false;playing=true;
+document.getElementById('timer').textContent=strTime(timeLeft);
+document.getElementById('msg').textContent='';
+if(timerI)clearInterval(timerI);
+timerI=setInterval(()=>{
+if(!playing)return;
+timeLeft--;
+document.getElementById('timer').textContent=strTime(timeLeft);
+if(timeLeft<=0){playing=false;clearInterval(timerI);timerI=null;
+document.getElementById('msg').textContent='⏱ انتهى الوقت!';
+saveBest();showEnd('⏱ انتهى الوقت!',score);
+}
+},1000);
+genMaze();draw();
+}
+
+function saveBest(){
+let nb=score>bestScore;
+if(nb){bestScore=score;try{localStorage.setItem('cellar-maze-best',bestScore);}catch(e){}}
+document.getElementById('best').textContent=AR(bestScore);
+}
+function showEnd(title,sc){
+document.getElementById('endTitle').textContent=title;
+document.getElementById('endScore').textContent=AR(sc);
+document.getElementById('endBest').textContent=AR(bestScore);
+document.getElementById('endNew').textContent=(score>startBest&&score>0)?'🏆 رقم قياسي جديد!':'';
+document.getElementById('endOv').classList.remove('hidden');
+}
+function restartGame(){
+document.getElementById('endOv').classList.add('hidden');
+level=1;score=0;startBest=bestScore;
+document.getElementById('score').textContent=0;
+startLevel();
+}
+let paused=false;
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'||e.key==='p'||e.key==='P'){
+if(!playing)return;
+paused=!paused;
+if(paused)pauseGame();else resumeGame();
+document.getElementById('msg').textContent=paused?'⏸ وقفة':'';
+return;
+}
+switch(e.key){
+case'ArrowRight':case'd':move(1,0);break;
+case'ArrowLeft':case'a':move(-1,0);break;
+case'ArrowDown':case's':move(0,1);break;
+case'ArrowUp':case'w':move(0,-1);break;
+case'r':case'R':restartGame();break;
+}
+});
+var sX=null,sY=null;
+C.addEventListener('touchstart',function(e){var t=e.touches[0];sX=t.clientX;sY=t.clientY;e.preventDefault();},{passive:false});
+C.addEventListener('touchend',function(e){
+if(sX===null)return;
+var t=e.changedTouches[0],dx=t.clientX-sX,dy=t.clientY-sY;
+sX=null;sY=null;
+if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+if(Math.abs(dx)>Math.abs(dy))move(dx>0?1:-1,0);else move(0,dy>0?1:-1);
+});
+
+startBest=bestScore;
+startLevel();
+</script>
+</body>
+</html>

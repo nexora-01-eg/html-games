@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>اهرب من الشبح!</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none;overflow:hidden}</style></head>
+<body class="bg-gray-950 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-2xl text-purple-300 font-bold mb-1" id="level">المستوى 1</div>
+<div class="text-purple-400 text-sm mb-1" id="best">الأفضل: 0</div>
+<div class="text-yellow-300 text-sm mb-2" id="timer">الوقت: 30</div>
+<button onclick="togglePause()" class="bg-purple-700 hover:bg-purple-600 text-white px-4 py-1 rounded-xl mb-2" id="pauseBtn">⏸ وقفة</button>
+<canvas id="c" class="rounded-xl border border-purple-700"></canvas>
+<div class="flex gap-4 mt-3">
+<button id="bl" class="text-3xl p-2 bg-purple-900/50 rounded-xl active:bg-purple-700">◀</button>
+<button id="bd" class="text-3xl p-2 bg-purple-900/50 rounded-xl active:bg-purple-700">▼</button>
+<button id="bu" class="text-3xl p-2 bg-purple-900/50 rounded-xl active:bg-purple-700">▲</button>
+<button id="br" class="text-3xl p-2 bg-purple-900/50 rounded-xl active:bg-purple-700">▶</button>
+</div>
+<div id="go" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-5xl mb-2">👻</div>
+<div class="text-3xl text-red-400 font-bold mb-4" id="gmsg"></div>
+<button onclick="initGame()" class="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl">أعد المحاولة</button></div></div>
+<script>
+const K='chase-esc-best';
+let best=0;try{best=parseInt(localStorage.getItem(K)||0);}catch(e){}
+let paused=false;
+function togglePause(){
+if(!alive)return;
+paused=!paused;
+document.getElementById('pauseBtn').textContent=paused?'▶ كمّل':'⏸ وقفة';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'||e.key==='p')togglePause();});
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=350;canvas.height=350;
+const audio=new(window.AudioContext||window.webkitAudioContext)();
+function play(f,d,t='sine'){const o=audio.createOscillator(),g=audio.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+d);o.stop(audio.currentTime+d);}
+const LEVELS=[
+{size:7,time:30,ghosts:1,keys:2},
+{size:9,time:45,ghosts:2,keys:3},
+{size:11,time:60,ghosts:3,keys:4}
+];
+let lvl,maze,player,ghosts,keyPos,exitPos,gateOpen,timerInterval,timer,alive,totalScore,ghostTimer=0;
+const CELL=35;
+function initGame(){lvl=0;totalScore=0;startLevel();}
+function startLevel(){
+const L=LEVELS[lvl];
+ghostTimer=0;
+maze=genMaze(L.size);player={x:1,y:1};ghosts=[];
+for(let i=0;i<L.ghosts;i++)ghosts.push({x:L.size-2,y:L.size-2-i,dir:0});
+keyPos=[];while(keyPos.length<L.keys){
+const x=Math.floor(Math.random()*(L.size-2))+1,y=Math.floor(Math.random()*(L.size-2))+1;
+if(maze[y][x]===0&&!keyPos.find(k=>k.x===x&&k.y===y))keyPos.push({x,y});
+}
+exitPos={x:L.size-2,y:L.size-2};gateOpen=false;alive=true;timer=L.time;paused=false;document.getElementById('pauseBtn').textContent='⏸ وقفة';
+canvas.width=L.size*CELL;canvas.height=L.size*CELL;
+document.getElementById('go').classList.add('hidden');
+document.getElementById('level').textContent='المستوى '+AR(lvl+1);
+clearInterval(timerInterval);
+timerInterval=setInterval(()=>{
+if(!alive)return;if(paused)return;timer--;
+document.getElementById('timer').textContent='الوقت: '+AR(timer);
+if(timer<=0)endGame(false);
+},1000);
+}
+function genMaze(size){
+const m=[];for(let r=0;r<size;r++){m[r]=[];for(let c=0;c<size;c++)m[r][c]=1;}
+const stack=[[1,1]];m[1][1]=0;
+while(stack.length){
+const[x,y]=stack[stack.length-1];
+const dirs=[[0,2],[2,0],[0,-2],[-2,0]].sort(()=>Math.random()-0.5);
+let found=false;
+for(const[dx,dy] of dirs){
+const nx=x+dx,ny=y+dy;
+if(nx>0&&nx<size-1&&ny>0&&ny<size-1&&m[ny][nx]===1){
+m[ny][nx]=0;m[y+dy/2][x+dx/2]=0;stack.push([nx,ny]);found=true;break;
+}
+}
+if(!found)stack.pop();
+}
+return m;
+}
+function movePlayer(dx,dy){
+if(!alive||paused)return;
+const nx=player.x+dx,ny=player.y+dy;
+if(ny<0||ny>=maze.length||nx<0||nx>=maze[0].length)return;
+if(maze[ny][nx]===1)return;
+if(!gateOpen&&exitPos.x===nx&&exitPos.y===ny)return;
+player.x=nx;player.y=ny;
+const ki=keyPos.findIndex(k=>k.x===nx&&k.y===ny);
+if(ki!==-1){keyPos.splice(ki,1);play(660,0.1);play(880,0.1);
+if(keyPos.length===0){gateOpen=true;play(440,0.2);}
+}
+if(gateOpen&&exitPos.x===nx&&exitPos.y===ny){
+clearInterval(timerInterval);totalScore+=timer*10+100;
+if(lvl+1<LEVELS.length){lvl++;startLevel();}
+else{alive=false;
+let nb=totalScore>best;
+if(nb){best=totalScore;try{localStorage.setItem(K,best);}catch(e){}document.getElementById('best').textContent='الأفضل: '+AR(best);}
+document.getElementById('gmsg').innerHTML='🎉 فزت! النتيجة: '+AR(totalScore)+(nb?'<br>🏆 رقم قياسي!':'');
+document.getElementById('gmsg').className='text-3xl text-green-400 font-bold mb-4';
+document.getElementById('go').classList.remove('hidden');
+}
+}
+}
+function moveGhosts(){
+if(!alive||paused)return;
+ghosts.forEach(g=>{
+const dirs=[[0,1],[1,0],[0,-1],[-1,0]];
+const valid=dirs.filter(([dx,dy])=>{
+const nx=g.x+dx,ny=g.y+dy;
+return ny>=0&&ny<maze.length&&nx>=0&&nx<maze[0].length&&maze[ny][nx]===0;
+});
+if(valid.length){
+const best2=valid.sort((a,b)=>{
+const da=Math.abs(g.x+a[0]-player.x)+Math.abs(g.y+a[1]-player.y);
+const db=Math.abs(g.x+b[0]-player.x)+Math.abs(g.y+b[1]-player.y);
+return da-db;
+})[0];
+g.x+=best2[0];g.y+=best2[1];
+}
+if(g.x===player.x&&g.y===player.y)endGame(false);
+});
+}
+function endGame(won){
+alive=false;clearInterval(timerInterval);
+play(200,0.4,'sawtooth');
+if(!won){
+document.getElementById('gmsg').textContent='💀 لُقطت! النتيجة: '+AR(totalScore);
+document.getElementById('gmsg').className='text-3xl text-red-400 font-bold mb-4';
+}
+document.getElementById('go').classList.remove('hidden');
+}
+function draw(){
+const L=LEVELS[lvl];const S=L.size;
+ctx.fillStyle='#0f0a1a';ctx.fillRect(0,0,canvas.width,canvas.height);
+for(let r=0;r<S;r++)for(let c=0;c<S;c++){
+if(maze[r][c]===1){ctx.fillStyle='#2d1b69';ctx.fillRect(c*CELL,r*CELL,CELL,CELL);}
+}
+keyPos.forEach(k=>{ctx.font='20px sans-serif';ctx.fillText('🔑',k.x*CELL+7,k.y*CELL+24);});
+if(gateOpen){ctx.fillStyle='#22c55e88';ctx.fillRect(exitPos.x*CELL,exitPos.y*CELL,CELL,CELL);}
+ctx.font='20px sans-serif';ctx.fillText('🚪',exitPos.x*CELL+7,exitPos.y*CELL+24);
+ctx.fillStyle='#60a5fa';ctx.fillRect(player.x*CELL+5,player.y*CELL+5,CELL-10,CELL-10);
+ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(player.x*CELL+17,player.y*CELL+14,3,0,Math.PI*2);ctx.fill();
+ghosts.forEach(g=>{ctx.fillStyle='#e879f9';ctx.fillRect(g.x*CELL+4,g.y*CELL+4,CELL-8,CELL-8);
+ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(g.x*CELL+13,g.y*CELL+14,2.5,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(g.x*CELL+23,g.y*CELL+14,2.5,0,Math.PI*2);ctx.fill();});
+if(paused){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='bold 24px sans-serif';ctx.textAlign='center';ctx.fillText('⏸ وقفة',canvas.width/2,canvas.height/2);}
+}
+function loop(){ghostTimer++;if(ghostTimer>=10){ghostTimer=0;moveGhosts();}draw();requestAnimationFrame(loop);}
+function AR(n){return String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);}
+document.getElementById('best').textContent='الأفضل: '+AR(best);
+document.getElementById('bl').addEventListener('click',()=>movePlayer(-1,0));
+document.getElementById('br').addEventListener('click',()=>movePlayer(1,0));
+document.getElementById('bu').addEventListener('click',()=>movePlayer(0,-1));
+document.getElementById('bd').addEventListener('click',()=>movePlayer(0,1));
+document.addEventListener('keydown',e=>{
+if(e.key==='ArrowLeft')movePlayer(-1,0);
+if(e.key==='ArrowRight')movePlayer(1,0);
+if(e.key==='ArrowUp')movePlayer(0,-1);
+if(e.key==='ArrowDown')movePlayer(0,1);
+});
+initGame();loop();
+</script>
+</body>
+</html>

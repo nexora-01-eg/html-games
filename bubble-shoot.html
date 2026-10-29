@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>اضرب البالونات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:linear-gradient(180deg,#87CEEB 0%,#B0E0E6 100%);overflow:hidden}
+canvas{display:block;margin:0 auto}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center" style="font-family:sans-serif">
+<div class="flex gap-6 py-2 text-blue-900 font-bold text-lg z-10">
+<div>الموجة: <span id="wave">1</span>/5</div>
+<div>النتيجة: <span id="score">0</span></div>
+<div>الوقت: <span id="timer">60</span></div>
+<div>الأفضل: <span id="best">0</span></div>
+<div><button id="pauseBtn" onclick="togglePause()" class="bg-white/60 hover:bg-white text-blue-900 px-3 py-1 rounded-lg font-bold">⏸ وقفة</button></div>
+</div>
+<canvas id="game" width="420" height="520"></canvas>
+<div id="over" class="hidden fixed inset-0 bg-black/50 flex flex-col items-center justify-center z-50">
+<div class="bg-white rounded-xl p-8 text-center">
+<h2 class="text-2xl font-bold mb-4 text-blue-800" id="overTitle">انتهت اللعبة!</h2>
+<p class="text-lg mb-2">النتيجة: <span id="finalScore" class="font-bold">0</span></p>
+<p class="text-sm mb-1 text-gray-500" id="waveInfo"></p>
+<p class="text-lg mb-4">الأفضل: <span id="finalBest" class="font-bold">0</span></p>
+<button id="restart" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-lg">جديد</button>
+</div>
+</div>
+<script>
+const C=document.getElementById('game'),X=C.getContext('2d');
+const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+function playTone(f,d,t='sine'){const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.12,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}
+const COLORS=['#E74C3C','#3498DB','#2ECC71','#F39C12','#9B59B6'];
+const CW=420,CH=520,BR=20,bubbleR=18;
+let bubbles,shooter,nextColor,score,wave,gameOver,timeLeft,shooting,shot,shotX,shotY,shotVX,shotVY,paused=false;
+let spawnTimer,timerInterval;
+function init(){
+bubbles=[];shooter=CW/2;nextColor=randomColor();score=0;wave=1;gameOver=false;paused=false;timeLeft=60;shooting=false;shot=null;spawnTimer=0;
+if(timerInterval)clearInterval(timerInterval);
+document.getElementById('over').classList.add('hidden');
+document.getElementById('pauseBtn').textContent='⏸ وقفة';
+document.getElementById('wave').textContent=1;
+document.getElementById('score').textContent=0;
+document.getElementById('timer').textContent=60;
+let pbest=0;try{pbest=parseInt(localStorage.getItem('bubble-shoot-best'))||0;}catch(e){}
+document.getElementById('best').textContent=pbest;
+spawnWave();loop();
+}
+function randomColor(){return COLORS[Math.floor(Math.random()*COLORS.length)]}
+function spawnWave(){
+for(let r=0;r<3+wave;r++)for(let c=0;c<7;c++){
+bubbles.push({x:30+c*54,y:30+r*44,color:randomColor(),alive:true});
+}
+}
+function shoot(){
+if(shooting)return;
+playTone(800,.08);
+shooting=true;
+const tx=CW/2,ty=0;
+const dx=tx-shooter,dy=ty-(CH-30);
+const len=Math.sqrt(dx*dx+dy*dy);
+shot={x:shooter,y:CH-30,color:nextColor};
+shotVX=dx/len*12;shotVY=dy/len*12;
+nextColor=randomColor();
+}
+function getNeighbors(b){
+const nb=[];for(const o of bubbles){
+if(!o.alive||o===b)continue;
+const d=Math.sqrt((o.x-b.x)**2+(o.y-b.y)**2);
+if(d<bubbleR*2+6)nb.push(o);
+}return nb;
+}
+function removeCluster(b){
+const cluster=[b];const visited=new Set([b]);
+let queue=[b];
+while(queue.length){const cur=queue.shift();const nb=getNeighbors(cur);
+for(const n of nb){if(!visited.has(n)&&n.color===cur.color){visited.add(n);cluster.push(n);queue.push(n)}}
+}
+if(cluster.length>=3){
+cluster.forEach(c=>{c.alive=false;score+=10*cluster.length;playTone(600+Math.random()*400,.15)});
+document.getElementById('score').textContent=score;
+}
+return cluster.length>=3;
+}
+function togglePause(){
+if(gameOver)return;
+paused=!paused;
+document.getElementById('pauseBtn').textContent=paused?'▶ كمّل':'⏸ وقفة';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();});
+function loop(){
+if(gameOver)return;
+requestAnimationFrame(loop);
+X.clearRect(0,0,CW,CH);
+if(paused)return;
+if(shooting){
+shot.x+=shotVX;shot.y+=shotVY;
+if(shot.y<0||shot.x<0||shot.x>CW){shooting=false;shot=null}
+else{
+let hit=false;
+for(const b of bubbles){
+if(!b.alive)continue;
+if(Math.sqrt((shot.x-b.x)**2+(shot.y-b.y)**2)<bubbleR*2){
+hit=true;playTone(300,.05);
+bubbles.push({x:Math.max(30,Math.min(CW-30,Math.round((shot.x-30)/54)*54+30)),y:Math.min(CH-44,b.y+44),color:shot.color,alive:true});
+removeCluster(bubbles[bubbles.length-1]);
+shooting=false;shot=null;
+if(bubbles.filter(b=>b.alive).length===0){
+if(wave<5){wave++;document.getElementById('wave').textContent=wave;spawnWave();playTone(500,.2)}
+else{endGame('انتصرت!')}
+}
+break;
+}
+}
+if(shot){X.beginPath();X.arc(shot.x,shot.y,bubbleR-2,0,Math.PI*2);X.fillStyle=shot.color;X.fill()}
+}
+}
+bubbles.forEach(b=>{if(!b.alive)return;X.beginPath();X.arc(b.x,b.y,bubbleR,0,Math.PI*2);X.fillStyle=b.color;X.fill();X.strokeStyle='rgba(0,0,0,.15)';X.lineWidth=2;X.stroke()});
+X.beginPath();X.arc(shooter,CH-30,BR+2,0,Math.PI*2);X.fillStyle='#333';X.fill();
+X.beginPath();X.arc(shooter,CH-30,BR,0,Math.PI*2);X.fillStyle=nextColor;X.fill();
+X.beginPath();X.moveTo(shooter,CH-30);X.lineTo(shooter,CH-60);X.strokeStyle='#555';X.lineWidth=4;X.stroke();
+}
+function endGame(t){gameOver=true;if(timerInterval)clearInterval(timerInterval);document.getElementById('over').classList.remove('hidden');document.getElementById('overTitle').textContent=t;document.getElementById('finalScore').textContent=score;document.getElementById('waveInfo').textContent='وصلت للموجة '+wave+' من 5';let pbst=0;try{pbst=parseInt(localStorage.getItem('bubble-shoot-best'))||0;}catch(e){}const best=pbst;if(score>best){try{localStorage.setItem('bubble-shoot-best',score);}catch(e){}document.getElementById('finalBest').textContent=score+' 🏆'}else{document.getElementById('finalBest').textContent=best}}
+C.addEventListener('click',e=>{const r=C.getBoundingClientRect();shooter=Math.max(20,Math.min(CW-20,e.clientX-r.left));shoot()});
+C.addEventListener('mousemove',e=>{if(gameOver)return;const r=C.getBoundingClientRect();shooter=Math.max(20,Math.min(CW-20,e.clientX-r.left))});
+C.addEventListener('touchmove',e=>{e.preventDefault();const r=C.getBoundingClientRect();shooter=Math.max(20,Math.min(CW-20,e.touches[0].clientX-r.left))},{passive:false});
+C.addEventListener('touchend',()=>shoot());
+timerInterval=setInterval(()=>{if(!gameOver&&!paused){timeLeft--;document.getElementById('timer').textContent=timeLeft;if(timeLeft<=0)endGame('انتهى الوقت!')}},1000);
+document.getElementById('restart').addEventListener('click',init);
+init();
+</script>
+</body>
+</html>

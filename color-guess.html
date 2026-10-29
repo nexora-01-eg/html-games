@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خمّن اللون</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">🎨</div>
+<h1 class="text-3xl font-bold text-slate-800 mb-2">خمّن اللون</h1>
+<p class="text-slate-500 mb-2">اختر لون الكتابة وليس معنى الكلمة!</p>
+<p class="text-slate-400 text-sm mb-6">اختبار ستروب</p>
+<div class="bg-gray-100 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-600">الأفضل: <span id="best-display" class="font-bold text-violet-600">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-violet-500 hover:bg-violet-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-6">
+<div class="flex justify-between items-center mb-4">
+<span class="text-slate-600 font-bold">السؤال: <span id="round-display">1</span>/15</span>
+<span class="text-violet-600 font-bold">النقاط: <span id="score-display">0</span></span>
+</div>
+<div id="color-word" class="text-5xl font-bold mb-8 select-none h-20 flex items-center justify-center"></div>
+<div id="options-container" class="grid grid-cols-2 gap-3 mb-4"></div>
+<div id="feedback" class="h-6 text-sm font-bold"></div>
+<div class="text-xs text-slate-400">اختر لون الكتابة</div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">🎯</div>
+<h2 class="text-2xl font-bold text-slate-800 mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-500 mb-2">النقاط: <span id="final-score" class="font-bold text-violet-600"></span></p>
+<p class="text-slate-500 mb-2">الصحيحة: <span id="final-correct" class="font-bold text-emerald-600"></span>/15</p>
+<p class="text-slate-500 mb-6">الأفضل: <span id="final-best" class="font-bold text-violet-600"></span></p>
+<button onclick="location.reload()" class="bg-violet-500 hover:bg-violet-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let colorNames = [{ar:'أحمر',en:'red'},{ar:'أزرق',en:'blue'},{ar:'أخضر',en:'green'},{ar:'أصفر',en:'yellow'},{ar:'برتقالي',en:'orange'},{ar:'بنفسجي',en:'purple'}];
+let colorValues = {red:'#ef4444',blue:'#3b82f6',green:'#22c55e',yellow:'#eab308',orange:'#f97316',purple:'#a855f7'};
+let round = 0, score = 0, correct = 0, totalRounds = 15, paused = false, pauseTimeout = null;
+let best = 0;
+try { best = parseInt(localStorage.getItem('color-guess-best')) || 0; } catch(e) {}
+let currentCorrectColor = '';
+function startGame() {
+initAudio(); round = 0; score = 0; correct = 0;
+$('start-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+nextRound();
+}
+function nextRound() {
+if (round >= totalRounds) { endGame(); return; }
+round++;
+$('round-display').textContent = round;
+$('score-display').textContent = score;
+$('feedback').textContent = '';
+let wordObj = colorNames[Math.floor(Math.random() * colorNames.length)];
+let inkColors = Object.keys(colorValues);
+let wrongInks = inkColors.filter(c => c !== wordObj.en);
+let chosenInk = wrongInks[Math.floor(Math.random() * wrongInks.length)];
+currentCorrectColor = chosenInk;
+$('color-word').textContent = wordObj.ar;
+$('color-word').style.color = colorValues[chosenInk];
+let options = new Set([chosenInk]);
+while (options.size < 4) {
+options.add(inkColors[Math.floor(Math.random() * inkColors.length)]);
+}
+let optArr = [...options].sort(() => Math.random() - 0.5);
+let container = $('options-container');
+container.innerHTML = '';
+optArr.forEach(color => {
+let btn = document.createElement('button');
+btn.className = 'h-16 rounded-xl font-bold text-white text-lg shadow transition hover:scale-105';
+btn.style.backgroundColor = colorValues[color];
+btn.textContent = colorNames.find(c => c.en === color).ar;
+btn.onclick = () => checkAnswer(color);
+container.appendChild(btn);
+});
+}
+function checkAnswer(color) {
+if (paused) return;
+initAudio();
+document.querySelectorAll('#options-container button').forEach(b => b.onclick = null);
+if (color === currentCorrectColor) {
+playSound(523, 'sine', 0.2);
+correct++;
+let pts = 10 + Math.floor(Math.random() * 5);
+score += pts;
+$('score-display').textContent = score;
+$('feedback').textContent = `✅ +${pts}`;
+$('feedback').className = 'h-6 text-sm font-bold text-emerald-600';
+} else {
+playSound(200, 'square', 0.3);
+$('feedback').textContent = '❌';
+$('feedback').className = 'h-6 text-sm font-bold text-red-600';
+}
+setTimeout(nextRound, 600);
+}
+function endGame() {
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-score').textContent = score;
+$('final-correct').textContent = correct;
+if (score > best) { best = score; try { localStorage.setItem('color-guess-best', best); } catch(e) {} }
+$('final-best').textContent = best;
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+document.addEventListener('keydown', e => {
+if (e.key === 'Escape' && !$('play-screen').classList.contains('hidden')) {
+paused = !paused;
+$('feedback').textContent = paused ? '⏸️ إيقاف مؤقت' : '';
+$('feedback').className = paused ? 'h-6 text-sm font-bold text-slate-500' : 'h-6 text-sm font-bold';
+}
+});
+</script>
+</body>
+</html>

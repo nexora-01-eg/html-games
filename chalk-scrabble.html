@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سباق الحروف 🔤</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a2332;color:#e0f0e8;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#4ade80;text-shadow:0 0 12px rgba(74,222,128,.3)}
+.sub{font-size:.75rem;color:rgba(224,240,232,.45);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:1.5px solid rgba(74,222,128,.35);border-radius:999px;color:#4ade80}
+.btn{font-family:inherit;background:#4ade80;color:#1a2332;border:none;padding:.55rem 1.5rem;font-weight:900;border-radius:10px;cursor:pointer;box-shadow:0 0 14px rgba(74,222,128,.3);transition:all .08s}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:scale(.96)}
+.letters{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:1rem 0}
+.letter{width:50px;height:50px;display:flex;align-items:center;justify-content:center;
+border:2px solid rgba(74,222,128,.3);border-radius:10px;font-size:1.3rem;font-weight:900;
+color:#4ade80;background:rgba(74,222,128,.06);cursor:pointer;transition:all .1s;user-select:none}
+.letter:hover{background:rgba(74,222,128,.15);border-color:#4ade80}
+.letter:active{transform:scale(.9)}
+.letter.used{opacity:.3;pointer-events:none}
+#wordArea{min-height:50px;padding:.5rem;border:2px dashed rgba(74,222,128,.3);border-radius:12px;
+text-align:center;font-size:1.5rem;font-weight:900;color:#4ade80;margin:.5rem 0;min-width:260px;
+letter-spacing:4px}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;color:#4ade80}
+.timer{width:260px;height:5px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;margin-bottom:.5rem}
+.timer>div{height:100%;background:#4ade80;border-radius:99px;transition:width .1s linear}
+</style>
+</head>
+<body>
+<h1>🔤 سباق الحروف</h1>
+<p class="sub">رتّب الحروف واطلع أكبر كلمة عربية</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">٧ حروف عربية عشوائية — اكتب أطول كلمة ممكنة<br>كلما زادت الكلمة زادت النقاط</p>
+<button onclick="start()" class="btn">ابدأ السباق 🔤</button>
+<p style="font-size:.7rem;opacity:.4;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/٦</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>⏱ <b id="timeEl">٢٥</b>s</span>
+<button class="btn" style="padding:2px 10px" onclick="togglePause()" id="pauseBtn">⏸</button>
+</div>
+<div class="timer"><div id="timerBar" style="width:100%"></div></div>
+<div id="wordArea">_</div>
+<div class="letters" id="lettersRow"></div>
+<div style="display:flex;gap:8px;justify-content:center;margin:.5rem 0">
+<button class="btn" onclick="submitWord()">✓ كلمة</button>
+<button class="btn" onclick="clearWord()" style="background:rgba(255,255,255,.1);color:#4ade80;border:1px solid rgba(74,222,128,.3)">↺ مسح</button>
+<button class="btn" onclick="shuffleLetters()" style="background:rgba(255,255,255,.1);color:#4ade80;border:1px solid rgba(74,222,128,.3)">🔀</button>
+</div>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='chalk-scrabble-best';
+let rz=0,score=0,best=0,ac=null,over=true,timer=null,timeLeft=0,letters=[],current='',usedIdx=new Set(),words=[],paused=false,timeBase=25;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){};
+const LETTERS='ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+const COMMON=new Set(['اء','ال','لا','من','في','على','هذا','تلك','كل','بعض','قد','ما','اسبة','جبل','بحر','سماء','نار','ماء','تمر','باب','قلب','عين','رأس','يد','رجل','وجه','مصر','عرب','ترك','ورد','دار','بين']);
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function genLetters(){
+const pool=[];
+for(let i=0;i<7;i++)pool.push(LETTERS[Math.floor(Math.random()*LETTERS.length)]);
+const mustHave=['ا','ب','ت','ق','م','ل','ن','و','ر','س','ع','ك'].sort(()=>Math.random()-.5).slice(0,3);
+mustHave.forEach(c=>{if(!pool.includes(c))pool[Math.floor(Math.random()*7)]=c;});
+return pool;
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+$('pauseBtn').textContent=paused?'▶':'⏸';
+}
+document.addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P'||e.key==='Escape')togglePause();});
+function start(){rz=0;score=0;paused=false;$('pauseBtn').textContent='⏸';$('scoreEl').textContent='٠';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');nextRound();}
+function nextRound(){
+rz++;$('rzEl').textContent=AR(rz);$('rzMsg').textContent='';
+letters=genLetters();current='';usedIdx=new Set();words=[];
+renderLetters();$('wordArea').textContent='_';
+timeBase=Math.max(12,24-Math.floor(rz/2)*3);timeLeft=timeBase;$('timeEl').textContent=AR(timeLeft);
+$('timerBar').style.width='100%';
+clearInterval(timer);over=false;paused=false;$('pauseBtn').textContent='⏸';
+timer=setInterval(()=>{
+if(paused)return;
+timeLeft--;$('timeEl').textContent=AR(timeLeft);
+$('timerBar').style.width=(timeLeft/timeBase*100)+'%';
+if(timeLeft<=0){clearInterval(timer);over=true;$('rzMsg').textContent='⏰ خلص الوقت! كلماتك: '+words.length;
+rz>=6?finish():setTimeout(nextRound,1200);}},1000);
+}
+function renderLetters(){
+const row=$('lettersRow');row.innerHTML='';
+letters.forEach((l,i)=>{
+const d=document.createElement('div');d.className='letter'+(usedIdx.has(i)?' used':'');
+d.textContent=l;
+d.onclick=()=>{if(over||paused||usedIdx.has(i))return;usedIdx.add(i);current+=l;
+$('wordArea').textContent=current;snd(500+i*30,.04,'sine',.03);renderLetters();};
+row.appendChild(d);
+});
+}
+function clearWord(){if(over||paused)return;usedIdx.clear();current='';$('wordArea').textContent='_';renderLetters();}
+function shuffleLetters(){
+if(over||paused)return;
+for(let i=letters.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[letters[i],letters[j]]=[letters[j],letters[i]];}
+renderLetters();
+}
+function submitWord(){
+if(over||paused||current.length<2){$('rzMsg').textContent='⏸ كلمتين على الأقل';return;}
+if(words.includes(current)){$('rzMsg').textContent='❌ الكلمة اتكررت!';return;}
+words.push(current);
+const gain=current.length*15;
+score+=gain;$('scoreEl').textContent=AR(score);
+$('rzMsg').textContent='✅ '+AR(current.length)+' حروف +'+AR(gain);
+snd(600+current.length*30,.08,'sine',.04);
+usedIdx.clear();current='';$('wordArea').textContent='_';renderLetters();
+}
+function finish(){
+over=true;clearInterval(timer);
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid rgba(74,222,128,.3);border-radius:16px;padding:2rem;max-width:320px;background:rgba(74,222,128,.03)">
+<p style="font-size:2rem">🔤</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#4ade80">انتهى السباق!</h2>
+<p style="font-size:2rem;font-weight:900;color:#4ade80">${AR(score)}</p>
+<p style="font-size:.8rem;opacity:.6;margin:.3rem 0">${AR(words.length)} كلمة من القائمة</p>
+<p style="font-size:.75rem;opacity:.5" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score);}catch(e){}
+}
+</script>
+</body>
+</html>

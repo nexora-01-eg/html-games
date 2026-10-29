@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ذاكرة الألوان ♟</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',monospace;background:#fafafa;color:#0a0a0a;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:2rem;font-weight:900;letter-spacing:-1px;margin-bottom:.3rem}
+.sub{font-size:.75rem;color:#666;margin-bottom:1.5rem;letter-spacing:.5px}
+.hud{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.2rem}
+.hud span{font-size:.8rem;font-weight:700;padding:.2rem .6rem;border:1.5px solid #0a0a0a}
+.btn{font-family:inherit;background:#0a0a0a;color:#fafafa;border:none;padding:.55rem 1.6rem;
+font-weight:900;font-size:.85rem;cursor:pointer;letter-spacing:.5px;transition:all .08s}
+.btn:hover{background:#333}
+.btn:active{transform:scale(.96)}
+.btn.outline{background:transparent;color:#0a0a0a;border:1.5px solid #0a0a0a}
+.btn.outline:hover{background:#0a0a0a;color:#fafafa}
+.seq{display:flex;gap:10px;justify-content:center;margin:1.2rem 0}
+.dot{width:44px;height:44px;border-radius:50%;border:2px solid #0a0a0a;transition:all .15s}
+.dot.show{transform:scale(1.25);box-shadow:0 0 0 3px #0a0a0a}
+.opts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:1rem}
+.opt{width:48px;height:48px;border-radius:50%;border:2.5px solid #0a0a0a;cursor:pointer;
+transition:all .1s}
+.opt:hover{transform:scale(1.15);box-shadow:0 0 0 3px #0a0a0a}
+.opt:active{transform:scale(.92)}
+.qText{font-size:1.1rem;font-weight:900;margin:1rem 0 .5rem;text-align:center}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.6rem}
+</style>
+</head>
+<body>
+
+<h1>♟ ذاكرة الألوان</h1>
+<p class="sub">تسلسل لوني سريع — تتذكر أماكنه</p>
+
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;color:#666;margin-bottom:1.2rem">٥ جولات — كل جولة لون أكتر وبظهور أسرع<br>اختار اللون الصح من الشريط</p>
+<button onclick="start()" class="btn">ابدأ ♟</button>
+<p style="font-size:.7rem;color:#999;margin-top:.8rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/٥</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>🔥 <b id="streakEl">٠</b></span>
+<span>⏱ <b id="timeEl">—</b></span>
+</div>
+<div class="seq" id="seqRow"></div>
+<div id="qBox" class="text-center hidden">
+<p class="qText" id="qText"></p>
+<div class="opts" id="optsRow"></div>
+</div>
+<div class="msg" id="rzMsg"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='chess-colormem-best';
+const COLORS=['#e63946','#2a9d8f','#e9c46a','#457b9d','#f4a261','#264653'];
+const CNAME=['أحمر','أخضر','أصفر','أزرق','برتقالي','كحلي'];
+let patterns=[],rz=0,score=0,streak=0,best=0,ac=null;try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.08));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.08));}catch(e){}}
+function genPattern(){
+const len=5+rz;
+const seq=Array.from({length:len},()=>Math.floor(Math.random()*6));
+const pos=Math.floor(Math.random()*len);
+const answer=seq[pos];
+return{seq,pos,answer,len};
+}
+function start(){
+rz=0;score=0;streak=0;patterns=[];
+$('scoreEl').textContent='٠';$('streakEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+nextRound();
+}
+function nextRound(){
+patterns.push(genPattern());
+const p=patterns[rz];
+$('rzEl').textContent=AR(rz+1);
+$('rzMsg').textContent='';
+$('qBox').classList.add('hidden');
+const row=$('seqRow');row.innerHTML='';
+for(let i=0;i<p.len;i++){
+const d=document.createElement('div');
+d.className='dot';d.style.background='#ddd';
+row.appendChild(d);
+}
+const dots=row.querySelectorAll('.dot');
+const ms=Math.max(300,650-rz*60);
+$('timeEl').textContent=ms+'ms';
+let i=0;
+function showNext(){
+if(i>=p.len){
+setTimeout(()=>askQuestion(p),400);
+return;
+}
+dots.forEach((d,j)=>{
+d.classList.remove('show');
+d.style.background=j<=i-1?COLORS[p.seq[j]]:'#ddd';
+});
+dots[i].style.background=COLORS[p.seq[i]];
+dots[i].classList.add('show');
+snd(400+i*40,.06,'sine',.03);
+i++;
+setTimeout(showNext,ms);
+}
+showNext();
+}
+function askQuestion(p){
+$('qBox').classList.remove('hidden');
+$('qText').textContent='اللون في المكان '+AR(p.pos+1)+'؟';
+const opts=new Set([p.answer]);
+while(opts.size<6){
+opts.add(Math.floor(Math.random()*6));
+}
+const row=$('optsRow');row.innerHTML='';
+[...opts].sort(()=>Math.random()-.5).forEach(ci=>{
+const b=document.createElement('button');
+b.className='opt';b.style.background=COLORS[ci];b.dataset.ci=ci;
+b.title=CNAME[ci];
+const start=performance.now();
+b.onclick=()=>{
+const rt=performance.now()-start;
+document.querySelectorAll('.opt').forEach(x=>x.style.pointerEvents='none');
+if(ci===p.answer){
+const bonus=Math.max(0,Math.round(3000-rt));
+score+=100+bonus;streak++;
+$('scoreEl').textContent=AR(score);
+$('streakEl').textContent=AR(streak);
+$('rzMsg').textContent='✅ +'+AR(100+bonus)+' ('+AR(Math.round(rt))+'ms)';
+snd(600,.1,'sine',.04);
+}else{
+streak=0;$('streakEl').textContent='٠';
+$('rzMsg').textContent='❌ كان: '+CNAME[p.answer];
+snd(180,.18,'square',.04);
+b.style.outline='3px solid #ff0000';
+document.querySelectorAll('.opt').forEach(x=>{if(parseInt(x.dataset.ci)===p.answer)x.style.outline='3px solid #fff';});
+}
+rz++;
+rz>=5?finish():setTimeout(nextRound,1000);
+};
+row.appendChild(b);
+});
+}
+document.addEventListener('keydown',e=>{
+const n=parseInt(e.key,10);
+if(n>=1&&n<=6){const os=$('optsRow').querySelectorAll('.opt');if(os[n-1])os[n-1].click();}
+});
+function finish(){
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid #0a0a0a;padding:2rem;max-width:320px">
+<p style="font-size:2rem;margin-bottom:.5rem">♟</p>
+<h2 style="font-size:1.3rem;font-weight:900;margin-bottom:.3rem">انتهت الجولة!</h2>
+<p style="font-size:2rem;font-weight:900">${AR(score)}</p>
+<p style="font-size:.8rem;color:#666;margin:.6rem 0" id="finMsg"></p>
+<button onclick="location.reload()" class="btn" style="margin-top:.5rem">جولة جديدة ↻</button>
+</div>`;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('finMsg').textContent=score>v&&score>0?'رقم قياسي جديد!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score);}catch(e){}
+[600,750,900].forEach((f,i)=>setTimeout(()=>snd(f,.12,'triangle'),i*100));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شفق الجليد 🧊</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#04080f;color:#d9f2ef;min-height:100vh;overflow:hidden}
+.aurora{position:absolute;width:70vw;height:46vh;border-radius:50%;filter:blur(90px);opacity:.32;pointer-events:none}
+.a1{background:#00ff9d;top:-18%;right:-10%;animation:aumove1 13s ease-in-out infinite alternate}
+.a2{background:#4cc9f0;bottom:-20%;left:-12%;animation:aumove2 17s ease-in-out infinite alternate}
+.a3{background:#7b2ff7;top:30%;left:30%;opacity:.18;animation:aumove1 21s ease-in-out infinite alternate-reverse}
+@keyframes aumove1{to{transform:translate(-90px,60px) rotate(14deg)}}
+@keyframes aumove2{to{transform:translate(80px,-50px) rotate(-10deg)}}
+.star{position:fixed;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.6}
+.cell{aspect-ratio:1;border-radius:.9rem;background:#0c1622;border:1px solid rgba(120,220,210,.16);cursor:pointer;transition:background .12s,box-shadow .12s}
+.cell:hover{border-color:rgba(120,220,210,.45)}
+.cell.on{background:radial-gradient(circle at 38% 30%,#b8fff1,#19d3a2 60%,#089179);box-shadow:0 0 22px rgba(25,211,162,.75);border-color:#8ffce0}
+.panelau{background:rgba(6,14,24,.72);border:1px solid rgba(120,220,210,.22);backdrop-filter:blur(10px);border-radius:1.4rem}
+.chipa{font-size:.85rem;font-weight:800;padding:.3rem 1rem;border-radius:999px;background:rgba(10,26,38,.8);border:1px solid rgba(120,220,210,.25)}
+.btn-au{background:linear-gradient(180deg,#19d3a2,#0a8f74);color:#03211a;font-weight:900;border-radius:999px;box-shadow:0 6px 0 #065f4c;transition:all .09s}
+.btn-au:hover{filter:brightness(1.08)}
+.btn-au:active{transform:translateY(4px);box-shadow:0 2px 0 #065f4c}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+</style>
+</head>
+<body class="select-none">
+<div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="panelau px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🧊</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3" style="color:#19d3a2;text-shadow:0 0 24px rgba(25,211,162,.55)">شفق الجليد</h1>
+<p class="leading-relaxed mb-2">كل نقرة تُقلب الخلية <b>وجيرانها الأربعة</b>.<br>الهدف: إطفاء الشبكة كاملة ✨</p>
+<p class="text-sm opacity-60 mb-8">٣ مستويات بتشويش متصاعد · السرعة والاقتصاد في الحركات = نقاط أعلى</p>
+<button onclick="start()" class="btn-au px-14 py-3.5 text-xl">أضئ الشفق ❄️</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#19d3a2]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-sm relative">
+<div class="flex justify-between items-center mb-4 flex-wrap gap-1.5">
+<span class="chipa">المستوى <span id="lvlEl" class="text-[#19d3a2] font-black">١</span>/٣</span>
+<span class="chipa">حركات <span id="movesEl" class="font-black">٠</span></span>
+<span class="chipa">⏱ <span id="secsEl" class="text-[#19d3a2] font-black">٠</span>ث</span>
+<span class="chipa !cursor-pointer" onclick="togglePause()" id="pauseChip">⏸ وقفة</span>
+</div>
+<div id="gridEl" class="grid gap-2.5 panelau p-3.5" style="grid-template-columns:repeat(5,minmax(0,1fr))"></div>
+<div id="msg" class="h-9 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden panelau px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🌌</div>
+<h2 class="text-3xl font-black mb-6" style="color:#19d3a2">أظلمت القطبية!</h2>
+<div id="finalScore" class="text-6xl font-black mb-3" style="color:#4cc9f0">٠</div>
+<p id="endMsg" class="opacity-75 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-au px-12 py-3 text-lg">ليل آخر ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const N=5,bestKey='aurora-lights-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let state=[],level=1,moves=0,t0=0,timer=null,over=true,ac=null,paused=false,pauseCum=0,pauseAt=0,transLock=false;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+for(let i=0;i<26;i++){
+const s=document.createElement('span');
+s.className='star';
+s.style.left=Math.random()*100+'vw';s.style.top=Math.random()*100+'vh';
+s.style.opacity=(.2+Math.random()*.6);
+document.body.appendChild(s);
+}
+const nbrs=i=>{
+const r=Math.floor(i/N),c=i%N,out=[i];
+if(r>0)out.push(i-N);if(r<N-1)out.push(i+N);
+if(c>0)out.push(i-1);if(c<N-1)out.push(i+1);
+return out;
+};
+function toggle(i,silent){
+nbrs(i).forEach(j=>state[j]=!state[j]);
+if(!silent){moves++;$('movesEl').textContent=AR(moves);snd(420+i*12,.07,'sine',.045);}
+render();
+}
+function isWin(){return state.every(v=>!v);}
+function render(){
+[...$('gridEl').children].forEach((c,i)=>c.classList.toggle('on',state[i]));
+}
+function buildGrid(){
+const g=$('gridEl');g.innerHTML='';
+for(let i=0;i<N*N;i++){
+const b=document.createElement('button');
+b.className='cell';
+b.onclick=()=>{if(over||transLock||paused)return;toggle(i);checkWin();};
+g.appendChild(b);
+}
+}
+buildGrid();
+function newLevel(){
+state=Array(N*N).fill(false);
+const k=Math.min(6+level*2,14);
+const picks=new Set();
+while(picks.size<k)picks.add(Math.floor(Math.random()*N*N));
+picks.forEach(i=>toggle(i,true));
+moves=0;$('movesEl').textContent='٠';
+$('lvlEl').textContent=AR(level);
+render();
+}
+function liveSecs(){return Math.floor((performance.now()-t0-pauseCum)/1000);}
+function pulseTimer(){
+clearInterval(timer);
+timer=setInterval(()=>{$('secsEl').textContent=AR(liveSecs());},1000);
+}
+function start(){
+level=1;over=false;paused=false;pauseCum=0;t0=performance.now();
+window.__total=0;window.__tmoves=0;
+$('pauseChip').textContent='⏸ وقفة';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+newLevel();
+pulseTimer();
+snd(520,.12,'sine',.05);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+$('pauseChip').textContent=paused?'▶ كمّل':'⏸ وقفة';
+if(paused){pauseAt=performance.now();clearInterval(timer);}
+else{pauseCum+=performance.now()-pauseAt;pauseAt=0;pulseTimer();$('secsEl').textContent=AR(liveSecs());}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();});
+function checkWin(){
+if(!isWin())return;
+clearInterval(timer);
+transLock=true;
+const secs=Math.round((performance.now()-t0-pauseCum)/1000);
+const gain=Math.max(50,500-moves*15-secs*4)+level*100;
+window.__total=(window.__total||0)+gain;
+window.__tmoves=(window.__tmoves||0)+moves;
+$('msg').textContent=`✨ أضاء المستوى ${AR(level)} في ${AR(moves)} حركة!`;
+$('msg').style.color='#19d3a2';
+[700,900,1150].forEach((f,i)=>setTimeout(()=>snd(f,.13,'triangle',.05),i*110));
+setTimeout(()=>{
+level++;
+window.__tmoves=window.__tmoves||0;
+if(level>3)return finish();
+$('msg').textContent='';
+t0=performance.now();pauseCum=0;
+timer=setInterval(()=>{$('secsEl').textContent=AR(Math.round((performance.now()-t0-pauseCum)/1000));},1000);
+newLevel();
+transLock=false;
+},1400);
+}
+function finish(){
+transLock=true;
+clearInterval(timer);
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(window.__total||0);
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m=`${window.__tmoves||0} حركة عبر ٣ ليالٍ قطبية.`;
+if((window.__total||0)>v&&window.__total>0){try{localStorage.setItem(bestKey,window.__total);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+window.__total=0;window.__tmoves=0;
+[659,784,1046].forEach((f,i)=>setTimeout(()=>snd(f,.18,'triangle',.05),i*150));
+}
+</script>
+</body>
+</html>

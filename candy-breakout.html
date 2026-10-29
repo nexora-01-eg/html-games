@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بريك الحلوى 🍬</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;color:#4a1d2e;
+background:#fff5f8;
+background-image:repeating-linear-gradient(45deg,rgba(255,92,138,.06) 0 22px,#fff5f8 22px 44px)}
+.chipc{background:#ffe3ec;border:1.5px solid #ffb3c9;border-radius:999px;padding:.28rem 1rem;font-weight:800;font-size:.85rem;color:#c2255c}
+.cpanel{background:#fff;border:3px solid #ff5c8a;border-radius:1.4rem;box-shadow:0 14px 36px rgba(255,92,138,.25);position:relative}
+.btn-candy{background:linear-gradient(180deg,#ff8fab,#ff5c8a);color:#fff;font-weight:900;border-radius:999px;
+box-shadow:0 5px 0 #d6336c;transition:all .09s}
+.btn-candy:hover{filter:brightness(1.05)}
+.btn-candy:active{transform:translateY(4px);box-shadow:none}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+background:rgba(255,245,248,.92);border-radius:calc(1.4rem - 4px);z-index:5;text-align:center;padding:1rem}
+canvas{display:block;border-radius:calc(1.4rem - 4px);touch-action:none}
+.shake{animation:sh .3s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-4">
+<h1 class="text-4xl font-black" style="color:#ff5c8a">بريك الحلوى 🍬</h1>
+<p class="text-sm opacity-60 mt-1">حرّك المضرب بالماوس أو الأسهم · مسافة/دوس لإطلاق الكرة</p>
+</header>
+
+<div class="flex gap-2 justify-center flex-wrap mb-3">
+<span class="chipc">⭐ <span id="scoreEl" class="font-black">٠</span></span>
+<span class="chipc">🍬 <span id="livesEl" class="font-black">٣</span></span>
+<span class="chipc">المستوى <span id="lvlEl" class="font-black">١</span>/٣</span>
+<span class="chipc">أفضل: <span id="bestEl" class="font-black">—</span></span>
+<span class="chipc !cursor-pointer" onclick="togglePause()" id="pauseChip">⏸ وقفة</span>
+</div>
+
+<div class="cpanel">
+<canvas id="cv" width="430" height="470"></canvas>
+
+<div id="startOv" class="overlay">
+<div class="text-5xl mb-2">🧁</div>
+<div class="text-xl font-black text-[#c2255c] mb-1">جاهزة للحلويات؟</div>
+<p class="text-sm opacity-70 mb-4 leading-relaxed">كسّر كل الطبقات الثلاثة…<br>الصفوف العليا نقاطها أكبر!</p>
+<button onclick="start()" class="btn-candy px-12 py-3 text-lg">يلا نبدأ 🍓</button>
+</div>
+
+<div id="endOv" class="overlay hidden">
+<div class="text-5xl mb-2" id="endIcon">🍰</div>
+<div class="text-xl font-black text-[#c2255c] mb-2" id="endTitle"></div>
+<div class="text-sm opacity-75 mb-4">نتيجتك: <b id="finalScore" class="text-[#ff5c8a]">٠</b></div>
+<div class="text-sm mb-2" id="endBestLine"></div>
+<button onclick="start()" class="btn-candy px-10 py-2.5">تاني ↻</button>
+</div>
+</div>
+
+<div id="msg" class="h-8 mt-3 text-center font-bold text-[#c2255c]"></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='candy-breakout-best';
+const ROWS=5,COLS=7,BW=52,BH=20,GAP=6,TOP=46;
+const ROWCOLORS=['#ff5c8a','#ff8fab','#ffa94d','#ffd43b','#63e6be'];
+let bricks=[],ball=null,padX=215,score=0,lives=3,level=1,stuck=true,
+raf=null,lastTs=0,over=true,ac=null,parts=[],paused=false;
+const keys={};
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const W=cv.width,H=cv.height,PADW=78,PADH=13,PADY=H-30;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.045,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.08));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.08));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestEl').textContent=v?AR(v):'—';}
+loadBest();
+function buildBricks(){
+bricks=[];
+for(let r=0;r<ROWS;r++)
+for(let c=0;c<COLS;c++){
+const x=14+c*(BW+GAP);
+if(x+BW>W-10)continue;
+bricks.push({x,y:TOP+r*(BH+GAP),r,hp:r<2&&level===3?2:1});
+}
+}
+function resetBall(){
+stuck=true;
+ball={x:padX,y:PADY-12,vx:0,vy:0};
+}
+function launch(){
+if(!stuck||over)return;
+const sp=300+level*38;
+const ang=(-60-Math.random()*50)*Math.PI/180;
+ball.vx=Math.cos(ang)*sp*(Math.random()<.5?-1:1)*.55;
+ball.vy=Math.sin(ang)*sp;
+stuck=false;
+snd(700,.09,'triangle');
+}
+function start(){
+score=0;lives=3;level=1;over=false;parts=[];paused=false;
+$('scoreEl').textContent='٠';$('livesEl').textContent='٣';$('lvlEl').textContent='١';
+$('pauseChip').textContent='⏸ وقفة';
+$('msg').textContent='';
+buildBricks();
+resetBall();
+$('startOv').classList.add('hidden');
+$('endOv').classList.add('hidden');
+lastTs=performance.now();
+cancelAnimationFrame(raf);
+raf=requestAnimationFrame(tick);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+$('pauseChip').textContent=paused?'▶ كمّل':'⏸ وقفة';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')togglePause();});
+function tick(ts){
+if(over)return;
+if(paused){lastTs=ts;raf=requestAnimationFrame(tick);return;}
+const dt=Math.min(.033,((ts-lastTs)||16)/1000);
+lastTs=ts;
+if(keys.l)padX-=420*dt;
+if(keys.r)padX+=420*dt;
+padX=Math.max(PADW/2,Math.min(W-PADW/2,padX));
+if(stuck){ball.x=padX;ball.y=PADY-12;}
+else{
+ball.x+=ball.vx*dt;
+ball.y+=ball.vy*dt;
+if(ball.x<9){ball.x=9;ball.vx=Math.abs(ball.vx);snd(500,.04);}
+if(ball.x>W-9){ball.x=W-9;ball.vx=-Math.abs(ball.vx);snd(500,.04);}
+if(ball.y<9){ball.y=9;ball.vy=Math.abs(ball.vy);snd(500,.04);}
+if(ball.vy>0&&ball.y>=PADY-10&&ball.y<=PADY+8&&Math.abs(ball.x-padX)<=PADW/2+8){
+const off=Math.max(-1,Math.min(1,(ball.x-padX)/(PADW/2)));
+const sp=Math.min(560,Math.hypot(ball.vx,ball.vy)+4);
+ball.vx=off*sp*.72;
+ball.vy=-Math.sqrt(Math.max(sp*sp-Math.pow(off*sp*.72,2),sp*sp*.22));
+snd(340,.06,'triangle');
+}
+for(let i=bricks.length-1;i>=0;i--){
+const b=bricks[i];
+if(ball.x>b.x-8&&ball.x<b.x+BW+8&&ball.y>b.y-8&&ball.y<b.y+BH+8){
+b.hp--;
+const fromSide=Math.min(Math.abs(ball.x-b.x),Math.abs(ball.x-(b.x+BW)))<
+Math.min(Math.abs(ball.y-b.y),Math.abs(ball.y-(b.y+BH)));
+if(fromSide)ball.vx*=-1;else ball.vy*=-1;
+snd(600+b.r*90,.07,'triangle');
+if(b.hp<=0){
+bricks.splice(i,1);
+score+=10*(ROWS-b.r);
+$('scoreEl').textContent=AR(score);
+for(let p=0;p<6;p++)parts.push({x:b.x+BW/2,y:b.y+BH/2,vx:(Math.random()-.5)*220,vy:(Math.random()-.5)*220,t:.4,c:ROWCOLORS[b.r]});
+}
+break;
+}
+}
+if(!bricks.length){
+level++;
+if(level>3)return finish(true);
+$('lvlEl').textContent=AR(level);
+$('msg').textContent=`🍭 طبقة ${AR(level)}! السرعة زادت`;
+buildBricks();
+resetBall();
+[660,880].forEach((f,i)=>setTimeout(()=>snd(f,.12,'triangle'),i*110));
+renderFrame();
+raf=requestAnimationFrame(tick);
+return;
+}
+if(ball.y>H+16){
+lives--;
+$('livesEl').textContent=AR(lives);
+document.querySelector('.cpanel').classList.add('shake');
+setTimeout(()=>document.querySelector('.cpanel').classList.remove('shake'),320);
+snd(140,.25,'sawtooth',.06);
+if(lives<=0)return finish(false);
+resetBall();
+}
+}
+parts.forEach(p=>{p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;});
+parts=parts.filter(p=>p.t>0);
+renderFrame();
+raf=requestAnimationFrame(tick);
+}
+function rr(x,y,w,h,r){
+cx.beginPath();
+cx.moveTo(x+r,y);
+cx.arcTo(x+w,y,x+w,y+h,r);
+cx.arcTo(x+w,y+h,x,y+h,r);
+cx.arcTo(x,y+h,x,y,r);
+cx.arcTo(x,y,x+w,y,r);
+cx.closePath();
+}
+function renderFrame(){
+cx.fillStyle='#fff7fa';
+cx.fillRect(0,0,W,H);
+bricks.forEach(b=>{
+cx.fillStyle=ROWCOLORS[b.r];
+rr(b.x,b.y,BW,BH,5);cx.fill();
+cx.fillStyle='rgba(0,0,0,.12)';
+rr(b.x,b.y+BH-5,BW,5,3);cx.fill();
+if(b.hp>1){
+cx.strokeStyle='#fff';cx.lineWidth=2;
+rr(b.x+3,b.y+3,BW-6,BH-6,4);cx.stroke();
+}
+});
+parts.forEach(p=>{
+cx.globalAlpha=p.t/.4;
+cx.fillStyle=p.c;
+cx.fillRect(p.x-2,p.y-2,5,5);
+cx.globalAlpha=1;
+});
+cx.fillStyle='#ff5c8a';
+rr(padX-PADW/2,PADY,PADW,PADH,7);cx.fill();
+cx.fillStyle='#fff';
+rr(padX-PADW/2+6,PADY+3,PADW-12,4,2);cx.fill();
+cx.beginPath();
+cx.fillStyle='#c2255c';
+cx.arc(ball.x,ball.y,8,0,7);
+cx.fill();
+cx.fillStyle='rgba(255,255,255,.85)';
+cx.beginPath();cx.arc(ball.x-2.5,ball.y-2.5,2.6,0,7);cx.fill();
+if(stuck&&!over){
+cx.fillStyle='rgba(194,37,92,.55)';
+cx.font='bold 15px sans-serif';
+cx.textAlign='center';
+cx.fillText('دوس المسافة أو اضغط للإطلاق ↑',W/2,H-64);
+}
+if(paused){
+cx.fillStyle='rgba(255,255,255,.6)';
+cx.fillRect(0,0,W,H);
+cx.fillStyle='#c2255c';
+cx.font='bold 26px sans-serif';
+cx.textAlign='center';
+cx.fillText('⏸ وقفة',W/2,H/2);
+}
+}
+function finish(winFlag){
+over=true;
+cancelAnimationFrame(raf);
+$('endIcon').textContent=winFlag?'🏆':'🍩';
+$('endTitle').textContent=winFlag?'كسرت كل الحلوى!':'خلصت الكور!';
+$('finalScore').textContent=AR(score);
+if(winFlag)[660,880,1100,1320].forEach((f,i)=>setTimeout(()=>snd(f,.13,'triangle'),i*120));
+else[330,220].forEach((f,i)=>setTimeout(()=>snd(f,.2),i*150));
+$('endOv').classList.remove('hidden');
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let nb=score>v&&score>0;
+$('endBestLine').innerHTML=nb
+?'<span style="color:#ffd43b">🏆 رقم قياسي جديد!</span>'
+:`الأفضل: <b class="text-[#ff5c8a]">${AR(Math.max(v,score))}</b>`;
+if(nb){try{localStorage.setItem(bestKey,score);}catch(e){}loadBest();}
+}
+cv.addEventListener('pointermove',e=>{
+const r=cv.getBoundingClientRect();
+padX=(e.clientX-r.left)*(W/r.width);
+});
+cv.addEventListener('pointerdown',launch);
+document.addEventListener('keydown',e=>{
+if(e.code==='Space'){e.preventDefault();launch();}
+if(e.key==='ArrowLeft')keys.l=true;
+if(e.key==='ArrowRight')keys.r=true;
+});
+document.addEventListener('keyup',e=>{
+if(e.key==='ArrowLeft')keys.l=false;
+if(e.key==='ArrowRight')keys.r=false;
+});
+renderFrame();
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>فيزياء ارتداد الكرة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-teal-800 via-slate-800 to-slate-900 min-h-screen flex items-center justify-center text-white">
+<div id="app" class="w-full max-w-md p-6 text-center">
+<div id="startScreen">
+<h1 class="text-4xl font-black mb-4">🏀 فيزياء ارتداد الكرة</h1>
+<p class="text-teal-200 mb-6">ضع المنصات لترتد الكرة وتصل إلى النجم في ٨ مستويات!</p>
+<button id="startBtn" class="px-8 py-4 bg-teal-500 hover:bg-teal-400 rounded-2xl text-xl font-bold shadow-lg">ابدأ اللعب</button>
+<div class="mt-6 text-sm text-slate-400">الأفضل: <span id="bestDisplay">٠</span></div>
+</div>
+<div id="playScreen" class="hidden">
+<div class="flex justify-between items-center mb-3 text-sm">
+<span>المستوى: <span id="level">١</span>/٨</span>
+<span>النجوم: <span id="score">٠</span></span>
+</div>
+<canvas id="canvas" width="360" height="480" class="bg-slate-950 rounded-2xl mx-auto block mb-3"></canvas>
+<div class="flex justify-center gap-3 mb-2">
+<button id="addPlat" class="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-xl font-bold text-sm">إضافة منصة</button>
+<button id="resetPlat" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-xl font-bold text-sm">مسح المنصات</button>
+<button id="pauseBtn" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-xl font-bold text-sm">⏸ وقفة</button>
+</div>
+<div id="msg" class="text-sm h-6"></div>
+</div>
+<div id="finishScreen" class="hidden">
+<h2 class="text-3xl font-black mb-4">أنهيت المستويات! 🎉</h2>
+<p class="text-xl mb-4">إجمالي النجوم: <span id="finalScore">٠</span></p>
+<p id="isNewBest" class="text-yellow-400 text-sm mb-6">🎖️ رقم قياسي جديد!</p>
+<div class="text-slate-400 mb-6">الأفضل: <span id="finalBest">٠</span></div>
+<button id="restartBtn" class="px-8 py-4 bg-teal-500 hover:bg-teal-400 rounded-2xl text-xl font-bold">العب مرة أخرى</button>
+</div>
+</div>
+<script>
+let ctx,best,level,score,canvas,g,platforms,platformPressed,pressedPos,ball,starVX,starVY,starX,starY,ballX,ballY,ballVX,ballVY,winning,ballActive,paused=false,over=true;
+function init(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();let b=0;try{b=parseInt(localStorage.getItem('ball-bounce-best')||'0')||0;}catch(e){}best=b;document.getElementById('bestDisplay').textContent=best;}
+function tone(f,x,d){try{let o=ctx.createOscillator(),gg=ctx.createGain();o.type=f;o.frequency.value=x;o.connect(gg);gg.connect(ctx.destination);gg.gain.setValueAtTime(0.12,ctx.currentTime);gg.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.start();o.stop(ctx.currentTime+d);}catch(e){}}
+function setScreen(s){document.getElementById('startScreen').classList.toggle('hidden',s!=='start');document.getElementById('playScreen').classList.toggle('hidden',s!=='play');document.getElementById('finishScreen').classList.toggle('hidden',s!=='finish');}
+function toAr(n){return n.toLocaleString('ar-EG');}
+function setupLevel(){platforms=[];platformPressed=false;pressedPos={x:0,y:0};canvas=document.getElementById('canvas');g=canvas.getContext('2d');ballActive=false;winning=false;ballX=180;ballY=440;ballVX=0;ballVY=-200;starVX=40+level*14;starVY=90+level*18;starX=180;starY=100;let starts=[[30,280,150],[210,340,150],[90,260,120],[240,220,120]];let n=Math.min(2+Math.floor(level/2),4);for(let i=0;i<n;i++){let s=starts[i];platforms.push({x:s[0],y:s[1],w:s[2]});}render();}
+function render(){if(!canvas)return;g.clearRect(0,0,360,480);g.fillStyle='#fbbf24';g.beginPath();g.arc(starX,starY,12,0,Math.PI*2);g.fill();g.fillStyle='#f59e0b';g.font='16px sans-serif';g.textAlign='center';g.fillText('★',starX,starY+6);for(let i=0;i<platforms.length;i++){g.fillStyle='#2dd4bf';g.fillRect(platforms[i].x,platforms[i].y,platforms[i].w,12);}g.fillStyle='#dc2626';g.beginPath();g.arc(ballX,ballY,8,0,Math.PI*2);g.fill();}
+function step(){if(!canvas||!g){requestAnimationFrame(step);return;}if(over){return;}if(paused){requestAnimationFrame(step);return;}if(ballActive){ballVY+=220*0.016;ballX+=ballVX*0.016;ballY+=ballVY*0.016;if(ballX<8){ballX=8;ballVX=Math.abs(ballVX);}if(ballX>352){ballX=352;ballVX=-Math.abs(ballVX);}if(ballY>480){ballActive=false;tone('sawtooth',150,0.3);document.getElementById('msg').textContent='💥 سقطت الكرة! أعد المحاولة';}if(ballY<8){ballY=8;ballVY=Math.abs(ballVY);}for(let i=0;i<platforms.length;i++){let p=platforms[i];if(ballY+8>p.y&&ballY-8<p.y+12&&ballX>p.x&&ballX<p.x+p.w&&ballVY>0){ballY=p.y-8;ballVY=-Math.abs(ballVY)*0.85;ballVX=(ballX-(p.x+p.w/2))*2+20*((Math.random()-0.5)*2);tone('sine',400,0.08);}}let dx=ballX-starX,dy=ballY-starY;if(Math.sqrt(dx*dx+dy*dy)<22&&!winning){winning=true;ballActive=false;score++;tone('triangle',900,0.2);document.getElementById('msg').textContent='⭐ وصلت للنجم!';setTimeout(function(){level++;if(level>8){finish();}else{setupLevel();}},1200);}}else{starX+=starVX*0.016;starY+=starVY*0.016;if(starX<12||starX>348)starVX*=-1;if(starY<60||starY>460)starVY*=-1;}render();requestAnimationFrame(step);}
+canvas=document.getElementById('canvas');
+if(canvas){canvas.addEventListener('pointerdown',function(e){let r=canvas.getBoundingClientRect();let x=(e.clientX-r.left)*(360/r.width);let y=(e.clientY-r.top)*(480/r.height);platformPressed=true;pressedPos={x:x,y:y};});
+canvas.addEventListener('pointermove',function(e){if(platformPressed){let r=canvas.getBoundingClientRect();let x=(e.clientX-r.left)*(360/r.width);let y=(e.clientY-r.top)*(480/r.height);y=Math.max(20,Math.min(470,y));platforms.push({x:Math.min(Math.max(pressedPos.x,0),x),y:y,w:Math.abs(x-pressedPos.x)+10});platformPressed=false;}});
+canvas.addEventListener('pointerup',function(){platformPressed=false;});}
+document.getElementById('addPlat').onclick=addPlatform;
+function addPlatform(){platforms.push({x:120,y:200,w:120});tone('sine',500,0.08);}
+document.getElementById('resetPlat').onclick=function(){platforms=[];document.getElementById('msg').textContent='تم مسح المنصات';};
+document.getElementById('startBtn').onclick=function(){if(!ctx)init();level=1;score=0;paused=false;over=false;tone('sine',500,0.15);setScreen('play');setupLevel();};
+document.getElementById('pauseBtn').onclick=function(){if(document.getElementById('playScreen').classList.contains('hidden'))return;paused=!paused;this.textContent=paused?'▶ كمّل':'⏸ وقفة';tone('sine',paused?300:500,0.1);document.getElementById('msg').textContent=paused?'⏸ وقفة':' ';};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(!document.getElementById('playScreen').classList.contains('hidden')){var b=document.getElementById('pauseBtn');b.click();}}});
+function finish(){over=true;setScreen('finish');document.getElementById('finalScore').textContent=toAr(score);let nb=false;if(score>best){best=score;try{localStorage.setItem('ball-bounce-best',String(best));}catch(e){}nb=true;}document.getElementById('isNewBest').classList.toggle('hidden',!nb);document.getElementById('finalBest').textContent=toAr(best);tone('triangle',800,0.2);setTimeout(()=>tone('triangle',1000,0.2),150);}
+document.getElementById('restartBtn').onclick=function(){setScreen('start');init();};
+init();
+requestAnimationFrame(step);
+</script>
+</body>
+</html>

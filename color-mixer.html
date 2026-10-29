@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خلط الألوان</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#f5f0eb}
+.color-btn{width:100px;height:100px;border-radius:50%;border:4px solid white;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.2);transition:transform 0.15s}
+.color-btn:hover{transform:scale(1.1)}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-gray-800">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-amber-700">خلط الألوان</h1>
+<p class="mb-6 text-lg text-gray-500">اخلط لونين للوصول للون المستهدف</p>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-amber-500"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-2 text-lg font-bold"><span id="roundDisplay">الجولة: 1/8</span> | <span id="scoreDisplay">النقاط: 0</span></div>
+<p class="mb-4 text-gray-500">اختر لونين</p>
+<div id="targetColor" class="w-32 h-32 rounded-2xl mx-auto mb-4 border-4 border-gray-300"></div>
+<p id="pickCount" class="mb-3 text-sm text-gray-400">اختر اللون الأول</p>
+<div id="colorPalette" class="flex flex-wrap gap-4 justify-center mb-6"></div>
+<div id="previewMix" class="w-20 h-20 rounded-xl mx-auto border-2 border-gray-300 hidden mb-4"></div>
+<button id="mixBtn" onclick="confirmMix()" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-xl font-bold mb-4">خلط</button>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-amber-700">أحسنت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let round=0,score=0,picks=[],best=0;
+try{best=parseInt(localStorage.getItem('color-mix-best'))||0;}catch(e){}
+let primaries=[{name:'أحمر',r:220,g:40,b:40},{name:'أزرق',r:40,g:80,b:220},{name:'أصفر',r:240,g:220,b:40},{name:'أخضر',r:40,g:180,b:60},{name:'برتقالي',r:240,g:130,b:30},{name:'بنفسجي',r:140,g:50,b:200}];
+let targets=[{r:220,g:130,b:40,answer:'برتقالي',mix:'أحمر + أصفر'},{r:140,g:40,b:130,answer:'نحاسي غامق',mix:'أحمر + أزرق'},{r:140,g:200,b:50,answer:'أخضر فاتح',mix:'أصفر + أزرق'},{r:230,g:80,b:130,answer:'وردي',mix:'أحمر + أبيض'},{r:180,g:140,b:50,answer:'بني',mix:'برتقالي + أزرق'},{r:90,g:50,b:180,answer:'نيلي',mix:'بنفسجي + أزرق'},{r:200,g:200,b:60,answer:'زيتي',mix:'أخضر + أصفر'},{r:180,g:60,b:60,answer:'قرمزي',mix:'أحمر + أخضر'}];
+let targetInfo={};targets.forEach(t=>targetInfo[t.answer]=t.mix);
+function $(id){return document.getElementById(id)}
+function audioCtx(){return new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(f,t,d){let c=audioCtx(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل نتيجة: '+best:'لا توجد نتائج بعد';}
+function colorStr(c){return 'rgb('+c.r+','+c.g+','+c.b+')';}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+round=0;score=0;picks=[];showRound();
+}
+function showRound(){
+if(round>=8){if(score>best){best=score;localStorage.setItem('color-mix-best',best);}
+$('finalStats').textContent='النتيجة: '+score+' من 8';$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');return;}
+$('roundDisplay').textContent='الجولة: '+(round+1)+'/8';
+$('scoreDisplay').textContent='النقاط: '+score;
+let t=targets[round];$('targetColor').style.background=colorStr(t);
+$('pickCount').textContent='اختر اللون الأول';$('pickCount').dataset.step='1';
+picks=[];$('previewMix').classList.add('hidden');$('mixBtn').classList.add('hidden');
+let pal=$('colorPalette');pal.innerHTML='';
+primaries.forEach((p,i)=>{
+let b=document.createElement('button');b.className='color-btn';b.style.background=colorStr(p);b.title=p.name;
+b.onclick=()=>pickColor(i);pal.appendChild(b);
+});
+}
+function pickColor(i){
+if(picks.length===2)return;
+if(picks[0]===i)return;
+picks.push(i);
+if(picks.length===1){$('pickCount').textContent='اختر اللون الثاني';$('mixBtn').classList.remove('hidden');$('mixBtn').textContent='خلط';}
+else if(picks.length===2){let a=primaries[picks[0]],b=primaries[picks[1]];
+$('pickCount').textContent=a.name+' + '+b.name+' = ؟';$('mixBtn').textContent='تأكيد';}
+}
+function confirmMix(){
+if(picks.length<2)return;
+let a=primaries[picks[0]],b=primaries[picks[1]];
+let mixed={r:Math.round((a.r+b.r)/2),g:Math.round((a.g+b.g)/2),b:Math.round((a.b+b.b)/2)};
+$('previewMix').style.background=colorStr(mixed);$('previewMix').classList.remove('hidden');
+let t=targets[round];
+let dist=Math.sqrt(Math.pow(mixed.r-t.r,2)+Math.pow(mixed.g-t.g,2)+Math.pow(mixed.b-t.b,2));
+let got=false;
+if(dist<80){got=true;}
+else if(dist<150){
+let a2=primaries[picks[0]],b2=primaries[picks[1]];
+let targetMix=targetInfo[t.answer]||'';
+let usesA=targetMix.indexOf(a2.name)!==-1,usesB=targetMix.indexOf(b2.name)!==-1;
+if(usesA&&usesB)got=true;
+}
+if(got){score++;playTone(880,'sine',0.15);$('pickCount').textContent='✓ '+t.answer+'!'+(targetInfo[t.answer]?' ('+targetInfo[t.answer]+')':'');}
+else{playTone(200,'sawtooth',0.2);$('pickCount').textContent='❌ المطلوب: '+t.answer+' — '+targetInfo[t.answer];}
+round++;setTimeout(showRound,900);
+}
+goHome();
+</script>
+</body>
+</html>

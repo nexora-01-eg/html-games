@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تجنّب الأسهم</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-indigo-950 to-black min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">💫</div>
+<h1 class="text-3xl font-bold text-white mb-2">تجنّب الأسهم</h1>
+<p class="text-slate-300 mb-6">تحرك وتجنّب الأسهم واجمع النجوم</p>
+<div class="bg-white/10 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-300">الأفضل: <span id="best-display" class="font-bold text-yellow-400">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-6 border border-white/20">
+<div class="flex justify-between items-center mb-3">
+<span class="text-slate-300 font-bold">الوقت: <span id="time-display" class="text-yellow-400">0</span>ث</span>
+<span class="text-slate-300 font-bold">النقاط: <span id="score-display" class="text-yellow-400">0</span></span>
+<span class="text-slate-300 font-bold">⭐: <span id="stars-display">0</span></span>
+</div>
+<div id="game-board" class="mx-auto rounded-xl border border-indigo-500/30 overflow-hidden" style="width:350px;height:350px;position:relative;background:radial-gradient(circle at center,#1e1b4b,#0f172a)">
+<div id="player" style="position:absolute;width:24px;height:24px;background:#22c55e;border-radius:50%;z-index:10;transition:left 0.08s,top 0.08s"></div>
+</div>
+<p class="text-slate-400 text-xs mt-2">اسهم لوحة المفاتيح للحركة</p>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">💥</div>
+<h2 class="text-2xl font-bold text-white mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-300 mb-2">النقاط: <span id="final-score" class="font-bold text-yellow-400"></span></p>
+<p class="text-slate-300 mb-2">الوقت: <span id="final-time" class="font-bold text-yellow-400"></span>ث</p>
+<p class="text-slate-300 mb-2">النجوم: <span id="final-stars" class="font-bold text-yellow-400"></span></p>
+<p class="text-slate-300 mb-6">الأفضل: <span id="final-best" class="font-bold text-yellow-400"></span></p>
+<button onclick="startGame()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let playerX = 163, playerY = 163;
+let arrows = [], stars = [];
+let score = 0, starsCollected = 0, timeSurvived = 0;
+let best = 0;
+try { best = parseInt(localStorage.getItem('arrow-dodge-best') || '0') || 0; } catch (e) {}
+let gameTimer = null, arrowTimer = null, starTimer = null, moveTimer = null;
+let arrowInterval = 800;
+let keys = {};
+let gameOver = false;
+let paused = false;
+let touch = null;
+function startGame() {
+initAudio();
+clearInterval(gameTimer); clearInterval(arrowTimer);
+clearInterval(starTimer); clearInterval(moveTimer);
+score = 0; starsCollected = 0; timeSurvived = 0; gameOver = false; paused = false; arrowInterval = 800;
+playerX = 163; playerY = 163;
+arrows = []; stars = [];
+$('start-screen').classList.add('hidden');
+$('finish-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+$('score-display').textContent = 0;
+$('time-display').textContent = 0;
+$('stars-display').textContent = 0;
+$('player').style.left = playerX + 'px';
+$('player').style.top = playerY + 'px';
+gameTimer = setInterval(() => {
+timeSurvived++;
+$('time-display').textContent = timeSurvived;
+score = timeSurvived + starsCollected * 5;
+$('score-display').textContent = score;
+let ni = Math.max(260, 800 - timeSurvived * 8);
+if (ni !== arrowInterval) { arrowInterval = ni; clearInterval(arrowTimer); arrowTimer = setInterval(spawnArrow, arrowInterval); }
+}, 1000);
+arrowTimer = setInterval(spawnArrow, 800);
+starTimer = setInterval(spawnStar, 3000);
+moveTimer = setInterval(gameLoop, 30);
+}
+function spawnArrow() {
+if (gameOver || paused) return;
+let side = Math.floor(Math.random() * 4);
+let aEl = document.createElement('div');
+aEl.style.cssText = 'position:absolute;z-index:5;font-size:20px;transition:none;pointer-events:none;';
+let ax, ay, dx = 0, dy = 0;
+if (side === 0) { ax = Math.random() * 330; ay = -20; dy = 1; aEl.textContent = '⬇️'; }
+else if (side === 1) { ax = Math.random() * 330; ay = 370; dy = -1; aEl.textContent = '⬆️'; }
+else if (side === 2) { ax = 370; ay = Math.random() * 330; dx = -1; aEl.textContent = '⬅️'; }
+else { ax = -20; ay = Math.random() * 330; dx = 1; aEl.textContent = '➡️'; }
+aEl.style.left = ax + 'px';
+aEl.style.top = ay + 'px';
+$('game-board').appendChild(aEl);
+arrows.push({el:aEl, x:ax, y:ay, dx:dx*3, dy:dy*3});
+}
+function spawnStar() {
+if (gameOver || paused) return;
+let sEl = document.createElement('div');
+sEl.style.cssText = 'position:absolute;z-index:5;font-size:20px;pointer-events:none;';
+sEl.textContent = '⭐';
+sEl.style.left = (30 + Math.random() * 280) + 'px';
+sEl.style.top = (30 + Math.random() * 280) + 'px';
+$('game-board').appendChild(sEl);
+stars.push({el:sEl, x:parseFloat(sEl.style.left), y:parseFloat(sEl.style.top)});
+}
+function gameLoop() {
+if (gameOver || paused) return;
+let spd = 3;
+if (keys['ArrowUp']) playerY = Math.max(0, playerY - spd);
+if (keys['ArrowDown']) playerY = Math.min(326, playerY + spd);
+if (keys['ArrowLeft']) playerX = Math.max(0, playerX - spd);
+if (keys['ArrowRight']) playerX = Math.min(326, playerX + spd);
+$('player').style.left = playerX + 'px';
+$('player').style.top = playerY + 'px';
+if (touch) {
+const cx = playerX + 12, cy = playerY + 12;
+const dx = touch.x - cx, dy = touch.y - cy;
+const d = Math.sqrt(dx * dx + dy * dy);
+if (d > 6) {
+const step = Math.min(d, spd * 1.6);
+playerX += dx / d * step;
+playerY += dy / d * step;
+playerX = Math.max(0, Math.min(326, playerX));
+playerY = Math.max(0, Math.min(326, playerY));
+$('player').style.left = playerX + 'px';
+$('player').style.top = playerY + 'px';
+}
+}
+for (let i = arrows.length - 1; i >= 0; i--) {
+let a = arrows[i];
+a.x += a.dx;
+a.y += a.dy;
+a.el.style.left = a.x + 'px';
+a.el.style.top = a.y + 'px';
+if (a.x < -30 || a.x > 380 || a.y < -30 || a.y > 380) {
+a.el.remove();
+arrows.splice(i, 1);
+continue;
+}
+let dist = Math.sqrt(Math.pow(playerX + 12 - a.x - 10, 2) + Math.pow(playerY + 12 - a.y - 10, 2));
+if (dist < 22) {
+endGame();
+return;
+}
+}
+for (let i = stars.length - 1; i >= 0; i--) {
+let s = stars[i];
+let dist = Math.sqrt(Math.pow(playerX + 12 - s.x - 10, 2) + Math.pow(playerY + 12 - s.y - 10, 2));
+if (dist < 25) {
+playSound(880, 'sine', 0.1);
+starsCollected++;
+$('stars-display').textContent = starsCollected;
+let pop = document.createElement('div');
+pop.style.cssText = 'position:absolute;left:' + s.x + 'px;top:' + s.y + 'px;z-index:20;font-size:14px;font-weight:bold;color:#facc15;pointer-events:none;transition:all 0.7s;';
+pop.textContent = '+5 ⭐';
+$('game-board').appendChild(pop);
+setTimeout(() => { pop.style.top = (s.y - 26) + 'px'; pop.style.opacity = '0'; }, 10);
+setTimeout(() => pop.remove(), 750);
+s.el.remove();
+stars.splice(i, 1);
+}
+}
+}
+function togglePause() {
+if (gameOver) return;
+paused = !paused;
+if (paused) {
+clearInterval(gameTimer); clearInterval(arrowTimer);
+clearInterval(starTimer); clearInterval(moveTimer);
+let pv = document.getElementById('pause-ovl');
+if (!pv) document.body.insertAdjacentHTML('beforeend', '<div id="pause-ovl" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fff;font-family:Cairo,sans-serif"><div style="font-size:28px;font-weight:bold">⏸ وقفة</div><button onclick="document.getElementById(\'pause-ovl\').remove();togglePause()" style="background:#6366f1;color:#fff;border:0;padding:10px 28px;border-radius:12px;font-size:16px;cursor:pointer;font-family:inherit">▶ كمّل</button></div>');
+} else {
+let pv = document.getElementById('pause-ovl');
+if (pv) pv.remove();
+gameTimer = setInterval(() => {
+timeSurvived++;
+$('time-display').textContent = timeSurvived;
+score = timeSurvived + starsCollected * 5;
+$('score-display').textContent = score;
+let ni = Math.max(260, 800 - timeSurvived * 8);
+if (ni !== arrowInterval) { arrowInterval = ni; clearInterval(arrowTimer); arrowTimer = setInterval(spawnArrow, arrowInterval); }
+}, 1000);
+arrowTimer = setInterval(spawnArrow, arrowInterval);
+starTimer = setInterval(spawnStar, 3000);
+moveTimer = setInterval(gameLoop, 30);
+}
+}
+function endGame() {
+gameOver = true;
+clearInterval(gameTimer); clearInterval(arrowTimer);
+clearInterval(starTimer); clearInterval(moveTimer);
+gameTimer = null; arrowTimer = null;
+starTimer = null; moveTimer = null;
+arrows.forEach(a => a.el.remove());
+stars.forEach(s => s.el.remove());
+arrows = []; stars = [];
+playSound(200, 'square', 0.5);
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+score = timeSurvived + starsCollected * 5;
+$('final-score').textContent = score;
+$('final-time').textContent = timeSurvived;
+$('final-stars').textContent = starsCollected;
+if (score > best) { best = score; try{localStorage.setItem('arrow-dodge-best', best);}catch(e){} }
+$('final-best').textContent = best;
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+document.addEventListener('keydown', e => {
+if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+e.preventDefault(); keys[e.key] = true;
+} else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+togglePause();
+}
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+(function(){
+const board = $('game-board');
+board.addEventListener('touchstart', e => { e.preventDefault(); const r = board.getBoundingClientRect(); const t = e.touches[0]; touch = { x: (t.clientX - r.left) - 12, y: (t.clientY - r.top) - 12 }; }, {passive:false});
+board.addEventListener('touchmove', e => { e.preventDefault(); const r = board.getBoundingClientRect(); const t = e.touches[0]; touch = { x: (t.clientX - r.left) - 12, y: (t.clientY - r.top) - 12 }; }, {passive:false});
+board.addEventListener('touchend', () => { touch = null; });
+})();
+</script>
+</body>
+</html>

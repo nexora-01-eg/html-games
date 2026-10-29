@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حرب البطاقات</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-950 min-h-screen flex items-center justify-center font-sans"><div class="bg-gray-900/80 backdrop-blur p-8 rounded-3xl w-full max-w-md text-center text-white border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+<div class="text-3xl font-bold mb-1 text-cyan-400">⚔️ حرب البطاقات</div>
+<div id="bestDisp" class="text-gray-500 text-sm mb-4"></div>
+<div id="startScreen">
+<button onclick="startGame()" class="mt-4 bg-cyan-500 hover:bg-cyan-400 px-8 py-4 rounded-xl text-xl font-bold transition shadow-lg shadow-cyan-500/30">ابدأ الحرب</button>
+</div>
+<div id="gameScreen" class="hidden">
+<div class="flex justify-between mb-4 text-sm text-gray-400"><span>الجولة: <span id="round" class="text-white">1</span>/10</span><span>البطاقات: <span id="cardCount" class="text-yellow-400">10-10</span></span></div>
+<div class="flex justify-around items-center my-8">
+<div><div class="text-gray-500 text-sm mb-2">أنت</div>
+<div id="playerCard" class="bg-white text-gray-900 w-28 h-40 rounded-xl flex items-center justify-center text-4xl font-bold shadow-lg transition-all duration-300">?</div>
+<div class="mt-2 text-sm" id="playerName"></div></div>
+<div class="text-4xl">⚔️</div>
+<div><div class="text-gray-500 text-sm mb-2">الخصم</div>
+<div id="aiCard" class="bg-white text-gray-900 w-28 h-40 rounded-xl flex items-center justify-center text-4xl font-bold shadow-lg transition-all duration-300">?</div>
+<div class="mt-2 text-sm" id="aiName"></div></div>
+</div>
+<div id="result" class="h-8 text-xl font-bold"></div>
+<button id="playBtn" onclick="playRound()" class="bg-cyan-500 hover:bg-cyan-400 px-8 py-3 rounded-xl font-bold transition">اسحب بطاقة</button>
+</div>
+<div id="endScreen" class="hidden">
+<div class="text-4xl font-bold mb-4">🏆 انتهت الحرب!</div>
+<div class="text-xl mb-2" id="endResult"></div>
+<div id="newBest" class="text-green-400 font-bold hidden">🏅 رقم قياسي جديد!</div>
+<button onclick="startGame()" class="mt-4 bg-cyan-500 hover:bg-cyan-400 px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div><script>
+let pScore=0,aScore=0,round=0,maxRounds=10,best=0;try{best=+(localStorage.getItem('card-wars-best'))||0;}catch(e){}
+const EMOJIS=['','آس','٢','٣','٤','٥','٦','٧','٨','٩','١٠'];
+let audioCX=null;
+function playSound(f,d,t){if(!audioCX)audioCX=new(window.AudioContext||window.webkitAudioContext)();let ctx=audioCX,o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+function updateBest(){document.getElementById('bestDisp').textContent=best>0?'أفضل نتيجة: '+best+' نقاط':'';}
+updateBest();
+function drawCard(){return Math.ceil(Math.random()*10);}
+function showCard(id,val){let el=document.getElementById(id);el.textContent=val;el.classList.add('scale-110');setTimeout(()=>el.classList.remove('scale-110'),200);}
+function startGame(){
+pScore=0;aScore=0;round=0;
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+document.getElementById('gameScreen').classList.remove('hidden');
+document.getElementById('result').textContent='';
+document.getElementById('playBtn').classList.remove('hidden');
+document.getElementById('playBtn').textContent='اسحب بطاقة';
+document.getElementById('playerCard').textContent='?';
+document.getElementById('aiCard').textContent='?';
+document.getElementById('playerName').textContent='';
+document.getElementById('aiName').textContent='';
+updateDisplay();
+}
+function updateDisplay(){
+document.getElementById('round').textContent=round+1;
+document.getElementById('cardCount').textContent=pScore+'-'+aScore;
+}
+function playRound(){
+document.getElementById('playBtn').classList.add('hidden');
+let pc=drawCard(),ac=drawCard();
+showCard('playerCard',pc);showCard('aiCard',ac);
+document.getElementById('playerName').textContent=EMOJIS[pc];
+document.getElementById('aiName').textContent=EMOJIS[ac];
+playSound(400+pc*50,0.2);
+if(pc>ac){pScore++;playSound(800,0.3);document.getElementById('result').innerHTML='<span class="text-green-400">فزت!</span>';}
+else if(ac>pc){aScore++;playSound(200,0.3,'sawtooth');document.getElementById('result').innerHTML='<span class="text-red-400">خسرت!</span>';}
+else{
+let wp=0,wa=0,guard=0;while(wp===wa&&guard++<30){wp=drawCard();wa=drawCard();}
+pScore+=wp>wa?1:0;aScore+=wa>wp?1:0;
+let warMsg='حرب! أنت:'+wp+' الخصم:'+wa;
+if(wp>wa){warMsg+=' → <span class="text-green-400">فزت!</span>';playSound(800,0.3);}
+else{warMsg+=' → <span class="text-red-400">خسرت!</span>';playSound(200,0.3,'sawtooth');}
+document.getElementById('result').innerHTML=warMsg;
+}
+round++;updateDisplay();
+if(round>=maxRounds){setTimeout(endGame,1500);return;}
+setTimeout(()=>{document.getElementById('playBtn').classList.remove('hidden');document.getElementById('playBtn').textContent='اسحب بطاقة';},800);
+}
+function endGame(){
+document.getElementById('gameScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.remove('hidden');
+let win=pScore>aScore?1:pScore===aScore?0:-1;
+let pts=pScore*10+win*50;
+document.getElementById('endResult').innerHTML=win>0?'<span class="text-green-400">🏆 فزت '+pScore+'-'+aScore+'</span>':win===0?'<span class="text-yellow-400">🤝 تعادل '+pScore+'-'+aScore+'</span>':'<span class="text-red-400">😔 خسرت '+pScore+'-'+aScore+'</span>';
+let isNew=pts>best;
+if(isNew){best=pts;try{localStorage.setItem('card-wars-best',best);}catch(e){}document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+updateBest();
+}
+</script></body></html>
