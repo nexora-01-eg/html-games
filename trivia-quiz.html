@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>اختبار معلومات عامة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}</style>
+</head>
+<body class="bg-indigo-950 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">اختبار معلومات عامة</h1>
+<p class="text-gray-400 text-sm">السؤال <span id="qnum">1</span>/10 | الوقت: <span id="timer">15</span> | النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span></p>
+</div>
+<div class="bg-gray-800 rounded-2xl p-6 mb-6 max-w-lg w-full">
+<p id="question" class="text-xl font-bold text-center mb-6 min-h-[60px]"></p>
+<div id="options" class="grid grid-cols-2 gap-3"></div>
+</div>
+<button id="startBtn" class="bg-red-500 hover:bg-red-600 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<div id="finishBox" class="hidden bg-gray-800 rounded-2xl p-6 mt-6 max-w-lg w-full text-center mb-6">
+<h2 class="text-2xl font-bold mb-2">انتهى الاختبار! 🎉</h2>
+<p class="text-4xl font-black text-yellow-400 mb-2"><span id="finScore">0</span></p>
+<p class="text-gray-400 mb-2">إجابات صحيحة: <span id="finCorrect">0</span>/10</p>
+<p id="finBestMsg" class="text-green-400 font-bold"></p>
+</div>
+<script>
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+const best=+(sGet('trivia-best')||0);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let score=0,qIdx=0,timerVal=15,timerRef=null,playing=false,answered=false,correctCount=0;
+document.getElementById('best').textContent=best;
+let triviaAudio;
+function getTriviaAudio(){if(!triviaAudio)triviaAudio=new(window.AudioContext||window.webkitAudioContext)();return triviaAudio;}
+function beep(f,d,t='sine'){let ctx=getTriviaAudio(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.3;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.stop(ctx.currentTime+d);}
+const questions=[
+{q:'ما هي عاصمة اليابان؟',o:['طوكيو','بكين','سيول','هانوي'],a:0},
+{q:'كم عدد كواكب المجموعة الشمسية؟',o:['7','8','9','10'],a:1},
+{q:'من كتب مسرحية هاملت؟',o:['شيكسبير','ديكنز','هيمينغوي','أوستن'],a:0},
+{q:'ما هو أكبر محيط في العالم؟',o:['الأطلسي','الهندي','الهادئ','المتجمد'],a:2},
+{q:'في أي سنة هبط الإنسان على القمر؟',o:['1965','1969','1972','1960'],a:1},
+{q:'ما هي اللغة الأكثر تحدثاً في العالم؟',o:['الإنجليزية','الإسبانية','الماندرين','العربية'],a:2},
+{q:'كم عدد أضلاع المثلث؟',o:['2','3','4','5'],a:1},
+{q:'ما المعدن الأكثر استخداماً في البناء؟',o:['الأكسجين','الكربون','الحديد','النحاس'],a:2},
+{q:'في أي قارة تقع مصر؟',o:['آسيا','أوروبا','أفريقيا','أمريكا'],a:2},
+{q:'ما هو أصغر كوكب في المجموعة الشمسية؟',o:['عطارد','المشتري','زحل','نبتون'],a:0},
+{q:'كم عدد ألوان قوس قزح؟',o:['5','6','7','8'],a:2},
+{q:'ما هو الحيوان الأسرع في العالم؟',o:['الأسد','الفهد','الحصان','النسر'],a:1},
+{q:'في أي بلد يقع برج إيفل؟',o:['إنجلترا','إيطاليا','فرنسا','ألمانيا'],a:2},
+{q:'ما هي العملة الرسمية للكويت؟',o:['الدرهم','الريال','الدينار','الجنيه'],a:2},
+];
+for(let i=questions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[questions[i],questions[j]]=[questions[j],questions[i]];}
+function showQuestion(){
+answered=false;
+const q=questions[qIdx%questions.length];
+document.getElementById('question').textContent=q.q;
+document.getElementById('qnum').textContent=qIdx+1;
+const oEl=document.getElementById('options');
+oEl.innerHTML='';
+q.o.forEach((opt,i)=>{
+const b=document.createElement('button');
+b.className='bg-gray-700 hover:bg-gray-600 py-3 px-4 rounded-xl text-sm font-bold transition-all';
+b.textContent=opt;
+b.addEventListener('click',()=>pickAnswer(i,q.a));
+oEl.appendChild(b);
+});
+startTimer();
+}
+function pickAnswer(i,correct){
+if(answered||!playing)return;
+answered=true;
+clearInterval(timerRef);
+const btns=document.getElementById('options').children;
+if(i===correct){
+beep(700,0.15);
+btns[i].className='bg-green-600 py-3 px-4 rounded-xl text-sm font-bold';
+score+=Math.floor(timerVal)*2+10;
+correctCount++;
+}else{
+beep(200,0.3,'sawtooth');
+btns[i].className='bg-red-600 py-3 px-4 rounded-xl text-sm font-bold';
+btns[correct].className='bg-green-600 py-3 px-4 rounded-xl text-sm font-bold';
+}
+document.getElementById('score').textContent=score;
+qIdx++;
+if(qIdx>=10){endGame();return;}
+setTimeout(showQuestion,1200);
+}
+function startTimer(){
+timerVal=15;document.getElementById('timer').textContent=AR(15);
+timerRef=setInterval(()=>{timerVal--;document.getElementById('timer').textContent=AR(timerVal);if(timerVal<=0){clearInterval(timerRef);if(!answered){answered=true;const btns=document.getElementById('options').children;btns[questions[qIdx%questions.length].a].className='bg-green-600 py-3 px-4 rounded-xl text-sm font-bold';setTimeout(()=>{qIdx++;if(qIdx>=10)endGame();else showQuestion();},1200);}}},1000);
+}
+function endGame(){
+playing=false;clearInterval(timerRef);
+let isNew=score>best;
+if(isNew){best=score;sSet('trivia-best',score);document.getElementById('best').textContent=score;}
+document.getElementById('timer').textContent='—';
+document.getElementById('finScore').textContent=score;
+document.getElementById('finCorrect').textContent=correctCount;
+document.getElementById('finBestMsg').textContent=isNew&&score>0?'🏆 رقم قياسي جديد!':'الأفضل: '+best;
+document.getElementById('finishBox').classList.remove('hidden');
+document.getElementById('startBtn').style.display='block';
+document.getElementById('startBtn').textContent='أعد الاختبار';
+}
+function start(){
+score=0;qIdx=0;correctCount=0;playing=true;answered=false;
+document.getElementById('score').textContent=0;
+document.getElementById('finishBox').classList.add('hidden');
+document.getElementById('startBtn').style.display='none';
+for(let i=questions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[questions[i],questions[j]]=[questions[j],questions[i]];}
+showQuestion();
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

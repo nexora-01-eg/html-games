@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تركيب التانقرام</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#F5F0E1}
+.piece{position:absolute;cursor:grab;border-radius:4px;z-index:10;touch-action:none}
+.piece:active{cursor:grabbing;z-index:20}
+.target{position:absolute;border:3px dashed #8B7355;border-radius:6px;background:rgba(139,115,85,.08)}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4" style="font-family:sans-serif">
+<h1 class="text-3xl font-bold text-amber-900 mb-1">تركيب التانقرام</h1>
+<div class="flex gap-6 mb-2 text-amber-800 text-lg">
+<div>المستوى: <span id="level" class="font-bold">1</span>/5</div>
+<div>المحاولات: <span id="moves" class="font-bold">0</span></div>
+<div>الأفضل: <span id="best" class="font-bold">0</span></div>
+</div>
+<div id="arena" class="relative bg-white rounded-xl shadow-lg border-2 border-amber-300" style="width:400px;height:400px"></div>
+<div class="mt-2 flex gap-2">
+<button onclick="loadLevel()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold">🔄 أعد تحريك القطع</button>
+</div>
+<button id="next" class="mt-3 bg-amber-700 hover:bg-amber-800 text-white px-6 py-2 rounded-lg text-lg font-bold hidden">المستوى التالي</button>
+<script>
+let tangramAudio;
+function getTrAudio(){if(!tangramAudio)tangramAudio=new(window.AudioContext||window.webkitAudioContext)();return tangramAudio;}
+function playTone(f,d,t='sine'){let c=getTrAudio(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.12,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d)}
+const LEVELS=[
+{target:[{x:100,y:100,w:200,h:200}],pieces:[{w:100,h:100,c:'#E74C3C',type:'tri'},{w:100,h:100,c:'#3498DB',type:'tri'},{w:100,h:100,c:'#2ECC71',type:'tri'},{w:100,h:100,c:'#F39C12',type:'tri'},{w:100,h:100,c:'#9B59B6',type:'sq'},{w:140,h:70,c:'#1ABC9C',type:'para'},{w:70,h:140,c:'#E67E22',type:'para'}]},
+{target:[{x:80,y:120,w:240,h:160}],pieces:[{w:120,h:80,c:'#E74C3C',type:'tri'},{w:120,h:80,c:'#3498DB',type:'tri'},{w:120,h:80,c:'#2ECC71',type:'tri'},{w:120,h:80,c:'#F39C12',type:'tri'},{w:80,h:80,c:'#9B59B6',type:'sq'},{w:100,h:60,c:'#1ABC9C',type:'para'},{w:60,h:100,c:'#E67E22',type:'para'}]},
+{target:[{x:80,y:80,w:120,h:120},{x:200,y:80,w:120,h:120},{x:200,y:200,w:120,h:120}],pieces:[{w:120,h:60,c:'#E74C3C',type:'tri'},{w:120,h:60,c:'#3498DB',type:'tri'},{w:60,h:120,c:'#2ECC71',type:'tri'},{w:60,h:120,c:'#F39C12',type:'tri'},{w:60,h:60,c:'#9B59B6',type:'sq'},{w:120,h:60,c:'#1ABC9C',type:'para'},{w:60,h:120,c:'#E67E22',type:'para'}]},
+{target:[{x:100,y:100,w:200,h:100},{x:100,y:200,w:100,h:100}],pieces:[{w:100,h:50,c:'#E74C3C',type:'tri'},{w:100,h:50,c:'#3498DB',type:'tri'},{w:100,h:50,c:'#2ECC71',type:'tri'},{w:100,h:50,c:'#F39C12',type:'tri'},{w:50,h:50,c:'#9B59B6',type:'sq'},{w:100,h:50,c:'#1ABC9C',type:'para'},{w:50,h:100,c:'#E67E22',type:'para'}]},
+{target:[{x:140,y:60,w:120,h:280}],pieces:[{w:140,h:70,c:'#E74C3C',type:'tri'},{w:140,h:70,c:'#3498DB',type:'tri'},{w:70,h:140,c:'#2ECC71',type:'tri'},{w:70,h:140,c:'#F39C12',type:'tri'},{w:70,h:70,c:'#9B59B6',type:'sq'},{w:140,h:70,c:'#1ABC9C',type:'para'},{w:70,h:140,c:'#E67E22',type:'para'}]}
+];
+let level,moves,pieceEls=[],dragEl=null,dragOx=0,dragOy=0;
+function dragStart(ex,ey,d){const r=d.getBoundingClientRect();dragOx=ex-r.left;dragOy=ey-r.top;dragEl=d;}
+function dragMove(ex,ey){
+if(!dragEl)return;
+const ar=document.getElementById('arena').getBoundingClientRect();
+dragEl.style.left=(ex-ar.left-dragOx)+'px';dragEl.style.top=(ey-ar.top-dragOy)+'px';
+}
+function endDrag(){
+if(dragEl){dragEl=null;moves++;document.getElementById('moves').textContent=moves;checkFit();}
+}
+document.addEventListener('mousemove',e=>dragMove(e.clientX,e.clientY));
+document.addEventListener('touchmove',e=>{if(dragEl){e.preventDefault();dragMove(e.touches[0].clientX,e.touches[0].clientY)}},{passive:false});
+document.addEventListener('mouseup',endDrag);
+document.addEventListener('touchend',endDrag);
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function init(){level=0;moves=0;document.getElementById('level').textContent=1;document.getElementById('moves').textContent=0;document.getElementById('best').textContent=sGet('tangram-best')||'0';loadLevel()}
+function loadLevel(){
+moves=0;document.getElementById('moves').textContent='0';
+const a=document.getElementById('arena');a.innerHTML='';pieceEls=[];
+const lv=LEVELS[level];
+lv.target.forEach(t=>{const d=document.createElement('div');d.className='target';d.style.cssText=`left:${t.x}px;top:${t.y}px;width:${t.w}px;height:${t.h}px`;a.appendChild(d)});
+lv.pieces.forEach((p,i)=>{
+const d=document.createElement('div');d.className='piece';d.style.cssText=`width:${p.w}px;height:${p.h}px;background:${p.c};left:${Math.random()*200+10}px;top:${Math.random()*200+280}px`;
+if(p.type==='tri'){d.style.clipPath='polygon(50% 0%,0% 100%,100% 100%)';d.style.borderRadius='0'}
+else if(p.type==='para'){d.style.transform='skewX(-10deg)'}
+a.appendChild(d);pieceEls.push(d);
+d.addEventListener('mousedown',e=>dragStart(e.clientX,e.clientY,d));
+d.addEventListener('touchstart',e=>{const t=e.touches[0];dragStart(t.clientX,t.clientY,d)},{passive:true});
+});
+document.getElementById('next').classList.add('hidden');
+}
+function checkFit(){
+const lv=LEVELS[level];let allFit=true;
+pieceEls.forEach(d=>{
+const pr=d.getBoundingClientRect();let fitsOne=false;
+lv.target.forEach(t=>{
+const tr=document.getElementById('arena').getBoundingClientRect();
+const tx=tr.left+t.x,ty=tr.top+t.y;
+if(Math.abs(pr.left-tx)<15&&Math.abs(pr.top-ty)<15&&Math.abs(pr.width-t.w)<15&&Math.abs(pr.height-t.h)<15)fitsOne=true;
+});
+if(!fitsOne)allFit=false;
+});
+if(allFit){
+playTone(523,.15);setTimeout(()=>playTone(659,.15),150);setTimeout(()=>playTone(784,.3),300);
+  const sc=Math.max(0,300-moves*10);
+  const best=parseInt(sGet('tangram-best'))||0;
+  if(sc>best){sSet('tangram-best',sc);document.getElementById('best').textContent=sc}
+if(level<4){document.getElementById('next').classList.remove('hidden')}
+else{document.getElementById('next').textContent='انتهت اللعبة!';document.getElementById('next').classList.remove('hidden')}
+}
+}
+document.getElementById('next').addEventListener('click',()=>{if(level>=4){init();return;}level++;document.getElementById('level').textContent=level+1;loadLevel()});
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>الكلمة المخفية — المشنور اليومي 📰</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Traditional Arabic','Amiri',Georgia,serif;background-color:#f6f2e8;background-image:repeating-linear-gradient(0deg,transparent 0 27px,rgba(28,25,23,.05) 27px 28px)}
+.prt{opacity:0;transition:opacity .35s}
+.prt.on{opacity:1}
+.stamp{display:inline-block;transform:rotate(-10deg) scale(0);transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.stamp.on{transform:rotate(-10deg) scale(1)}
+.key{font-family:inherit}
+.key:not(:disabled):hover{background:#fee2e2}
+.key:disabled{opacity:.3;cursor:default}
+</style>
+</head>
+<body class="min-h-screen text-stone-900 py-6 px-3">
+<div class="max-w-3xl mx-auto bg-[#fbf8f0] border-2 border-stone-900 shadow-[8px_8px_0_rgba(28,25,23,.15)]">
+
+  <header class="text-center border-b-4 border-double border-stone-900 pt-5 pb-4 px-4">
+    <div class="flex justify-between text-[11px] tracking-widest opacity-60 mb-1"><span>العدد № ٧٧</span><span>ملحق الألغاز الأسبوعي</span><span>خمسة قروش</span></div>
+    <h1 class="text-4xl md:text-5xl font-bold leading-tight">المِشْنُور اليومي</h1>
+    <p class="mt-1 text-sm opacity-70">«الكلمة المخفية» — خمّن الحروف قبل أن يجفّ الحبر!</p>
+  </header>
+
+  <main class="md:flex">
+    <section class="md:w-1/3 md:border-l-2 md:border-dashed md:border-stone-900/40 border-b-2 md:border-b-0 p-5 text-center">
+      <svg viewBox="0 0 120 140" class="w-36 mx-auto" fill="none" stroke="#1c1917" stroke-width="3" stroke-linecap="round">
+        <line x1="15" y1="135" x2="88" y2="135"/>
+        <line x1="35" y1="135" x2="35" y2="15"/>
+        <line x1="35" y1="15" x2="82" y2="15"/>
+        <line x1="82" y1="15" x2="82" y2="26"/>
+        <circle class="prt" id="p1" cx="82" cy="39" r="13"/>
+        <line class="prt" id="p2" x1="82" y1="52" x2="82" y2="90"/>
+        <line class="prt" id="p3" x1="82" y1="60" x2="63" y2="76"/>
+        <line class="prt" id="p4" x1="82" y1="60" x2="101" y2="76"/>
+        <line class="prt" id="p5" x1="82" y1="90" x2="65" y2="122"/>
+        <line class="prt" id="p6" x1="82" y1="90" x2="99" y2="122"/>
+      </svg>
+      <p id="attempts" class="mt-3 text-sm font-bold">محاولات متبقية: ٦</p>
+      <div class="mt-4 text-sm space-y-1 opacity-80">
+        <p>فوز <b id="wins">0</b> • خسارة <b id="losses">0</b></p>
+        <p>سلسلة <b id="streak">0</b> 🔥 • الأفضل <b id="bestStreak">0</b> 🏆</p>
+      </div>
+    </section>
+
+    <section class="md:flex-1 p-5 text-center">
+      <p class="inline-block border border-stone-900 px-3 py-1 text-sm mb-5">التصنيف: <b id="cat">—</b></p>
+      <div id="word" class="flex justify-center flex-wrap gap-2 mb-7 min-h-[3rem]"></div>
+      <div id="keys" class="flex flex-wrap justify-center gap-1.5 max-w-md mx-auto"></div>
+      <div class="h-16 mt-5 flex items-center justify-center">
+        <span id="stamp" class="stamp border-4 border-red-700 text-red-700 font-bold px-5 py-1 text-2xl"></span>
+      </div>
+      <button onclick="newPuzzle()" class="mt-1 bg-stone-900 text-[#fbf8f0] px-6 py-2 font-bold hover:bg-red-800 transition">لغز جديد 🔄</button>
+    </section>
+  </main>
+
+  <footer class="border-t border-stone-900/30 text-center text-xs opacity-60 py-2">مطبوعة محلياً — يمنع نسخ اللغز قبل حله</footer>
+</div>
+
+<script>
+const WORDS=[
+ {w:'زرافة',c:'حيوانات'},{w:'فيل',c:'حيوانات'},{w:'دلفين',c:'حيوانات'},{w:'بطريق',c:'حيوانات'},
+ {w:'سلحفاة',c:'حيوانات'},{w:'ثعلب',c:'حيوانات'},{w:'جمل',c:'حيوانات'},{w:'قرد',c:'حيوانات'},
+ {w:'اليابان',c:'بلدان'},{w:'تونس',c:'بلدان'},{w:'المغرب',c:'بلدان'},{w:'البرازيل',c:'بلدان'},
+ {w:'ايطاليا',c:'بلدان'},{w:'قطر',c:'بلدان'},{w:'السودان',c:'بلدان'},{w:'كندا',c:'بلدان'},
+ {w:'مانجو',c:'فواكه'},{w:'بطيخ',c:'فواكه'},{w:'رمان',c:'فواكه'},{w:'مشمش',c:'فواكه'},
+ {w:'خوخ',c:'فواكه'},{w:'موز',c:'فواكه'},{w:'مصباح',c:'أشياء'},{w:'سيارة',c:'أشياء'},
+ {w:'مكتبة',c:'أشياء'},{w:'مطرة',c:'أشياء'},{w:'ساعة',c:'أشياء'},{w:'مظلة',c:'أشياء'}
+];
+const KEYS='ابتثجحخدذرزسشصضطظعغفقكلمنهويء';
+const NORM={'أ':'ا','إ':'ا','آ':'ا','ة':'ه','ى':'ي','ؤ':'و','ئ':'ي'};
+let word='',cat='',revealed=[],mistakes=0,over=false,used=new Set();
+let wins=0,losses=0,streak=0,bestStreak=0;
+let newsAudio;
+function newsTone(f,d,t){if(!newsAudio)newsAudio=new(window.AudioContext||window.webkitAudioContext)();let o=newsAudio.createOscillator(),g=newsAudio.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.setValueAtTime(0.12,newsAudio.currentTime);g.gain.exponentialRampToValueAtTime(0.001,newsAudio.currentTime+d);o.connect(g);g.connect(newsAudio.destination);o.start();o.stop(newsAudio.currentTime+d);}
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+bestStreak=Number(sGet('newsword-best')||0);
+
+function normCh(ch){return NORM[ch]||ch;}
+
+(function buildKeys(){
+ const box=document.getElementById('keys');
+ Array.from(KEYS).forEach(function(L){
+   const b=document.createElement('button');
+   b.className='key w-9 h-9 border-2 border-stone-900 bg-white font-bold text-lg';
+   b.textContent=L;
+   b.onclick=function(){guess(L,b);};
+   box.appendChild(b);
+ });
+})();
+
+function renderStats(){
+ document.getElementById('wins').textContent=wins;
+ document.getElementById('losses').textContent=losses;
+ document.getElementById('streak').textContent=streak;
+ document.getElementById('bestStreak').textContent=bestStreak;
+}
+
+function newPuzzle(){
+ const p=WORDS[Math.floor(Math.random()*WORDS.length)];
+ word=p.w;cat=p.c;
+ revealed=new Array(word.length).fill(false);
+ mistakes=0;over=false;used=new Set();
+ document.getElementById('cat').textContent=cat;
+ document.getElementById('stamp').classList.remove('on');
+ document.getElementById('attempts').textContent='محاولات متبقية: ٦';
+ document.querySelectorAll('.prt').forEach(function(x){x.classList.remove('on');});
+ document.querySelectorAll('.key').forEach(function(b){b.disabled=false;b.classList.remove('bg-red-200','bg-green-200');});
+ renderWord();renderStats();
+}
+
+function renderWord(){
+ const box=document.getElementById('word');box.innerHTML='';
+ Array.from(word).forEach(function(ch,i){
+   const d=document.createElement('div');
+   d.className='w-9 h-11 border-b-4 border-stone-900 flex items-end justify-center pb-1 text-2xl font-bold';
+   if(revealed[i])d.textContent=ch;
+   else if(over){d.textContent=ch;d.style.color='#b91c1c';}
+   box.appendChild(d);
+ });
+}
+
+function guess(L,btn){
+ if(over||used.has(L))return;
+ used.add(L);btn.disabled=true;
+ let hit=false;
+ Array.from(word).forEach(function(ch,i){
+   if(!revealed[i]&&normCh(ch)===normCh(L)){revealed[i]=true;hit=true;}
+ });
+if(hit){
+    btn.classList.add('bg-green-200');
+    newsTone(700,0.12,'sine');
+    renderWord();
+    if(revealed.every(Boolean))finish(true);
+  }else{
+    btn.classList.add('bg-red-200');
+    newsTone(200,0.15,'sawtooth');
+    mistakes++;
+   const p=document.getElementById('p'+mistakes);
+   if(p)p.classList.add('on');
+   document.getElementById('attempts').textContent='محاولات متبقية: '+(6-mistakes);
+   if(mistakes>=6)finish(false);
+ }
+}
+
+function finish(won){
+  over=true;renderWord();
+  const st=document.getElementById('stamp');
+  if(won){
+    wins++;streak++;
+    newsTone(880,0.3,'triangle');
+    if(streak>bestStreak){bestStreak=streak;sSet('newsword-best',bestStreak);}
+    st.textContent='✓ لغز محلول!';
+  }else{
+    losses++;streak=0;
+    newsTone(140,0.4,'sawtooth');
+    st.textContent='✗ جفّ الحبر!';
+  }
+  st.classList.remove('on');void st.offsetWidth;st.classList.add('on');
+  renderStats();
+}
+document.addEventListener('keydown',function(e){
+  if(e.key.length!==1||!KEYS.includes(e.key))return;
+  const btn=Array.from(document.querySelectorAll('.key')).find(function(b){return b.textContent===e.key&&!b.disabled;});
+  if(btn)guess(e.key,btn);
+});
+
+newPuzzle();
+</script>
+</body>
+</html>

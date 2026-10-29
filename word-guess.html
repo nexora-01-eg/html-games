@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>خمّن الكلمة</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none}</style></head>
+<body class="bg-slate-900 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-3xl text-white font-bold mb-1">خمّن الكلمة</div>
+<div class="text-slate-400 text-sm mb-4" id="best">الأفضل: 0</div>
+<div class="grid grid-cols-5 gap-1.5 mb-4" id="board" dir="rtl"></div>
+<div class="flex gap-1 flex-wrap justify-center mb-3 max-w-lg" id="kb"></div>
+<div class="text-slate-300 text-sm mb-2" id="msg"></div>
+<div class="flex gap-3">
+<button onclick="newGame()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm">لعبة جديدة</button>
+</div>
+<div id="win" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-5xl mb-4" id="wemoji">🎉</div>
+<div class="text-3xl text-green-400 font-bold mb-4" id="wmsg">أحسنت!</div>
+<button onclick="newGame();this.parentElement.parentElement.classList.add('hidden')" class="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl">اللعبة التالية</button></div></div>
+<script>
+const K='word-guess-best';
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let best=parseInt(sGet(K)||0);
+let guessAudio;
+function getGuessAudio(){if(!guessAudio)guessAudio=new(window.AudioContext||window.webkitAudioContext)();return guessAudio;}
+function play(f,d,t='sine'){let a=getGuessAudio(),o=a.createOscillator(),g=a.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(a.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+d);o.stop(a.currentTime+d);}
+const WORDS=['كتاب','قمر','نجم','بحر','وردة','حليب','سماء','نار','ماء','سلام','حب','شمس','ليل','غيم','برد'];
+const ALT=['كتاب','قمر','نجم','بحر','ورد','حليب','سماء','نار','ماء','سلام','حب','شمس','ليل','غيم','برد'];
+let word,guesses,current,maxGuesses=6,won,grid,curRow,curCol,letters,usedKeys;
+function pickWord(){return ALT[Math.floor(Math.random()*ALT.length)];}
+function newGame(){
+word=pickWord();guesses=[];current='';won=false;grid=[];curRow=0;curCol=0;
+letters=word.split('');usedKeys={};
+document.getElementById('win').classList.add('hidden');
+document.getElementById('msg').textContent='خمن كلمة من '+letters.length+' حروف';
+buildBoard();buildKB();
+}
+function buildBoard(){
+const b=document.getElementById('board');b.innerHTML='';
+for(let r=0;r<maxGuesses;r++){
+const row=document.createElement('div');row.className='flex gap-1.5';
+for(let c=0;c<letters.length;c++){
+const cell=document.createElement('div');
+cell.className='w-12 h-12 rounded-lg border-2 border-slate-600 flex items-center justify-center text-xl font-bold text-white';
+cell.id='cell-'+r+'-'+c;row.appendChild(cell);
+}b.appendChild(row);
+}
+}
+const KEYS2=['ش','س','ي','ب','ل','ا','ت','ن','م','ك','ع','ص','ح','ج','د','خ','ط','غ','ف','ق','ر','ث','و','ز','ئ','ؤ','ى','ة'];
+function buildKB(){
+const kb=document.getElementById('kb');kb.innerHTML='';
+KEYS2.forEach(k=>{
+const b=document.createElement('button');
+b.className='w-10 h-10 rounded-lg text-sm font-bold text-white bg-slate-700 hover:bg-slate-600 active:scale-95 transition';
+b.textContent=k;b.onclick=()=>typeKey(k);kb.appendChild(b);
+});
+const enter=document.createElement('button');
+enter.className='w-14 h-10 rounded-lg text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500';
+enter.textContent='✓';enter.onclick=submitGuess;kb.appendChild(enter);
+const del=document.createElement('button');
+del.className='w-14 h-10 rounded-lg text-sm font-bold text-white bg-red-600 hover:bg-red-500';
+del.textContent='⌫';del.onclick=delLetter;kb.appendChild(del);
+}
+function typeKey(k){
+if(curCol>=letters.length||won)return;
+const cell=document.getElementById('cell-'+curRow+'-'+curCol);
+cell.textContent=k;curCol++;current+=k;play(400+curCol*50,0.05);
+}
+function delLetter(){
+if(curCol<=0||won)return;curCol--;current=current.slice(0,-1);
+const cell=document.getElementById('cell-'+curRow+'-'+curCol);cell.textContent='';
+}
+function submitGuess(){
+if(curCol<letters.length||won)return;
+let result=[];let temp=[...letters];let wordArr=current.split('');
+for(let i=0;i<letters.length;i++){
+if(wordArr[i]===letters[i]){result.push('correct');temp[i]=null;}
+else if(temp.includes(wordArr[i])){result.push('present');temp[temp.indexOf(wordArr[i])]=null;}
+else result.push('absent');
+}
+for(let i=0;i<letters.length;i++){
+const cell=document.getElementById('cell-'+curRow+'-'+i);
+const c=result[i]==='correct'?'bg-green-600':result[i]==='present'?'bg-yellow-500':'bg-slate-600';
+setTimeout(()=>{cell.className='w-12 h-12 rounded-lg flex items-center justify-center text-xl font-bold text-white '+c;
+play(result[i]==='correct'?800:result[i]==='present'?600:300,0.1);
+},i*200);
+}
+guesses.push({word:current,result});
+setTimeout(()=>{
+if(current===letters.join('')){won=true;
+if(guesses.length<best||best===0){best=guesses.length;sSet(K,best);}
+document.getElementById('best').textContent='الأفضل: '+best;
+document.getElementById('win').classList.remove('hidden');document.getElementById('wmsg').textContent='أحسنت في '+guesses.length+' محاولات!';
+}else if(curRow>=maxGuesses-1){won=true;document.getElementById('wmsg').textContent='الكلمة: '+letters.join('');
+document.getElementById('win').classList.remove('hidden');}
+curRow++;curCol=0;current='';
+},letters.length*200+100);
+}
+document.getElementById('best').textContent='الأفضل: '+(best||'—');
+function kbDetect(e){
+if(e.key==='Backspace'){delLetter();return;}
+if(e.key==='Enter'){submitGuess();return;}
+if(e.key.length===1&&KEYS2.includes(e.key))typeKey(e.key);
+}
+document.addEventListener('keydown',kbDetect);
+newGame();
+</script>
+</body>
+</html>

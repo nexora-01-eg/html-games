@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>قف عند الهدف VAPOR ⏱️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#ffb35c 0%,#ff5e8a 42%,#a63cff 100%);min-height:100vh}
+.sunstripes{background:repeating-linear-gradient(180deg,transparent 0 16px,rgba(166,60,255,.55) 16px 22px)}
+.gridfloor{background-image:linear-gradient(rgba(255,110,196,.45) 2px,transparent 2px),linear-gradient(90deg,rgba(255,110,196,.45) 2px,transparent 2px);background-size:100% 26px,54px 100%;-webkit-mask-image:linear-gradient(to top,black 30%,transparent);mask-image:linear-gradient(to top,black 30%,transparent)}
+.gradtext{background:linear-gradient(90deg,#ffe66d,#ff5e8a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.panelV{background:rgba(27,11,51,.72);backdrop-filter:blur(8px);border:2px solid rgba(255,110,196,.55);box-shadow:0 0 30px rgba(255,94,138,.35)}
+@keyframes shkV{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.shakeV{animation:shkV .3s}
+.btnV{background:linear-gradient(90deg,#ff5e8a,#ff8a5c);color:#fff;font-weight:900;border-radius:1rem;box-shadow:0 6px 0 #7a1f5c;transition:all .08s}
+.btnV:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 #7a1f5c}
+.btnV:disabled{opacity:.4}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 text-pink-50 relative overflow-hidden">
+<div class="fixed top-8 left-1/2 -translate-x-1/2 w-52 h-52 rounded-full overflow-hidden pointer-events-none" style="background:linear-gradient(#ffe66d,#ff5e8a)">
+  <div class="sunstripes absolute inset-0"></div>
+</div>
+<div class="gridfloor fixed bottom-0 inset-x-0 h-44 pointer-events-none"></div>
+
+<main class="panelV w-full max-w-md rounded-3xl p-5 md:p-6 relative z-10 mt-24">
+  <h1 class="text-3xl font-black italic gradtext text-center mb-1">⏱️ قف عند الهدف</h1>
+  <p class="text-center text-xs text-pink-200/80 mb-5">المؤشر يطير يمين وشمال… اقفل داخل المنطقة الخضراء!</p>
+
+  <section id="home" class="text-center py-4 space-y-4">
+    <p class="text-sm leading-7">١٠ مستويات • السرعة تزيد والمنطقة تضيق<br>٣ محاولات فقط 💔 • كلما أصبت المركز نقاطك أعلى</p>
+    <p class="text-xs opacity-80">🏆 أفضل نتيجة: <span id="bestHome">—</span></p>
+    <button onclick="startGame()" class="btnV w-full py-3 text-lg">ابدأ التوقيت ▶</button>
+  </section>
+
+  <section id="play" class="hidden">
+    <div class="flex justify-between items-center text-sm font-bold mb-3">
+      <span>المستوى <span id="lvl" class="text-yellow-300">1</span>/10</span>
+      <span id="hearts" class="tracking-widest">❤️❤️❤️</span>
+      <span>النقاط <span id="score" class="text-cyan-300">0</span></span>
+    </div>
+    <div id="track" class="relative h-20 rounded-xl bg-black/40 overflow-hidden border border-pink-400/40 cursor-pointer">
+      <div id="zone" class="absolute inset-y-0 bg-emerald-400/25 border-x-2 border-emerald-300"></div>
+      <div id="marker" class="absolute top-0 bottom-0 w-1.5 bg-cyan-300 shadow-[0_0_14px_#67e8f9]" style="left:0"></div>
+    </div>
+    <div id="fb" class="h-8 mt-2 text-center font-bold text-sm"></div>
+    <button id="stopBtn" onclick="attempt()" disabled class="btnV w-full py-3 mt-3 text-xl">قــف!</button>
+    <p class="text-[11px] text-center opacity-70 mt-2">مسافة / ضغط على الشريط يعملان أيضاً</p>
+  </section>
+
+  <section id="end" class="hidden text-center py-6">
+    <div id="eIcon" class="text-6xl mb-2">⏱️</div>
+    <h2 class="text-2xl font-black mb-1" id="eTitle">انتهى الوقت لك!</h2>
+    <p class="text-5xl font-black text-cyan-300 my-4"><span id="fScore">0</span></p>
+    <p id="fRank" class="text-sm mb-6 text-pink-100"></p>
+    <button onclick="startGame()" class="btnV w-full py-3 text-lg">إعادة المحاولة 🔁</button>
+  </section>
+</main>
+
+<script>
+const $=function(id){return document.getElementById(id);};
+const TOTAL=10;
+let level=1,score=0,lives=3,running=false,raf=null,pos=0,dir=1,speed=0,zStart=0,zW=0,lastT=null,vtaudio;
+function vsnd(f,d,type){try{vtaudio=vtaudio||new(window.AudioContext||window.webkitAudioContext)();const o=vtaudio.createOscillator(),g=vtaudio.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(.05,vtaudio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,vtaudio.currentTime+d);o.connect(g);g.connect(vtaudio.destination);o.start();o.stop(vtaudio.currentTime+d);}catch(e){}}
+
+function trackW(){return $('track').clientWidth;}
+
+function drawHearts(){
+ const l=Math.max(0,lives);
+ $('hearts').textContent='❤️'.repeat(l)+'🖤'.repeat(3-l);
+}
+
+function startLevel(){
+ if(level>TOTAL){winGame();return;}
+ const W=trackW();
+ zW=Math.max(W*.3-level*W*.02,W*.09);
+ zStart=Math.random()*(W-zW);
+ speed=150+level*42;
+ pos=0;dir=1;lastT=null;
+ const z=$('zone');
+ z.style.left=zStart+'px';z.style.width=zW+'px';
+ $('lvl').textContent=level;$('fb').textContent='';
+ $('stopBtn').disabled=false;
+ running=true;
+ raf=requestAnimationFrame(frame);
+}
+
+function frame(now){
+ if(lastT==null)lastT=now;
+ const dt=(now-lastT)/1000;lastT=now;
+ const W=trackW();
+ pos+=dir*speed*dt;
+ if(pos>W){pos=W-(pos-W);dir=-1;}
+ if(pos<0){pos=-pos;dir=1;}
+ $('marker').style.transform='translateX('+pos+'px)';
+ if(running)raf=requestAnimationFrame(frame);
+}
+
+function attempt(){
+ if(!running)return;
+ running=false;cancelAnimationFrame(raf);
+ $('stopBtn').disabled=true;
+ const hit=pos>=zStart&&pos<=zStart+zW;
+ const fb=$('fb');
+ if(hit){
+   const off=Math.abs(pos-(zStart+zW/2))/(zW/2);
+   const pts=Math.round(60*(1-off))+40+level*10;
+   score+=pts;$('score').textContent=score;
+   fb.className='h-8 mt-2 text-center font-bold text-sm text-emerald-300';
+   fb.textContent='🎯 إصابة بدقة '+Math.round((1-off)*100)+'% (+ '+pts+')';
+   vsnd(600+Math.round(off*100)*2,.12,'sine');
+   level++;
+   setTimeout(startLevel,750);
+ }else{
+   lives--;drawHearts();
+   fb.className='h-8 mt-2 text-center font-bold text-sm text-rose-400';
+    fb.textContent='💥 طفت عن المنطقة!';
+    vsnd(180,.2,'sawtooth');
+    const tr=$('track');
+   tr.classList.remove('shakeV');void tr.offsetWidth;tr.classList.add('shakeV');
+   if(lives<=0)setTimeout(gameOver,800);
+   else setTimeout(startLevel,950);
+ }
+}
+
+function startGame(){
+ level=1;score=0;lives=3;
+ $('home').classList.add('hidden');$('end').classList.add('hidden');$('play').classList.remove('hidden');
+ $('score').textContent='0';drawHearts();
+ startLevel();
+}
+
+function saveBest(){
+  let b=0;try{b=Number(localStorage.getItem('vapor-timing-best')||0);}catch(e){}
+  if(score>b)try{localStorage.setItem('vapor-timing-best',score);b=score;}catch(e){}
+  if(b)$('bestHome').textContent=b;
+  return Math.max(score,b);
+}
+
+function gameOver(){
+ const best=saveBest();
+ $('eIcon').textContent='💔';
+ $('eTitle').textContent='خلصت القلوب!';
+ $('fScore').textContent=score;
+ $('fRank').textContent='وصلت للمستوى '+Math.min(level,TOTAL)+' • أفضل نتيجة: '+best;
+ $('play').classList.add('hidden');$('end').classList.remove('hidden');
+}
+
+function winGame(){
+ const perfect=lives===3;
+ const best=saveBest();
+ $('eIcon').textContent=perfect?'💎':'🏆';
+ $('eTitle').textContent=perfect?'عبور مثالي!':'أكملت العشرة!';
+ $('fScore').textContent=score;
+ $('fRank').textContent=(perfect?'بدون أي خطأ — احترام يا معلم 👑':'بقلوب '+lives+'/3')+' • أفضل نتيجة: '+best;
+ $('play').classList.add('hidden');$('end').classList.remove('hidden');
+}
+
+window.addEventListener('keydown',function(e){
+ if(e.code==='Space'){e.preventDefault();attempt();}
+});
+$('track').addEventListener('click',attempt);
+
+(function(){let b=0;try{b=localStorage.getItem('vapor-timing-best');}catch(e){}if(b)$('bestHome').textContent=b;})();
+</script>
+</body>
+</html>

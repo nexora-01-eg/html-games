@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>قنبلة موقوتة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+@keyframes flicker{0%{opacity:1}50%{opacity:0.4}100%{opacity:1}}
+@keyframes shake{0%,100%{transform:translate(0)}20%{transform:translate(-8px,4px)}40%{transform:translate(8px,-4px)}60%{transform:translate(-6px,-6px)}80%{transform:translate(6px,6px)}}
+@keyframes bang{0%{transform:scale(0);opacity:0}60%{transform:scale(1.6);opacity:1}100%{transform:scale(1);opacity:1}}
+.flick{animation:flicker 0.2s infinite}
+.bomb{transition:transform .2s}
+.bomb:hover{transform:scale(1.02)}
+.wire{transition:filter .2s}
+.boom{animation:bang 0.4s ease-out}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-red-950 via-neutral-900 to-neutral-950 text-white overflow-hidden">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-6xl font-black flick">💣 قنبلة موقوتة</h1>
+  <p class="text-xl text-red-200 max-w-lg leading-relaxed">القنبلة ستنفجر! قطّع الأسلاك بالترتيب الصحيح من الألوان لكي تنزع فتيلها. سلك خاطئ واحد يعني الانفجار!</p>
+  <div class="bg-red-900/40 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-red-200">٨ مستويات من الصعوبة المتزايدة</p>
+  </div>
+  <button onclick="startGame()" class="bg-red-600 hover:bg-red-500 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">نزع الفتيل</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-4">
+  <div class="w-full max-w-lg flex items-center justify-between mb-2">
+    <p class="text-lg">المستوى: <span id="lvl" class="font-black">1 / 8</span></p>
+    <p class="text-lg">أفضل نتيجة: <span id="playBest">0</span></p>
+    <button id="pauseBomb" onclick="toggleBombPause()" class="bg-neutral-800 hover:bg-neutral-700 border border-red-500/40 text-white text-sm font-bold px-3 py-1.5 rounded-full">⏸</button>
+  </div>
+  <div id="bomb" class="bomb bg-neutral-800 rounded-3xl w-full max-w-lg p-8 shadow-2xl border-2 border-red-500/50">
+    <div class="text-center mb-4"><span id="emoji" class="text-6xl">💣</span></div>
+    <div id="timerBox" class="text-center mb-4">
+      <span id="timer" class="text-6xl font-black text-red-500">30</span>
+    </div>
+    <div id="seqBox" class="mb-5 min-h-[52px] bg-neutral-900 rounded-xl p-3 text-center">
+      <p class="text-xs text-red-200 mb-1">الترتيب المطلوب</p>
+      <div id="sequence" class="flex justify-center gap-2 flex-wrap"></div>
+    </div>
+    <div id="wires" class="grid gap-3"></div>
+  </div>
+  <button id="againBtn" onclick="nextLevel()" class="hidden bg-emerald-600 hover:bg-emerald-500 font-bold px-8 py-3 rounded-full transition">المستوى التالي</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 id="ftitle" class="text-6xl font-black">انفجرت! 💥</h1>
+  <p id="fmsg" class="text-2xl text-red-200"></p>
+  <p class="text-lg">نزعت فتيل <span id="fLevel" class="font-black">0</span> من ٨ بنجاح</p>
+  <p class="text-purple-200">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <button onclick="backStart()" class="bg-red-600 hover:bg-red-500 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let wires=['red','blue','green','yellow','purple','orange'];
+let colors={red:'#ef4444',blue:'#3b82f6',green:'#22c55e',yellow:'#eab308',purple:'#a855f7',orange:'#f97316'};
+let names={red:'أحمر',blue:'أزرق',green:'أخضر',yellow:'أصفر',purple:'بنفسجي',orange:'برتقالي'};
+let level,timer,timerInt,order,index,defused,paused=false;
+let bombAudio;
+function getBombAudio(){if(!bombAudio)bombAudio=new(window.AudioContext||window.webkitAudioContext)();return bombAudio;}
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let best=+sGet('time-bomb-best')||0;
+$('startBest').textContent=best;$('finishBest').textContent=best;$('playBest').textContent=best;
+function tone(f,dur,type='sine',vol=0.2){
+  let ac=getBombAudio();
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  level=0;defused=0;paused=false;
+  $('bomb').style.animation='';$('pauseBomb').textContent='⏸';nextLevel();
+}
+function nextLevel(){
+  level++;
+  if(level>8){winAll();return}
+  $('lvl').textContent=level+' / 8';
+  $('againBtn').classList.add('hidden');
+  $('bomb').style.animation='';
+  $('emoji').textContent='💣';
+  let n=Math.min(3+Math.ceil(level/2),6);
+  order=shuffle(wires).slice(0,n);
+  index=0;
+  renderSeq(false);
+  renderWires(n);
+  clearInterval(timerInt);
+  timer=Math.max(12,34-level*2);
+  $('timer').textContent=timer;
+  paused=false;$('pauseBomb').textContent='⏸';
+  timerInt=setInterval(bombTick,1000);
+}
+function bombTick(){
+  timer--;$('timer').textContent=timer;
+  if(timer<=5)tone(400,0.1,'square',0.08);
+  if(timer<=0){explode();}
+}
+function toggleBombPause(){
+  if(!$('playScreen').classList.contains('flex')||$('againBtn')&&!$('againBtn').classList.contains('hidden'))return;
+  paused=!paused;
+  $('pauseBomb').textContent=paused?'▶':'⏸';
+  if(paused){clearInterval(timerInt);tone(300,0.12,'sine',0.1);}
+  else{timerInt=setInterval(bombTick,1000);tone(500,0.12,'sine',0.1);}
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='p'||e.key==='P'||e.key==='Escape')toggleBombPause();
+});
+function shuffle(a){let arr=a.slice();for(let i=arr.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr}
+function renderSeq(done){
+  let box=$('sequence');box.innerHTML='';
+  order.forEach((w,i)=>{
+    let s=document.createElement('span');
+    s.className='w-8 h-8 rounded-full inline-block shadow';
+    s.style.background=colors[w];
+    if(done&&i===index-1)s.style.opacity=0.4;
+    box.appendChild(s);
+  });
+}
+function renderWires(n){
+  let box=$('wires');box.innerHTML='';
+  let wl=shuffle(order);
+  wl.forEach(w=>{
+    let d=document.createElement('button');
+    d.className='wire flex items-center gap-3 bg-neutral-900 rounded-xl px-4 py-3 hover:bg-neutral-700';
+    d.innerHTML='<span class="w-8 h-3 rounded-full" style="background:'+colors[w]+'"></span><span>'+names[w]+'</span>';
+    d.dataset.w=w;
+    d.onclick=()=>cut(w,d);
+    box.appendChild(d);
+  });
+}
+function cut(w,btn){
+  if(paused)return;
+  if(w===order[index]){
+    btn.style.opacity=0.4;btn.style.pointerEvents='none';
+    tone(600+index*100,0.15,'square',0.15);
+    index++;
+    renderSeq(true);
+    if(index===order.length){
+      clearInterval(timerInt);defused++;
+      $('emoji').textContent='✅';tone(800,0.3,'triangle',0.2);
+      $('againBtn').classList.remove('hidden');
+    }
+  }else{
+    explode();
+  }
+}
+function explode(){
+  clearInterval(timerInt);
+  let b=$('bomb');
+  b.style.animation='shake 0.5s';
+  $('emoji').textContent='💥';
+  setTimeout(()=>{
+    tone(100,0.8,'sawtooth',0.3);
+    let over=document.createElement('div');
+    over.className='boom fixed inset-0 bg-orange-500/70';
+    over.innerHTML='<div class="text-center mt-40 text-8xl">💥</div>';
+    document.body.appendChild(over);
+    setTimeout(()=>over.remove(),700);
+    finish();
+  },500);
+}
+function finish(){
+  if(defused>best){best=defused;sSet('time-bomb-best',best)}
+  $('fLevel').textContent=defused;
+  $('finishBest').textContent=best;
+  $('ftitle').textContent=defused>=8?'نزعت كل الفتيل! 🎉':'انفجرت! 💥';
+  $('fmsg').textContent=defused>=8?'أنت خبير في نزع الألغام!':'حاول مرة أخرى، قطّع بالترتيب الصحيح';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+}
+function winAll(){finish()}
+function backStart(){
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('finishScreen').classList.remove('flex');$('finishScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

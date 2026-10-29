@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حلّ الكلمة المخلوطة</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-purple-900 min-h-screen flex items-center justify-center font-sans"><div id="app" class="bg-white/10 backdrop-blur p-8 rounded-3xl w-full max-w-md text-center text-white">
+<div class="text-3xl font-bold mb-2">حلّ الكلمة المخلوطة</div>
+<div id="startScreen">
+<button onclick="startGame()" class="mt-6 bg-purple-500 hover:bg-purple-400 px-8 py-4 rounded-xl text-xl font-bold transition">ابدأ اللعبة</button>
+<p id="bestDisp" class="mt-4 text-purple-300"></p>
+</div>
+<div id="gameScreen" class="hidden">
+<div class="flex justify-between text-sm mb-4"><span>الجولة: <span id="round">1</span>/10</span><span>الوقت: <span id="timer">15</span>s</span><span>النتيجة: <span id="score">0</span></span></div>
+<div id="scrambled" class="text-5xl font-bold my-8 tracking-widest select-none"></div>
+<div id="hintBox" class="text-yellow-300 mb-2 h-6"></div>
+<button onclick="showHint()" class="text-xs bg-yellow-500/30 px-3 py-1 rounded mb-4 hover:bg-yellow-500/50 transition">💡 تلميح</button>
+<button onclick="skipWord()" class="text-xs bg-red-500/30 px-3 py-1 rounded mb-4 hover:bg-red-500/50 transition">⏭ تخطي</button>
+<div class="flex gap-2 justify-center mb-4">
+<input id="answer" type="text" class="bg-white/20 border border-white/30 rounded-xl px-4 py-3 text-xl text-center w-48 focus:outline-none focus:border-purple-400" placeholder="اكتب هنا" autocomplete="off">
+<button onclick="checkAnswer()" class="bg-purple-500 px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition">✓</button>
+</div>
+<div id="feedback" class="h-6 text-lg font-bold"></div>
+</div>
+<div id="endScreen" class="hidden">
+<div class="text-4xl font-bold mb-4">🎯 انتهت اللعبة!</div>
+<div class="text-xl mb-2">النتيجة: <span id="finalScore" class="text-yellow-300"></span></div>
+<div id="newBest" class="text-green-400 font-bold mb-2 hidden">🏆 رقم قياسي جديد!</div>
+<button onclick="startGame()" class="mt-4 bg-purple-500 hover:bg-purple-400 px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div><script>
+const WORDS=["كتاب","قمر","شمس","بحر","نار","ماء","ريح","سماء","أرض","قلب","عين","يد","بيت","حرب","سلام","حب","قدس","فلك","نجم","زهرة","حديد","ذهب","نور","حجر","مطر"];
+const ARABIC_WORDS=["كتاب","قمر","شمس","بحر","نار","ماء","ريح","سماء","أرض","قلب","عين","يد","بيت","حرب","سلام","حب","قدس","فلك","نجم","زهرة"];
+let words=[],current=0,score=0,streak=0,timerVal=15,timerInt=null,usedHint=false,paused=false,best=0,scrambleAudio;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet('wordscramble-best'))||0;
+function getScrambleAudio(){if(!scrambleAudio)scrambleAudio=new(window.AudioContext||window.webkitAudioContext)();return scrambleAudio;}
+function playSound(f,d,t){let ctx=getScrambleAudio(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+function shuffle(w){let a=w.split('');for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a.join('');}
+function scramble(w){let s;do{s=shuffle(w);}while(s===w);return s;}
+function showHint(){if(!usedHint){document.getElementById('hintBox').textContent='💡 الحرف الأول: '+words[current][0];usedHint=true;}}
+function startGame(){
+words=[...ARABIC_WORDS].sort(()=>Math.random()-0.5).slice(0,10);
+current=0;score=0;streak=0;timerVal=15;paused=false;
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+document.getElementById('gameScreen').classList.remove('hidden');
+document.getElementById('bestDisp').textContent='أفضل نتيجة: '+best;
+showWord();
+}
+function showWord(){
+if(current>=10)return endGame();
+usedHint=false;
+let w=words[current];
+document.getElementById('round').textContent=current+1;
+document.getElementById('score').textContent=score;
+document.getElementById('scrambled').textContent=scramble(w);
+document.getElementById('hintBox').textContent='';
+document.getElementById('answer').value='';
+document.getElementById('feedback').textContent='';
+document.getElementById('answer').focus();
+clearInterval(timerInt);timerVal=15;paused=false;
+document.getElementById('timer').textContent=timerVal;
+timerInt=setInterval(()=>{
+if(paused)return;
+timerVal--;document.getElementById('timer').textContent=timerVal;
+if(timerVal<=0){clearInterval(timerInt);playSound(200,0.5,'sawtooth');streak=0;current++;setTimeout(showWord,500);}
+},1000);
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='p'||e.key==='P'){if(document.getElementById('gameScreen').classList.contains('hidden'))return;paused=!paused;document.getElementById('feedback').textContent=paused?'⏸ موقوف — اضغط P للمتابعة':'';}
+});
+function skipWord(){
+if(current>=10)return;
+playSound(250,0.2,'sawtooth');
+clearInterval(timerInt);streak=0;current++;
+if(current>=10)return endGame();
+showWord();
+}
+function checkAnswer(){
+if(paused)return;
+let a=document.getElementById('answer').value.trim();
+if(!a)return;
+clearInterval(timerInt);
+if(a===words[current]){
+let pts=timerVal*10+streak*20;score+=pts;streak++;
+playSound(600,0.2);playSound(800,0.3);
+document.getElementById('feedback').innerHTML='<span class="text-green-400">✅ '+pts+' نقطة!</span>';
+}else{
+playSound(200,0.3,'sawtooth');streak=0;
+document.getElementById('feedback').innerHTML='<span class="text-red-400">❌ الجواب: '+words[current]+'</span>';
+}
+current++;setTimeout(showWord,1200);
+}
+function endGame(){
+clearInterval(timerInt);
+document.getElementById('gameScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.remove('hidden');
+document.getElementById('finalScore').textContent=score;
+let isNew=score>best;
+if(isNew){best=score;sSet('wordscramble-best',best);document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+}
+document.getElementById('bestDisp').textContent='أفضل نتيجة: '+best;
+document.getElementById('answer').addEventListener('keydown',e=>{if(e.key==='Enter')checkAnswer();});
+</script></body></html>

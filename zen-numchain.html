@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سلسلة الأرقام 🔗</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#e8e0d4,#d4c8b8);color:#3d3528;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#6b5b4a}
+.sub{font-size:.75rem;color:rgba(61,53,40,.5);margin-bottom:1rem}
+.chip{background:rgba(107,91,74,.1);border:2px solid #a89880;border-radius:999px;padding:.2rem .7rem;font-size:.78rem;font-weight:700;color:#6b5b4a}
+.btn{font-family:inherit;background:#6b5b4a;color:#e8e0d4;border:none;padding:.55rem 1.5rem;font-weight:900;border-radius:12px;cursor:pointer;box-shadow:0 4px 0 #3d3528;transition:all .08s}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:translateY(3px);box-shadow:none}
+.target{font-size:2.5rem;font-weight:900;color:#6b5b4a;text-shadow:0 2px 8px rgba(107,91,74,.2);margin:.8rem 0}
+.chain{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:.8rem 0;min-height:40px}
+.chain .num{padding:.3rem .7rem;border:2px solid #a89880;border-radius:8px;font-weight:800;font-size:1rem;background:rgba(255,255,255,.4)}
+.chain .num.correct{border-color:#4a8a5c;color:#4a8a5c;background:rgba(74,138,92,.12)}
+.chain .num.wrong{border-color:#c0524f;color:#c0524f;background:rgba(192,82,79,.1)}
+.ops{display:flex;gap:8px;justify-content:center;margin:.8rem 0}
+.ops button{width:52px;height:52px;border-radius:12px;border:2.5px solid #a89880;background:rgba(255,255,255,.3);
+font-size:1.3rem;font-weight:900;color:#6b5b4a;cursor:pointer;transition:all .1s}
+.ops button:hover{background:rgba(255,255,255,.6);border-color:#6b5b4a}
+.ops button:active{transform:scale(.92)}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;color:#6b5b4a}
+</style>
+</head>
+<body>
+<h1>🔗 سلسلة الأرقام</h1>
+<p class="sub">من الرقم الأول للرقم الأخير — اختار العمليات الصح</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">_chain من ٤–٥ أرقام — اختار (+−×÷) بين كل زوج<br>المجموع النهائي = الهدف</p>
+<button onclick="start()" class="btn">ابدأ السلسلة 🔗</button>
+<p style="font-size:.7rem;opacity:.5;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud" style="display:flex;gap:.6rem;justify-content:center;margin-bottom:.6rem">
+<span class="chip">جولة <b id="rzEl">١</b>/٨</span>
+<span class="chip">⭐ <b id="scoreEl">٠</b></span>
+<span class="chip">⏱ <b id="timeEl">١٥</b>s</span>
+</div>
+<div class="target" id="targetEl"></div>
+<div class="chain" id="chainRow"></div>
+<div class="ops" id="opsRow"></div>
+<button class="btn" onclick="checkAnswer()" style="margin-top:.5rem">🔍 تحقق</button>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='zen-chain-num-best';
+let rz=0,score=0,best=0,ac=null,over=true,timer=null,timeLeft=0,chain=[],ops=[],paused=false;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+sGet(bestKey)||0;
+$('bestStart').textContent=best?AR(best):'—';
+document.addEventListener('keydown',e=>{
+if(e.key==='p'||e.key==='P'){
+if($('playScr').classList.contains('hidden'))return;
+paused=!paused;
+$('rzMsg').textContent=paused?'⏸ موقوف — اضغط P للمتابعة':'';
+}
+});
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function genLevel(){
+const len=3+Math.floor(Math.random()*3);
+const chain2=[Math.floor(Math.random()*8)+1];
+const opsSol=[];
+for(let i=1;i<len;i++){
+const op=['+','-','*'][Math.floor(Math.random()*3)];
+opsSol.push(op);
+const n=op==='*'?(Math.floor(Math.random()*3)+2):(Math.floor(Math.random()*9)+1);
+chain2.push(n);
+}
+let target=chain2[0];
+for(let i=0;i<opsSol.length;i++){
+if(opsSol[i]==='+')target+=chain2[i+1];
+else if(opsSol[i]==='-')target-=chain2[i+1];
+else target*=chain2[i+1];
+}
+if(Math.abs(target)>50)return genLevel();
+return{chain:chain2,target};
+}
+function start(){rz=0;score=0;$('scoreEl').textContent='٠';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');nextRound();}
+function nextRound(){
+rz++;if(rz>8){finish();return;}$('rzEl').textContent=AR(rz);
+const lv=genLevel();chain=lv.chain;ops=Array(chain.length-1).fill('?');
+$('targetEl').textContent='= '+AR(lv.target);
+renderChain();
+timeLeft=15;$('timeEl').textContent=AR(timeLeft);
+clearInterval(timer);over=false;paused=false;
+timer=setInterval(()=>{
+if(paused)return;
+timeLeft--;$('timeEl').textContent=AR(timeLeft);if(timeLeft<=0){over=true;clearInterval(timer);$('rzMsg').textContent='⏰ خلص الوقت!';setTimeout(nextRound,1200);}
+},1000);
+}
+function renderChain(){
+const row=$('chainRow');row.innerHTML='';
+chain.forEach((n,i)=>{
+const d=document.createElement('div');d.className='num';d.textContent=AR(n);row.appendChild(d);
+if(i<chain.length-1){
+const op=document.createElement('span');op.className='num';op.textContent=AR_op(ops[i]);
+op.style.cursor='pointer';op.style.borderColor=ops[i]==='?'?'#c0524f':'#4a8a5c';
+op.onclick=()=>{if(over)return;ops[i]=nextOp(ops[i]);op.textContent=AR_op(ops[i]);snd(440,.05,'sine');};
+row.appendChild(op);
+}
+});
+}
+function AR_op(o){return{'+':'+', '-':'−', '*':'×', '/':'÷', '?':'?'}[o];}
+function nextOp(c){return{'+':'-', '-':'*', '*':'+', '?':'+'}[c];}
+function checkAnswer(){
+if(over||paused)return;over=true;clearInterval(timer);
+let result=chain[0];
+for(let i=0;i<ops.length;i++){
+if(ops[i]==='+')result+=chain[i+1];
+else if(ops[i]==='-')result-=chain[i+1];
+else if(ops[i]==='*')result*=chain[i+1];
+else{over=false;$('rzMsg').textContent='❌ لسه في عمليات فاضية!';return;}
+}
+const lvTarget=parseInt($('targetEl').textContent.replace('= ',''));
+if(result===lvTarget){
+score+=timeLeft*10+50;$('scoreEl').textContent=AR(score);
+$('rzMsg').textContent='✅ صح! +'+AR(timeLeft*10+50);
+snd(580,.1,'triangle',.05);
+}else{
+$('rzMsg').textContent='❌ '+AR(result)+' ≠ '+AR(lvTarget);
+snd(180,.16,'sawtooth',.04);
+}
+setTimeout(nextRound,1000);
+}
+function finish(){
+over=true;clearInterval(timer);
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid #a89880;border-radius:16px;padding:2rem;max-width:320px;background:rgba(255,255,255,.3)">
+<p style="font-size:2rem">🔗</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#6b5b4a">السلسلة خلصت!</h2>
+<p style="font-size:2rem;font-weight:900">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+const v=+sGet(bestKey)||0;
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)sSet(bestKey,score);
+}
+</script>
+</body>
+</html>

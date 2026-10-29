@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دفع البلاط</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#d4c5a9}
+.cell{width:50px;height:50px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:bold;border-radius:4px;position:absolute;transition:left 0.1s,top 0.1s}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-gray-800">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-amber-700">دفع البلاط</h1>
+<p class="mb-6 text-lg text-gray-600">ادفع الصناديق إلى الأهداف</p>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-amber-500"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-3 text-lg font-bold"><span id="levelDisplay">المستوى: 1</span> | <span id="movesDisplay">الحركات: 0</span></div>
+<div id="board" class="relative mx-auto bg-stone-700 rounded-xl p-1" style="width:fit-content"></div>
+<p id="statusText" class="mt-3 text-sm text-gray-500">استخدم الأسهم للتحرك</p>
+<div class="flex gap-2 justify-center mt-3 flex-wrap">
+<button onclick="undoMove()" class="bg-stone-500 hover:bg-stone-400 text-white px-4 py-2 rounded-lg text-sm font-bold">↩ تراجع</button>
+<button onclick="loadLevel()" class="bg-stone-500 hover:bg-stone-400 text-white px-4 py-2 rounded-lg text-sm font-bold">🔄 إعادة المستوى</button>
+</div>
+<div class="grid grid-cols-3 gap-2 w-40 mx-auto mt-3">
+<button onclick="moveBy(0,-1)" class="bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg text-xl font-bold">↑</button>
+<button></button><button onclick="moveBy(0,1)" class="bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg text-xl font-bold">↓</button>
+<button onclick="moveBy(-1,0)" class="bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg text-xl font-bold">←</button>
+<button></button><button onclick="moveBy(1,0)" class="bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-lg text-xl font-bold">→</button>
+</div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-amber-700">أحسنت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let level=0,moves=0,playerPos={x:0,y:0},boxes=[],targets=[],walls=[],gridW=8,gridH=6,hist=[],best=0,tileAudio;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=parseInt(sGet('tile-push-best'))||0;
+const levels=[
+{player:{x:1,y:1},boxes:[{x:3,y:2}],targets:[{x:5,y:3}],walls:[{x:2,y:2},{x:4,y:1}]},
+{player:{x:1,y:1},boxes:[{x:3,y:2},{x:4,y:2}],targets:[{x:5,y:3},{x:6,y:3}],walls:[]},
+{player:{x:1,y:4},boxes:[{x:3,y:2},{x:3,y:3}],targets:[{x:6,y:2},{x:6,y:3}],walls:[{x:2,y:2},{x:2,y:3}]},
+{player:{x:1,y:1},boxes:[{x:3,y:1},{x:3,y:2},{x:4,y:2}],targets:[{x:5,y:4},{x:6,y:4},{x:6,y:3}],walls:[{x:5,y:1}]},
+{player:{x:2,y:2},boxes:[{x:3,y:2},{x:3,y:3},{x:4,y:3},{x:4,y:4}],targets:[{x:6,y:2},{x:6,y:3},{x:6,y:4},{x:6,y:5}],walls:[]}
+];
+function $(id){return document.getElementById(id)}
+function audioCtx(){return new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(f,t,d){if(!tileAudio)tileAudio=new(window.AudioContext||window.webkitAudioContext)();let c=tileAudio,o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل نتيجة: '+best+' مستوى':'';}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+level=0;moves=0;loadLevel();
+}
+function loadLevel(){
+if(level>=5){if(level>best){best=level;sSet('tile-push-best',best);}
+$('finalStats').textContent='أكملت جميع المستويات! '+' '+level+' مستوى';
+$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');return;}
+let lv=levels[level];playerPos={...lv.player};boxes=lv.boxes.map(b=>({...b}));targets=lv.targets.map(t=>({...t}));walls=lv.walls.map(w=>({...w}));moves=0;hist=[];
+$('levelDisplay').textContent='المستوى: '+(level+1);
+$('movesDisplay').textContent='الحركات: 0';$('statusText').textContent='استخدم الأسهم للتحرك';
+render();
+}
+function render(){
+let b=$('board');b.innerHTML='';b.style.width=gridW*52+'px';b.style.height=gridH*52+'px';
+targets.forEach(t=>{let c=document.createElement('div');c.className='cell';c.style.left=t.x*52+'px';c.style.top=t.y*52+'px';c.textContent='◎';c.style.color='#f59e0b';b.appendChild(c);});
+walls.forEach(w=>{let c=document.createElement('div');c.className='cell';c.style.left=w.x*52+'px';c.style.top=w.y*52+'px';c.textContent='■';c.style.color='#78350f';c.style.background='#92400e';b.appendChild(c);});
+boxes.forEach(box=>{let c=document.createElement('div');c.className='cell';c.style.left=box.x*52+'px';c.style.top=box.y*52+'px';c.textContent='□';c.style.color='white';c.style.background='#d97706';c.style.borderRadius='8px';b.appendChild(c);});
+let pc=document.createElement('div');pc.className='cell';pc.style.left=playerPos.x*52+'px';pc.style.top=playerPos.y*52+'px';pc.textContent='●';pc.style.color='#22c55e';pc.style.fontSize='2rem';b.appendChild(pc);
+}
+function isWall(x,y){return walls.some(w=>w.x===x&&w.y===y)||x<0||y<0||x>=gridW||y>=gridH;}
+function isBox(x,y){return boxes.findIndex(b=>b.x===x&&b.y===y);}
+function move(dx,dy){
+if(!$('playScreen').classList.contains('hidden'))applyMove(dx,dy);
+}
+function moveBy(dx,dy){
+if(!$('playScreen').classList.contains('hidden'))applyMove(dx,dy);
+}
+function applyMove(dx,dy){
+let nx=playerPos.x+dx,ny=playerPos.y+dy;
+if(isWall(nx,ny))return;
+let bi=isBox(nx,ny);
+hist.push({p:{...playerPos},b:boxes.map(x=>({...x}))});
+if(bi>=0){
+let bx2=nx+dx,by2=ny+dy;
+if(isWall(bx2,by2)||isBox(bx2,by2)>=0){hist.pop();return;}
+boxes[bi].x=bx2;boxes[bi].y=by2;
+playTone(300,'sine',0.1);
+}
+playerPos.x=nx;playerPos.y=ny;moves++;
+$('movesDisplay').textContent='الحركات: '+moves;
+playTone(440,'triangle',0.06);render();
+if(checkWin()){playTone(880,'sine',0.2);$('statusText').textContent='🎉 أكملت المستوى!';
+level++;setTimeout(loadLevel,600);}
+}
+function undoMove(){
+if(!hist.length||$('playScreen').classList.contains('hidden'))return;
+let h=hist.pop();
+playerPos=h.p;boxes=h.b;moves--;
+$('movesDisplay').textContent='الحركات: '+moves;
+render();
+}
+function checkWin(){return targets.every(t=>boxes.some(b=>b.x===t.x&&b.y===t.y));}
+document.addEventListener('keydown',e=>{
+if(e.key==='ArrowUp')move(0,-1);
+else if(e.key==='ArrowDown')move(0,1);
+else if(e.key==='ArrowLeft')move(-1,0);
+else if(e.key==='ArrowRight')move(1,0);
+});
+goHome();
+$('best1').textContent=best?'أفضل نتيجة: '+best+' مستوى':'';
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>اضرب الزاحف</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}
+.float{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-weight:900;color:#fff;text-shadow:0 2px 4px #000;font-size:1.4rem;pointer-events:none;animation:floatUp .8s forwards;z-index:5}
+@keyframes floatUp{to{transform:translateX(-50%) translateY(-30px);opacity:0}}</style>
+</head>
+<body class="bg-green-700 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">اضرب الزاحف 🦔</h1>
+<p class="text-yellow-300 text-sm">الوقت: <span id="timer">30</span> | النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span></p>
+</div>
+<div id="board" class="grid grid-cols-3 gap-3 mb-6"></div>
+<button id="startBtn" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<button onclick="toggleWlitePause()" id="pauseWL" class="hidden bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition mt-3">⏸ إيقاف مؤقت</button>
+<div id="endOv" class="hidden fixed inset-0 bg-black/60 z-20 flex items-center justify-center p-4">
+<div class="bg-green-800 border-2 border-yellow-400 rounded-2xl p-8 text-center max-w-xs w-full">
+<div class="text-5xl mb-2" id="ovEmoji">🦔</div>
+<h2 class="text-2xl font-bold mb-2">انتهى الوقت!</h2>
+<p class="text-4xl font-black text-yellow-300 mb-2"><span id="ovScore">0</span></p>
+<p class="text-yellow-200 text-sm mb-2">أفضل نتيجة: <span id="ovBest">0</span></p>
+<p id="ovBestMsg" class="text-yellow-300 text-sm mb-5"></p>
+<button onclick="start()" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-8 py-3 rounded-xl text-lg font-bold transition">العب مرة أخرى</button>
+</div>
+</div>
+<script>
+const SIZE=3; let best=0;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet('whack-lite-best')||0);
+let score=0,timerVal=30,timerRef=null,moleTimer=null,playing=false,paused=false,holes=[];
+document.getElementById('best').textContent=best;
+let wliteAudio;
+function getWliteAudio(){if(!wliteAudio)wliteAudio=new(window.AudioContext||window.webkitAudioContext)();return wliteAudio;}
+function beep(f,d,t='sine'){let ctx=getWliteAudio(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.3;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.stop(ctx.currentTime+d);}
+const board=document.getElementById('board');
+for(let i=0;i<SIZE*SIZE;i++){
+const d=document.createElement('div');
+d.className='w-20 h-20 bg-green-900 rounded-xl flex items-center justify-center text-4xl cursor-pointer select-none transition-all duration-150';
+d.style.border='3px solid #166534';
+d.dataset.state='down';
+d.dataset.idx=i;
+d.textContent='';
+d.style.position='relative';
+d.addEventListener('click',()=>whack(i));
+board.appendChild(d);
+holes.push(d);
+}
+function popMole(){
+if(!playing||paused)return;
+const i=Math.floor(Math.random()*holes.length);
+if(holes[i].dataset.state==='up')return;
+holes[i].dataset.state='up';
+holes[i].textContent='🦔';
+holes[i].className='w-20 h-20 bg-yellow-600 rounded-xl flex items-center justify-center text-4xl cursor-pointer select-none transition-all duration-150 scale-110';
+holes[i].style.border='3px solid #f59e0b';
+setTimeout(()=>{
+if(holes[i].dataset.state==='up'){
+holes[i].dataset.state='down';
+holes[i].textContent='';
+holes[i].className='w-20 h-20 bg-green-900 rounded-xl flex items-center justify-center text-4xl cursor-pointer select-none transition-all duration-150';
+holes[i].style.border='3px solid #166534';
+}
+},1200);
+}
+function whack(i){
+if(!playing||paused||holes[i].dataset.state!=='up')return;
+beep(700,0.1);beep(900,0.15);
+score+=10;
+document.getElementById('score').textContent=score;
+let ft=document.createElement('span');ft.className='float';ft.textContent='+10';holes[i].appendChild(ft);setTimeout(()=>ft.remove(),800);
+holes[i].dataset.state='down';
+holes[i].textContent='💥';
+holes[i].className='w-20 h-20 bg-red-500 rounded-xl flex items-center justify-center text-4xl cursor-pointer select-none transition-all duration-150';
+holes[i].style.border='3px solid #dc2626';
+setTimeout(()=>{
+holes[i].textContent='';
+holes[i].className='w-20 h-20 bg-green-900 rounded-xl flex items-center justify-center text-4xl cursor-pointer select-none transition-all duration-150';
+holes[i].style.border='3px solid #166534';
+},200);
+}
+function toggleWlitePause(){
+if(!playing)return;
+paused=!paused;
+document.getElementById('pauseWL').textContent=paused?'▶ متابعة':'⏸ إيقاف مؤقت';
+if(paused)document.getElementById('pauseWL').classList.add('bg-emerald-600');
+else document.getElementById('pauseWL').classList.remove('bg-emerald-600');
+}
+document.addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P')toggleWlitePause();});
+function endGame(){
+playing=false;paused=false;clearInterval(timerRef);clearInterval(moleTimer);
+beep(200,0.3,'sawtooth');
+document.getElementById('pauseWL').classList.add('hidden');
+let isNew=score>best;
+if(isNew){best=score;sSet('whack-lite-best',best);document.getElementById('best').textContent=best;}
+document.getElementById('ovScore').textContent=score;
+document.getElementById('ovBest').textContent=best;
+document.getElementById('ovEmoji').textContent=score>=80?'🥇':score>=40?'👍':'😅';
+document.getElementById('ovBestMsg').textContent=isNew&&score>0?'🏆 رقم قياسي جديد!':'حاول زيادة النقاط';
+document.getElementById('endOv').classList.remove('hidden');
+}
+function start(){
+score=0;timerVal=30;playing=true;paused=false;
+document.getElementById('score').textContent=0;
+document.getElementById('startBtn').style.display='none';
+document.getElementById('endOv').classList.add('hidden');
+document.getElementById('pauseWL').classList.remove('hidden');
+document.getElementById('pauseWL').textContent='⏸ إيقاف مؤقت';
+document.getElementById('pauseWL').classList.remove('bg-emerald-600');
+timerRef=setInterval(()=>{if(paused)return;timerVal--;document.getElementById('timer').textContent=timerVal;if(timerVal<=0)endGame();},1000);
+moleTimer=setInterval(popMole,700);
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

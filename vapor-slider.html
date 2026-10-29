@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLIDE://80s 🌆</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#150b2e;color:#f5e9ff;overflow:hidden}
+.sun{position:absolute;width:420px;height:420px;border-radius:50%;top:-160px;left:50%;transform:translateX(-50%);
+background:linear-gradient(180deg,#ff71ce,#ff9e4f 70%);opacity:.22;filter:blur(6px)}
+.gridfloor{position:absolute;left:-40%;right:-40%;bottom:0;height:46vh;
+background:
+repeating-linear-gradient(90deg,rgba(255,113,206,.16) 0 2px,transparent 2px 64px),
+repeating-linear-gradient(0deg,rgba(1,205,254,.13) 0 2px,transparent 2px 44px);
+transform:perspective(320px) rotateX(58deg);transform-origin:top;pointer-events:none}
+.boardvp{position:relative;background:rgba(21,11,46,.75);border:2px solid #ff71ce;border-radius:1.2rem;
+box-shadow:0 0 34px rgba(255,113,206,.35),inset 0 0 26px rgba(255,113,206,.08);backdrop-filter:blur(6px)}
+.tilep{position:absolute;display:flex;align-items:center;justify-content:center;font-size:1.7rem;font-weight:900;
+border-radius:.7rem;background:linear-gradient(180deg,#241454,#180d38);border:1.5px solid rgba(1,205,254,.55);
+color:#7fe7ff;text-shadow:0 0 12px rgba(1,205,254,.85);cursor:pointer;transition:transform .12s ease;user-select:none}
+.tilep:hover{border-color:#01cdfe;box-shadow:0 0 16px rgba(1,205,254,.4)}
+.chipv{background:rgba(36,20,84,.8);border:1px solid rgba(255,113,206,.45);border-radius:999px;padding:.3rem 1rem;font-weight:800;font-size:.85rem;color:#ffc9ec}
+.btn-vp{background:linear-gradient(90deg,#ff71ce,#01cdfe);color:#12081f;font-weight:900;border-radius:999px;box-shadow:0 6px 18px rgba(255,113,206,.45);transition:all .09s}
+.btn-vp:hover{filter:brightness(1.1)}
+.btn-vp:active{transform:translateY(3px)}
+.glowt{text-shadow:0 0 18px rgba(255,113,206,.9),0 0 40px rgba(255,113,206,.45)}
+</style>
+</head>
+<body class="select-none">
+<div class="sun"></div><div class="gridfloor"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="boardvp px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🌆</div>
+<h1 class="text-4xl md:text-5xl font-black mb-1 glowt">SLIDE://80s</h1>
+<p class="text-sm mb-6 opacity-70 tracking-widest">اسحب المربعات وانزلقها للفراغ</p>
+<p class="leading-relaxed mb-2">حرّك المربعات وانزلقها للفراغ…<br>رتّبها <b>١ ← ٨</b> بالترتيب!</p>
+<p class="text-sm opacity-65 mb-8">٣ لوحات · كل لوحة اتلخبطت أكتر 🌀<br>الأسهم أو الدوس على المربع المجاور للفراغ</p>
+<button onclick="start()" class="btn-vp px-14 py-3.5 text-xl">شغّل اللوحة ▸</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#ff71ce]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden flex flex-col items-center">
+<div class="flex justify-between items-center mb-3 gap-1.5 flex-wrap justify-center">
+<span class="chipv">لوحة <span id="lvlEl" class="text-[#ff71ce] font-black">١</span>/٣</span>
+<span class="chipv">حركات <span id="movesEl" class="font-black">٠</span></span>
+<span class="chipv">⭐ <span id="scoreEl" class="text-[#ff71ce] font-black">٠</span></span>
+</div>
+<div id="board" class="boardvp relative"></div>
+<div id="msg" class="h-8 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden boardvp px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🩷</div>
+<h2 class="text-3xl font-black mb-5 glowt">كل اللوحات اتظبطت!</h2>
+<div id="finalScore" class="text-6xl font-black mb-3" style="color:#01cdfe;text-shadow:0 0 18px rgba(1,205,254,.7)">٠</div>
+<p id="endMsg" class="opacity-80 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-vp px-12 py-3 text-lg">ليل تاني ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const bestKey='vapor-slider-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let state=[],boardN=3,level=1,moves=0,totalScore=0,lvlT0=0,over=true,ac=null,tileEls={};
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function loadBest(){const v=+(sGet(bestKey)||0);$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+function buildBoard(){
+state=[1,2,3,4,5,6,7,8,0];
+const shuffles=level===1?50:level===2?110:190;
+let last=-1;
+for(let s=0;s<shuffles;s++){
+const g=state.indexOf(0);
+const opts=neighbors(g).filter(n=>n!==last);
+const pick=opts[Math.floor(Math.random()*opts.length)];
+[state[g],state[pick]]=[state[pick],state[g]];
+last=g;
+}
+if(solved())return buildBoard();
+moves=0;$('movesEl').textContent='٠';
+$('lvlEl').textContent=AR(level);
+render(true);
+lvlT0=performance.now();
+snd(500,.1,'triangle',.05);
+}
+function neighbors(i){
+const r=Math.floor(i/3),c=i%3,out=[];
+if(r>0)out.push(i-3);if(r<2)out.push(i+3);
+if(c>0)out.push(i-1);if(c<2)out.push(i+1);
+return out;
+}
+function render(fresh){
+const B=$('board');
+const size=B.clientWidth||Math.min(300,window.innerWidth-90);
+B.style.width=size+'px';B.style.height=size+'px';
+const cell=(size-24)/3;
+for(let n=1;n<=8;n++){
+const idx=state.indexOf(n);
+if(!tileEls[n]){
+const t=document.createElement('div');
+t.className='tilep';t.textContent=n;
+t.onclick=()=>tryMove(state.indexOf(n));
+B.appendChild(t);
+tileEls[n]=t;
+}
+const r=Math.floor(idx/3),c=idx%3;
+tileEls[n].style.width=tileEls[n].style.height=cell+'px';
+tileEls[n].style.transform=`translate(${c*(cell+6)+6}px,${r*(cell+6)+6}px)`;
+}
+}
+function tryMove(i){
+if(over)return;
+const g=state.indexOf(0);
+if(!neighbors(g).includes(i))return;
+[state[g],state[i]]=[state[i],state[g]];
+moves++;
+$('movesEl').textContent=AR(moves);
+render();
+snd(340,.05,'sine',.04);
+if(solved()){
+over=true;
+const secs=Math.round((performance.now()-lvlT0)/1000);
+const gain=Math.max(30,300-moves*4-secs*2);
+totalScore+=gain;
+$('scoreEl').textContent=AR(totalScore);
+[620,780,990].forEach((f,j)=>setTimeout(()=>snd(f,.13,'triangle',.06),j*110));
+setTimeout(()=>{
+level++;
+if(level>3)return finish();
+over=false;
+buildBoard();
+},1300);
+}
+}
+function solved(){
+for(let i=0;i<8;i++)if(state[i]!==i+1)return false;
+return true;
+}
+function start(){
+totalScore=0;level=1;over=false;tileEls={};
+document.querySelectorAll('#board .tilep').forEach(t=>t.remove());
+$('scoreEl').textContent='٠';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+buildBoard();
+}
+function finish(){
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(totalScore);
+const v=+(sGet(bestKey)||0);
+let m='ثلاث لوحات ورجعت النيون لمنظوم ✨';
+if(totalScore>v&&totalScore>0){sSet(bestKey,totalScore);m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+[700,900,1150].forEach((f,i)=>setTimeout(()=>snd(f,.16,'triangle',.05),i*140));
+}
+document.addEventListener('keydown',e=>{
+if($('playScr').classList.contains('hidden')||over)return;
+const map={ArrowUp:3,ArrowDown:-3,ArrowLeft:1,ArrowRight:-1};
+if(!(e.key in map))return;
+e.preventDefault();
+const g=state.indexOf(0);
+const t=g+map[e.key];
+const gr=Math.floor(g/3);
+if(t<0||t>8)return;
+if(map[e.key]===1&&Math.floor(t/3)!==gr)return;
+if(map[e.key]===-1&&Math.floor(t/3)!==gr)return;
+tryMove(t);
+});
+window.addEventListener('resize',()=>{if(!$('playScr').classList.contains('hidden'))render(true);});
+let tsX=null,tsY=null;
+$('board').addEventListener('touchstart',e=>{const t=e.touches[0];tsX=t.clientX;tsY=t.clientY;},{passive:true});
+$('board').addEventListener('touchmove',e=>{e.preventDefault();},{passive:false});
+$('board').addEventListener('touchend',e=>{
+if(over||$('playScr').classList.contains('hidden')||tsX==null)return;
+const t=e.changedTouches[0];
+const dx=t.clientX-tsX,dy=t.clientY-tsY;
+tsX=null;tsY=null;
+if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+const g=state.indexOf(0);
+const m=Math.abs(dx)>Math.abs(dy)?(dx>0?1:-1):(dy>0?3:-3);
+const tt=g+m;
+if(tt<0||tt>8)return;
+if(m===1&&Math.floor(tt/3)!==Math.floor(g/3))return;
+if(m===-1&&Math.floor(tt/3)!==Math.floor(g/3))return;
+tryMove(tt);
+});
+</script>
+</body>
+</html>

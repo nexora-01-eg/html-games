@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>سرعة الكتابة BRUTAL ⌨️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background-color:#ffd400;background-image:radial-gradient(rgba(0,0,0,.07) 2px,transparent 2px);background-size:26px 26px}
+.brut{border:4px solid #000;box-shadow:8px 8px 0 #000}
+.brut-sm{border:3px solid #000;box-shadow:5px 5px 0 #000}
+.btnp:active{transform:translate(4px,4px);box-shadow:2px 2px 0 #000}
+</style>
+</head>
+<body class="min-h-screen py-8 px-4 text-black flex items-start justify-center">
+<main class="w-full max-w-xl">
+  <header class="text-center mb-8 relative">
+    <span class="absolute -top-3 right-2 bg-pink-500 text-white brut-sm px-3 py-1 -rotate-6 text-sm font-black hidden sm:inline">إصدار محدود!</span>
+    <h1 class="text-5xl md:text-6xl font-black tracking-tight">سرعة الكتابة!</h1>
+    <p class="mt-2 font-bold text-lg">٦٠ ثانية • حكمة وأمثال • بلا رحمة</p>
+  </header>
+
+  <section id="home" class="brut bg-white p-6 text-center">
+    <p class="text-lg font-semibold leading-relaxed mb-4">اكتب الجملة اللي تطلع لك بأسرع سرعة.<br>الحرف الصح ينطبع أسود، والغلط ينعكس أحمر 🔴<br>السرعة تقاس بكلمة/دقيقة.</p>
+    <p class="mb-5 font-bold">🏅 أفضل سرعة: <span id="bestHome">—</span> كلمة/د</p>
+    <button onclick="begin()" class="brut btnp bg-black text-yellow-300 font-black text-2xl px-10 py-3">يلا ابدأ ⌨️</button>
+  </section>
+
+  <section id="play" class="hidden">
+    <div class="grid grid-cols-3 gap-3 mb-4 text-center font-black">
+      <div class="brut-sm bg-white py-2"><div class="text-xs">الوقت</div><div id="tLeft" class="text-2xl">60</div></div>
+      <div class="brut-sm bg-white py-2"><div class="text-xs">كلمة/د</div><div id="wpm" class="text-2xl">0</div></div>
+      <div class="brut-sm bg-white py-2"><div class="text-xs">الدقة</div><div id="acc" class="text-2xl">100%</div></div>
+    </div>
+    <div class="brut-sm bg-white h-4 mb-4"><div id="bar" class="h-full bg-black" style="width:100%"></div></div>
+    <div id="pzMsg" class="text-center font-black text-3xl py-3 mb-2 hidden">⏸ إيقاف مؤقت — اضغط P للمتابعة</div>
+    <div id="target" class="brut bg-white p-4 text-2xl leading-loose whitespace-pre-wrap min-h-[7rem]"></div>
+    <input id="inp" autocomplete="off" spellcheck="false"
+      class="brut-sm w-full bg-white p-3 text-2xl mt-4 focus:outline-none placeholder:text-gray-400"
+      placeholder="اكتب هنا…"/>
+    <p class="mt-3 text-center font-bold">جملة رقم <span id="sentN">1</span></p>
+  </section>
+
+  <section id="end" class="hidden brut bg-white p-8 text-center">
+    <h2 class="text-4xl font-black mb-4">خلص الوقت! ⏰</h2>
+    <p class="text-6xl font-black my-4"><span id="fWpm">0</span> <span class="text-xl">كلمة/د</span></p>
+    <p id="fDetail" class="font-semibold mb-6"></p>
+    <button onclick="begin()" class="brut btnp bg-black text-yellow-300 font-black text-xl px-10 py-3">عيد من جديد</button>
+  </section>
+</main>
+
+<script>
+const S=['العلم نور والجهل ظلام','من جد وجد ومن زرع حصد','الصبر مفتاح الفرج','خير الكلام ما قل ودل','في التأني السلامة وفي العجلة الندامة','رب أخ لك لم تلده أمك','القراءة غذاء العقل والروح','يد واحدة لا تصفق','درهم وقاية خير من قنطار علاج','الوقت كالسيف إن لم تقطعه قطعك','اطلبوا العلم من المهد إلى اللحد','العمل عبادة وإتقان'];
+const GAME_TIME=60;
+let running=false,startTs=0,timerInt=null,timeLeft=GAME_TIME,paused=false;
+let target='',doneChars=0,totalErrors=0,prevBad=0,sentCount=1,lastWpm=0;
+
+const $=function(id){return document.getElementById(id);};
+
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function renderTarget(){
+ const v=$('inp').value;
+ const t=$('target');t.innerHTML='';
+ let bad=0,ok=0;
+ for(let i=0;i<target.length;i++){
+   const sp=document.createElement('span');
+   sp.textContent=target[i];
+   if(i<v.length){
+     if(v[i]===target[i]){sp.className='bg-black text-yellow-300';ok++;}
+     else{sp.className='bg-red-600 text-white';bad++;}
+   }else sp.className='text-gray-400';
+   t.appendChild(sp);
+ }
+ return {ok:ok,bad:bad};
+}
+
+function loadSentence(){
+ target=S[Math.floor(Math.random()*S.length)];
+ $('inp').value='';prevBad=0;
+ $('sentN').textContent=sentCount;
+ renderTarget();
+}
+
+function begin(){
+ running=false;timeLeft=GAME_TIME;doneChars=0;totalErrors=0;sentCount=1;lastWpm=0;
+ $('home').classList.add('hidden');$('end').classList.add('hidden');$('play').classList.remove('hidden');
+ $('acc').textContent='100%';$('wpm').textContent='0';$('tLeft').textContent=GAME_TIME;$('bar').style.width='100%';
+ clearInterval(timerInt);
+ loadSentence();
+ $('inp').focus();
+}
+
+function elapsedSec(){return running?(Date.now()-startTs-pauseMs)/1000:0;}
+let pauseMs=0,pauseStartTs=0;
+
+function updateStats(curOk){
+ const m=elapsedSec()/60;
+ lastWpm=m>0?Math.round(((doneChars+curOk)/5)/m):0;
+ $('wpm').textContent=lastWpm;
+ const totTyped=doneChars+curOk+totalErrors;
+ $('acc').textContent=(totTyped?Math.max(0,Math.round(100*(doneChars+curOk)/totTyped)):100)+'%';
+}
+
+$('inp').addEventListener('input',function(){
+if(paused)return;
+if(!running){
+   running=true;startTs=Date.now();
+   timerInt=setInterval(tick,200);
+ }
+ const r=renderTarget();
+ if(r.bad>prevBad)totalErrors+=(r.bad-prevBad);
+ prevBad=r.bad;
+ updateStats(r.ok);
+ if($('inp').value.length>=target.length&&r.bad===0){
+   doneChars+=target.length;sentCount++;
+   loadSentence();
+ }
+});
+
+document.addEventListener('keydown',function(e){
+if((e.key==='p'||e.key==='P')&&!$('play').classList.contains('hidden')&&$('inp')!==document.activeElement){
+paused=!paused;
+$('pzMsg').classList.toggle('hidden',!paused);
+if(paused){clearInterval(timerInt);pauseStartTs=Date.now();}
+else{pauseMs+=Date.now()-pauseStartTs;timerInt=setInterval(tick,200);}
+}
+});
+function tick(){
+timeLeft=Math.max(0,GAME_TIME-elapsedSec());
+$('tLeft').textContent=Math.ceil(timeLeft);
+$('bar').style.width=(timeLeft/GAME_TIME*100)+'%';
+if(timeLeft<=0)finish();
+}
+
+function finish(){
+ clearInterval(timerInt);running=false;paused=false;
+ $('pzMsg').classList.add('hidden');
+ $('play').classList.add('hidden');$('end').classList.remove('hidden');
+ const best=Number(sGet('brutal-type-best')||0);
+ let rec='';
+ if(lastWpm>best){sSet('brutal-type-best',lastWpm);rec=' — رقم قياسي! 🏆';}
+ $('fWpm').textContent=lastWpm;
+ $('fDetail').textContent='أنجزت '+(sentCount-1)+' جملة • الدقة '+$('acc').textContent+rec;
+ $('bestHome').textContent=Math.max(lastWpm,best);
+}
+
+(function(){const b=sGet('brutal-type-best');if(b)$('bestHome').textContent=b;})();
+</script>
+</body>
+</html>

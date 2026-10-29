@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>بحث كلمات مصغّر</title><script src="https://cdn.tailwindcss.com"></script><style>#grid .preview-cell{background:#fde68a;box-shadow:inset 0 0 0 2px #f59e0b;}</style></head><body class="bg-amber-50 min-h-screen flex items-center justify-center font-sans"><div class="bg-amber-100 border-2 border-amber-300 p-8 rounded-3xl w-full max-w-lg text-center">
+<div class="text-3xl font-bold mb-1 text-amber-900">🔍 بحث كلمات مصغّر</div>
+<div id="bestDisp" class="text-amber-600 text-sm mb-4"></div>
+<div id="startScreen">
+<div class="text-amber-700 mb-4">ابحث عن 5 كلمات في الشبكة</div>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-500 text-white px-8 py-4 rounded-xl text-xl font-bold transition">ابدأ البحث</button>
+</div>
+<div id="gameScreen" class="hidden">
+<div class="flex justify-between text-sm mb-3 text-amber-800"><span>⏱️ <span id="timer">0</span>s</span><span>وجدت: <span id="found">0</span>/5</span></div>
+<div id="wordsList" class="flex flex-wrap gap-2 justify-center mb-4"></div>
+<div id="grid" class="grid gap-1 mb-4 mx-auto" style="grid-template-columns:repeat(8,1fr);width:fit-content"></div>
+<div id="msg" class="h-6 font-bold text-amber-800"></div>
+</div>
+<div id="endScreen" class="hidden">
+<div class="text-4xl font-bold mb-4 text-amber-900">🎉 وجدتها!</div>
+<div class="text-xl mb-2">الوقت: <span id="finalTime" class="text-amber-600"></span> ثانية</div>
+<div id="newBest" class="text-green-600 font-bold hidden">🏆 أفضل نتيجة!</div>
+<button onclick="startGame()" class="mt-4 bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div><script>
+const WORDS_SEARCH=["سلام","كتاب","نجمة","بحر","قمر"];
+const LETTERS="ابجدهوزحطيكلمنسعفصقرشتثخذضظغ";
+let grid=[],wordPositions=[],foundWords=[],startCell=null,timerVal=0,timerInt=null,best=999,wsearchAudio;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet('wsearch-lite-best'))||999;
+function getWsearchAudio(){if(!wsearchAudio)wsearchAudio=new(window.AudioContext||window.webkitAudioContext)();return wsearchAudio;}
+function playSound(f,d,t){let ctx=getWsearchAudio(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+function updateBest(){document.getElementById('bestDisp').textContent=best<999?'أفضل نتيجة: '+best+'s':'';}
+updateBest();
+function placeWord(grid,w,row,col,dir){
+if(dir===0&&col+w.length>8)return false;
+if(dir===1&&row+w.length>8)return false;
+for(let i=0;i<w.length;i++){
+let r=dir===1?row+i:row,c=dir===0?col+i:col;
+if(grid[r][c]&&grid[r][c]!==w[i])return false;
+}
+for(let i=0;i<w.length;i++){
+let r=dir===1?row+i:row,c=dir===0?col+i:col;
+grid[r][c]=w[i];
+}
+return true;
+}
+function generateGrid(){
+let g=Array.from({length:8},()=>Array(8).fill(null));
+wordPositions=[];
+WORDS_SEARCH.forEach(w=>{
+let placed=false,attempts=0;
+while(!placed&&attempts<100){
+let dir=Math.random()<0.7?0:1;
+let row=Math.floor(Math.random()*8);
+let col=Math.floor(Math.random()*8);
+placed=placeWord(g,w,row,col,dir);
+if(placed){wordPositions.push({word:w,cells:[]});
+for(let i=0;i<w.length;i++){
+let r=dir===1?row+i:row,c=dir===0?col+i:col;
+wordPositions[wordPositions.length-1].cells.push({r,c});}
+}
+attempts++;
+}
+});
+for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+if(!g[r][c])g[r][c]=LETTERS[Math.floor(Math.random()*LETTERS.length)];}
+return g;
+}
+function startGame(){
+grid=generateGrid();foundWords=[];startCell=null;timerVal=0;
+clearInterval(timerInt);
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+document.getElementById('gameScreen').classList.remove('hidden');
+document.getElementById('found').textContent='0';
+document.getElementById('msg').textContent='';
+renderGrid();renderWords();
+timerInt=setInterval(()=>{timerVal++;document.getElementById('timer').textContent=timerVal;},1000);
+}
+function renderGrid(){
+let g=document.getElementById('grid');g.innerHTML='';
+for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+let d=document.createElement('div');
+d.className='w-9 h-9 bg-amber-200 border border-amber-400 rounded flex items-center justify-center font-bold text-amber-900 cursor-pointer hover:bg-amber-300 transition select-none text-sm';
+d.textContent=grid[r][c];
+d.onclick=()=>cellClick(r,c);
+d.onmouseover=()=>preview(r,c);
+d.onmouseleave=()=>clearPreview();
+let isFound=false;
+foundWords.forEach(fw=>{let wp=wordPositions.find(w=>w.word===fw);if(wp)wp.cells.forEach(cl=>{if(cl.r===r&&cl.c===c)isFound=true;});});
+if(isFound){d.className+=' !bg-green-300 !border-green-500';}
+if(startCell&&startCell.r===r&&startCell.c===c){d.className+=' !bg-yellow-300 !ring-2 !ring-yellow-500';}
+g.appendChild(d);
+}
+}
+function renderWords(){
+let w=document.getElementById('wordsList');w.innerHTML='';
+WORDS_SEARCH.forEach(wr=>{
+let s=document.createElement('span');
+s.className='px-3 py-1 rounded-full text-sm font-bold border ';
+if(foundWords.includes(wr)){s.className+='bg-green-200 border-green-400 text-green-800 line-through';}
+else{s.className+='bg-amber-200 border-amber-400 text-amber-800';}
+s.textContent=wr;w.appendChild(s);
+});
+}
+function clearPreview(){
+document.querySelectorAll('.preview-cell').forEach(c=>c.classList.remove('preview-cell'));
+}
+function preview(r,c){
+let cells=document.querySelectorAll('#grid div');
+if(!startCell)return;
+clearPreview();
+let s=startCell;
+let dr=Math.abs(r-s.r),dc=Math.abs(c-s.c);
+if(dr!==0&&dc!==0&&dr!==dc)return;
+let idx=[];
+if(dr===0){let minC=Math.min(s.c,c),maxC=Math.max(s.c,c);for(let i=minC;i<=maxC;i++)idx.push(s.r*8+i);}
+else if(dc===0){let minR=Math.min(s.r,r),maxR=Math.max(s.r,r);for(let i=minR;i<=maxR;i++)idx.push(i*8+c);}
+else{let stepR=r>s.r?1:-1,stepC=c>s.c?1:-1,rr=s.r,cc=s.c;for(let i=0;i<=dr;i++){idx.push(rr*8+cc);rr+=stepR;cc+=stepC;}}
+cells.forEach((cell,i)=>{if(idx.includes(i))cell.classList.add('preview-cell');});
+}
+function cellClick(r,c){
+if(startCell&&startCell.r===r&&startCell.c===c){startCell=null;clearPreview();renderGrid();return;}
+if(!startCell){startCell={r,c};renderGrid();return;}
+let s=startCell;startCell=null;clearPreview();
+let dr=Math.abs(r-s.r),dc=Math.abs(c-s.c);
+if(dr!==0&&dc!==0&&!(dr===dc)){
+document.getElementById('msg').textContent='اختر صف أو عمود فقط';
+renderGrid();setTimeout(()=>document.getElementById('msg').textContent='',1500);
+return;
+}
+let word='';
+let cells=[];
+if(dr===0){
+let minC=Math.min(s.c,c),maxC=Math.max(s.c,c);
+for(let i=minC;i<=maxC;i++){word+=grid[r][i];cells.push({r,c:i});}
+}else{
+let minR=Math.min(s.r,r),maxR=Math.max(s.r,r);
+for(let i=minR;i<=maxR;i++){word+=grid[i][c];cells.push({r:i,c});}
+}
+let rev=word.split('').reverse().join('');
+if((WORDS_SEARCH.includes(word)&&!foundWords.includes(word))||(WORDS_SEARCH.includes(rev)&&!foundWords.includes(rev))){
+let fw=WORDS_SEARCH.includes(word)?word:rev;
+foundWords.push(fw);playSound(800,0.2);
+document.getElementById('found').textContent=foundWords.length;
+document.getElementById('msg').innerHTML='<span class="text-green-600">وجدت: '+fw+'!</span>';
+renderWords();renderGrid();
+if(foundWords.length===5){clearInterval(timerInt);setTimeout(endGame,500);}
+}else{playSound(300,0.2,'triangle');document.getElementById('msg').textContent='ليست كلمة';renderGrid();setTimeout(()=>document.getElementById('msg').textContent='',1000);}
+}
+function endGame(){
+document.getElementById('gameScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.remove('hidden');
+document.getElementById('finalTime').textContent=timerVal;
+let isNew=timerVal<best;
+if(isNew){best=timerVal;sSet('wsearch-lite-best',best);document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+updateBest();
+}
+</script></body></html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ترتيب الكلمات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#faf7f2}
+.word-card{background:white;border-radius:12px;padding:16px 20px;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:1.3rem;font-weight:bold;user-select:none;border:2px solid transparent;transition:border-color 0.15s}
+.word-card:hover{border-color:#d97706}
+.word-card.dragging{opacity:0.5}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-gray-800">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-amber-700">ترتيب الكلمات</h1>
+<p class="mb-6 text-lg text-gray-500">رتّب الكلمات من الأقصر إلى الأطول</p>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-amber-500"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-3 text-lg font-bold"><span id="timerDisplay">الوقت: 0</span> <button onclick="togglePause()" id="pauseWL2" class="bg-amber-500 hover:bg-amber-400 text-white px-3 py-1 rounded-lg text-sm font-bold">⏸</button></div>
+<p class="mb-4 text-gray-500">اسحب أو استخدم ▲▼ لترتيب الكلمات</p>
+<p id="lenMsg" class="text-base font-bold text-red-600 h-6 mb-2"></p>
+<div id="wordList" class="flex flex-col gap-3 max-w-sm mx-auto"></div>
+<button onclick="checkOrder()" class="mt-6 bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">تحقق</button>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-amber-700">أحسنت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let timer=0,timerI=null,paused=false,best=0;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=parseInt(sGet('word-len-best'))||0;
+const wordSets=[
+['قطة','كلب','أسد','فيل','زرافة','تمساح'],['سمكة','حصان','دب','نمر','تمساح','قرد'],
+['بطة','عصفور','حمامة','صقر','نسر','بومة'],['باب','نافذة','غرفة','مطبخ','صالة','شرفة'],
+['قلم','كتاب','حقيبة','مسطرة','درس','مكتبة'],['شمس','قمر','نجم','كوكب','مجرة','درّاجة'],
+['تفاحة','موزة','برتقال','كرز','عنب','مانجو'],['سماعة','هاتف','حاسوب','شاشة','لوحة','كاميرا']
+];
+function $(id){return document.getElementById(id)}
+function audioCtx(){return new(window.AudioContext||window.webkitAudioContext)()}
+let lenAudio;
+function playTone(f,t,d){if(!lenAudio)lenAudio=new(window.AudioContext||window.webkitAudioContext)();let c=lenAudio,o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل وقت: '+best+' ثانية':'';}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+if(timerI)clearInterval(timerI);timer=0;paused=false;$('timerDisplay').textContent='الوقت: 0';$('lenMsg').textContent='';$('pauseWL2').textContent='⏸';
+timerI=setInterval(()=>{if(!paused){timer++;$('timerDisplay').textContent='الوقت: '+timer;}},1000);
+let words=[...wordSets[Math.floor(Math.random()*wordSets.length)]];
+shuffle(words);
+let list=$('wordList');list.innerHTML='';
+words.forEach((w,wi)=>{
+let wrap=document.createElement('div');wrap.className='wcard flex items-center gap-2 justify-center';wrap.dataset.len=w.trim().length;
+let card=document.createElement('div');card.className='word-card flex-1';card.textContent=w;card.draggable=true;
+card.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain','');wrap.classList.add('dragging');});
+card.addEventListener('dragend',()=>wrap.classList.remove('dragging'));
+card.addEventListener('dragover',e=>e.preventDefault());
+card.addEventListener('drop',e=>{e.preventDefault();let dragging=list.querySelector('.dragging');
+if(dragging&&dragging!==wrap){let items=[...list.children];let di=items.indexOf(dragging),ci=items.indexOf(wrap);
+di<ci?list.insertBefore(dragging,wrap.nextSibling):list.insertBefore(dragging,wrap);}
+});
+let ups=document.createElement('button');ups.textContent='▲';ups.className='bg-amber-500 hover:bg-amber-400 text-white px-2.5 py-1 rounded font-bold';ups.onclick=()=>moveCard(wi,-1);
+let dns=document.createElement('button');dns.textContent='▼';dns.className='bg-amber-500 hover:bg-amber-400 text-white px-2.5 py-1 rounded font-bold';dns.onclick=()=>moveCard(wi,1);
+wrap.appendChild(ups);wrap.appendChild(card);wrap.appendChild(dns);
+list.appendChild(wrap);
+});
+}
+function moveCard(i,dir){
+let list=$('wordList');
+let wraps=[...list.children];
+let j=i+dir;
+if(j<0||j>=wraps.length)return;
+let from=wraps[i];
+list.insertBefore(from,j>i?wraps[j].nextSibling:wraps[j]);
+playTone(440,'triangle',0.05);
+}
+function togglePause(){
+paused=!paused;
+$('pauseWL2').textContent=paused?'▶':'⏸';
+}
+document.addEventListener('keydown',e=>{if(e.key==='p'||e.key==='P')togglePause();});
+function checkOrder(){
+let cards=[...$('wordList').children];
+let ok=true;
+for(let i=0;i<cards.length-1;i++){
+let a=cards[i].dataset.len,b=cards[i+1].dataset.len;
+if(parseInt(a)>parseInt(b)){ok=false;break;}
+}
+if(!ok){playTone(200,'sawtooth',0.25);$('lenMsg').textContent='ترتيب خاطئ! رتبها من الأقصر للأطول';return;}
+clearInterval(timerI);
+playTone(880,'sine',0.15);
+let sc=timer;if(!best||sc<best){best=sc;sSet('word-len-best',best);}
+$('finalStats').textContent='صحيح! الوقت: '+timer+' ثانية';
+$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');
+}
+goHome();
+</script>
+</body>
+</html>

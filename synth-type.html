@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سباق الكتابة ⌨</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#1a0a2e,#2d1b4e);color:#e8d5ff;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#b57edc;text-shadow:0 0 18px rgba(181,126,220,.5)}
+.sub{font-size:.75rem;color:rgba(232,213,255,.45);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:1.5px solid rgba(181,126,220,.35);border-radius:999px;color:#b57edc}
+.btn{font-family:inherit;background:#b57edc;color:#1a0a2e;border:none;padding:.55rem 1.5rem;font-weight:900;font-size:.85rem;border-radius:999px;cursor:pointer;box-shadow:0 0 14px rgba(181,126,220,.35);transition:all .08s}
+.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.96)}
+#track{width:min(90vw,440px);height:200px;position:relative;border:2px solid rgba(181,126,220,.3);border-radius:12px;overflow:hidden;background:rgba(26,10,46,.6);margin:.8rem 0}
+.word{position:absolute;font-size:1.2rem;font-weight:800;color:#e8d5ff;padding:.2rem .7rem;
+background:rgba(181,126,220,.15);border:1.5px solid rgba(181,126,220,.3);border-radius:8px;
+white-space:nowrap;transition:left .05s linear}
+.word.active{border-color:#b57edc;background:rgba(181,126,220,.25);box-shadow:0 0 12px rgba(181,126,220,.4)}
+.word.missed{color:#ef4444;border-color:#ef4444;background:rgba(239,68,68,.15)}
+.word.hit{color:#4ade80;border-color:#4ade80;background:rgba(74,222,128,.15)}
+#typeIn{width:min(90vw,440px);padding:.6rem 1rem;border:2px solid rgba(181,126,220,.4);border-radius:999px;
+background:rgba(255,255,255,.06);color:#e8d5ff;font-family:inherit;font-size:1.1rem;font-weight:700;
+text-align:center;outline:none}
+#typeIn:focus{border-color:#b57edc}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;color:#b57edc}
+</style>
+</head>
+<body>
+<h1>⌨ سباق الكتابة</h1>
+<p class="sub">الكلمات بتمشي — اكتبها قبل ما تقع!</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">كلمة عربية بتتحرك من اليمين للشمال<br>اكتبها واضغط Enter قبل ما توصل للنهاية</p>
+<button onclick="start()" class="btn">ابدأ السباق ⌨</button>
+<p style="font-size:.7rem;opacity:.4;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>❤️ <b id="livesEl">٥</b></span>
+<span>🔥 <b id="comboEl">٠</b></span>
+<span>📝 <b id="countEl">٠</b></span>
+<span id="pauseBtn" style="cursor:pointer">⏸ إيقاف</span>
+</div>
+<div id="track"></div>
+<input id="typeIn" type="text" placeholder="اكتب الكلمة هنا..." autocomplete="off" dir="rtl">
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='synth-type-best';
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let score=0,lives=5,combo=0,count=0,best=+(sGet(bestKey)||0),ac=null,over=true,words=[],raf=null,paused=false;
+const WORDS=['قمر','نور','باب','كتاب','حديقة','مفتاح','تفاحة','قلم','وردة','شمس','بحر','نجمة','غيمة','جو','سحاب','قلب','عمر','حلم','سماء','مطر','تاج','نافذة','عنب','موز','شجرة','كنز','فراشة','مصباح'];
+const AW=WORDS.filter(w=>/^[\u0600-\u06FF]{2,7}$/.test(w));
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.03,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.08));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.08));}catch(e){}}
+function start(){score=0;lives=5;combo=0;count=0;words=[];over=false;paused=false;
+$('scoreEl').textContent='٠';$('livesEl').textContent='٥';$('comboEl').textContent='٠';$('countEl').textContent='٠';
+$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');
+$('typeIn').value='';$('typeIn').focus();
+lastTs=performance.now();spawnWord();raf=requestAnimationFrame(loop);
+}
+let lastTs=0,spawnAcc=0;
+function spawnWord(){
+const w=AW[Math.floor(Math.random()*AW.length)];
+const track=$('track');
+const el=document.createElement('div');el.className='word';el.textContent=w;
+const top=Math.random()*(track.clientHeight-40);
+el.style.top=top+'px';el.style.left=(track.clientWidth+10)+'px';
+track.appendChild(el);
+words.push({el,text:w,x:track.clientWidth+10,speed:50+count*2+Math.random()*20,done:false});
+}
+function loop(ts){
+if(over)return;
+if(paused){raf=requestAnimationFrame(loop);return;}
+const dt=Math.min(.05,(ts-lastTs)/1000);lastTs=ts;
+spawnAcc+=dt;
+if(spawnAcc>Math.max(.8,2.5-count*.08)){spawnAcc=0;spawnWord();}
+const track=$('track');
+words.forEach(w=>{
+if(w.done)return;
+w.x-=w.speed*dt;
+w.el.style.left=w.x+'px';
+if(w.x<-w.el.offsetWidth-20){
+w.done=true;w.el.classList.add('missed');
+lives=Math.max(0,lives-1);
+$('livesEl').textContent=AR(lives);
+combo=0;$('comboEl').textContent='٠';
+setTimeout(()=>w.el.remove(),400);
+if(lives<=0){over=true;cancelAnimationFrame(raf);finish();}
+}
+});
+raf=requestAnimationFrame(loop);
+}
+document.addEventListener('keydown',e=>{
+if(over)return;
+if(e.key==='p'||e.key==='P'||e.key==='Escape'){paused=!paused;$('rzMsg').textContent=paused?'⏸ موقوف — اضغط P أو الزر للمتابعة':'';return;}
+});
+$('pauseBtn').onclick=()=>{if(over)return;paused=!paused;$('rzMsg').textContent=paused?'⏸ موقوف — اضغط P أو الزر للمتابعة':'';};
+$('typeIn').addEventListener('keydown',e=>{
+if(e.key!=='Enter'||over||paused)return;
+const val=$('typeIn').value.trim();
+$('typeIn').value='';
+if(!val)return;
+const idx=words.findIndex(w=>!w.done&&w.text===val);
+if(idx>-1){
+words[idx].done=true;words[idx].el.classList.add('hit');
+setTimeout(()=>words[idx].el.remove(),300);
+combo++;count++;
+const gain=30+combo*10;
+score+=gain;
+$('scoreEl').textContent=AR(score);$('comboEl').textContent=AR(combo);$('countEl').textContent=AR(count);
+snd(520+combo*30,.06,'sine',.035);
+$('rzMsg').textContent='✅ +'+AR(gain);
+}else{
+$('rzMsg').textContent='❌ مفيش كلمة كده!';
+snd(180,.12,'sawtooth',.04);
+}
+});
+function finish(){
+over=true;cancelAnimationFrame(raf);
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid #b57edc;border-radius:16px;padding:2rem;max-width:320px;background:rgba(26,10,46,.8)">
+<p style="font-size:2rem">⌨</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#b57edc">السباق خلص!</h2>
+<p style="font-size:2rem;font-weight:900;color:#b57edc">${AR(score)}</p>
+<p style="font-size:.8rem;opacity:.6;margin:.4rem 0">${AR(count)} كلمة صحيحة</p>
+<p style="font-size:.75rem;opacity:.5" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+const v=+(sGet(bestKey)||0);
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)sSet(bestKey,score);
+}
+</script>
+</body>
+</html>

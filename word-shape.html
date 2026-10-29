@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الكلمة والشكل</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+.opt{transition:all .15s}
+.opt:hover{transform:scale(1.05)}
+.correct{background:#34d399!important}
+.wrong{background:#f87171!important}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-cyan-950 to-teal-900 text-white">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black">🔷 الكلمة والشكل</h1>
+  <p class="text-xl text-cyan-200 max-w-lg">سنعرض لك شكلاً هندسياً، اختر الكلمة العربية التي تصفه بشكل صحيح. ثمان جولات من الهندسة!</p>
+  <div class="bg-cyan-900/50 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-cyan-200">٨ جولات</p>
+  </div>
+  <button onclick="startGame()" class="bg-cyan-500 hover:bg-cyan-400 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-5">
+  <div class="w-full max-w-lg flex items-center justify-between">
+    <p class="text-lg">الجولة: <span id="round" class="font-black">1 / 8</span></p>
+    <p class="text-lg">النتيجة: <span id="score" class="font-black">0</span></p>
+  </div>
+  <canvas id="shape" class="rounded-2xl bg-cyan-900/40 shadow-2xl" width="280" height="280"></canvas>
+  <div id="options" class="grid grid-cols-2 gap-4 max-w-lg w-full"></div>
+  <button id="nextBtn" onclick="nextRound()" class="hidden bg-cyan-500 hover:bg-cyan-400 font-bold px-8 py-3 rounded-full transition">الجولة التالية</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 class="text-5xl font-black">انتهت الجولات!</h1>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-cyan-200">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <div id="verdict" class="text-3xl"></div>
+  <button onclick="backStart()" class="bg-cyan-500 hover:bg-cyan-400 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let shapes=[
+  {s:'دائرة',name:'دائرة',asaid:['مربع','مثلث','مستطيل']},
+  {s:'مربع',name:'مربع',asaid:['دائرة','بيضاوي','خماسي']},
+  {s:'مثلث',name:'مثلث',asaid:['مربع','دائرة','سداسي']},
+  {s:'مستطيل',name:'مستطيل',asaid:['مربع','معين','بيضاوي']},
+  {s:'خماسي',name:'خماسي',asaid:['سداسي','مثلث','مربع']},
+  {s:'سداسي',name:'سداسي',asaid:['دائرة','مستطيل','مثلث']},
+  {s:'معين',name:'معين',asaid:['مربع','بيضاوي','خماسي']},
+  {s:'بيضاوي',name:'بيضاوي',asaid:['مربع','مثلث','سداسي']}
+];
+let shapeNames=['دائرة','مربع','مثلث','مستطيل','خماسي','سداسي','معين','بيضاوي'];
+let round,score,shapeIndex,locked=false;
+let best=0;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet('word-shape-best')||0);
+$('startBest').textContent=best;$('finishBest').textContent=best;
+let wshapeAudio;
+function getShapeAudio(){if(!wshapeAudio)wshapeAudio=new(window.AudioContext||window.webkitAudioContext)();return wshapeAudio;}
+function tone(f,dur,type='sine',vol=0.2){
+  let ac=getShapeAudio();
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  score=0;round=0;nextRound();
+}
+function nextRound(){
+  round++;
+  if(round>8){finish();return}
+  locked=false;
+  $('round').textContent=round+' / 8';
+  $('nextBtn').classList.add('hidden');
+  shapeIndex=Math.floor(Math.random()*shapes.length);
+  drawShape(shapes[shapeIndex].s);
+  makeOptions();
+}
+function drawShape(type){
+  let c=$('shape'),ctx=c.getContext('2d');
+  ctx.clearRect(0,0,280,280);
+  ctx.fillStyle='#67e8f9';ctx.strokeStyle='#a5f3fc';ctx.lineWidth=4;
+  let cx=140,cy=140;
+  if(type==='دائرة'){ctx.beginPath();ctx.arc(cx,cy,80,0,Math.PI*2);ctx.fill();ctx.stroke()}
+  else if(type==='مربع'){ctx.fillRect(cx-80,cy-80,160,160);ctx.strokeRect(cx-80,cy-80,160,160)}
+  else if(type==='مثلث'){ctx.beginPath();ctx.moveTo(cx,cy-90);ctx.lineTo(cx-90,cy+70);ctx.lineTo(cx+90,cy+70);ctx.closePath();ctx.fill();ctx.stroke()}
+  else if(type==='مستطيل'){ctx.fillRect(cx-100,cy-60,200,120);ctx.strokeRect(cx-100,cy-60,200,120)}
+  else if(type==='خماسي'){poly(ctx,cx,cy,85,5)}
+  else if(type==='سداسي'){poly(ctx,cx,cy,85,6)}
+  else if(type==='معين'){ctx.beginPath();ctx.moveTo(cx,cy-90);ctx.lineTo(cx+70,cy);ctx.lineTo(cx,cy+90);ctx.lineTo(cx-70,cy);ctx.closePath();ctx.fill();ctx.stroke()}
+  else if(type==='بيضاوي'){ctx.beginPath();ctx.ellipse(cx,cy,110,70,0,0,Math.PI*2);ctx.fill();ctx.stroke()}
+}
+function poly(ctx,cx,cy,r,sides){
+  ctx.beginPath();
+  for(let i=0;i<sides;i++){
+    let a=(Math.PI*2/sides)*i-Math.PI/2;
+    let x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();ctx.fill();ctx.stroke();
+}
+function makeOptions(){
+  let box=$('options');box.innerHTML='';
+  let correctName=shapes[shapeIndex].name;
+  let wrongs=shapes[shapeIndex].asaid;
+  let all=[correctName,...wrongs].sort(()=>Math.random()-0.5);
+  all.forEach(nm=>{
+    let b=document.createElement('button');
+    b.className='opt bg-cyan-800/70 hover:bg-cyan-700 rounded-2xl py-5 text-xl font-bold shadow-lg';
+    b.textContent=nm;b.dataset.n=nm;
+    b.onclick=()=>pick(b,nm);
+    box.appendChild(b);
+  });
+}
+function pick(b,nm){
+  if(locked)return;
+  locked=true;
+  let correctName=shapes[shapeIndex].name;
+  let all=document.querySelectorAll('.opt');
+  all.forEach(o=>o.style.pointerEvents='none');
+  if(nm===correctName){
+    b.classList.add('correct');score+=50;tone(700,0.3,'triangle',0.2);
+  }else{
+    b.classList.add('wrong');
+    all.forEach(o=>{if(o.dataset.n===correctName)o.classList.add('correct')});
+    tone(180,0.3,'sawtooth',0.15);
+  }
+  $('score').textContent=score;
+  $('nextBtn').classList.remove('hidden');
+}
+function finish(){
+  if(score>best){best=score;sSet('word-shape-best',best)}
+  $('finalScore').textContent=score;$('finishBest').textContent=best;
+  $('verdict').textContent=score>=350?'🏆 خبير هندسي':score>=200?'📐 جيد':'📏 تدرب أكثر';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+}
+function backStart(){
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('finishScreen').classList.remove('flex');$('finishScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+document.addEventListener('keydown',function(e){
+  if($('playScreen').classList.contains('hidden'))return;
+  const idx=parseInt(e.key,10)-1;
+  if(idx<0||idx>3)return;
+  const btns=document.querySelectorAll('#options .opt');
+  if(btns[idx]&&!locked)pick(btns[idx],btns[idx].dataset.n);
+});
+</script>
+</body>
+</html>

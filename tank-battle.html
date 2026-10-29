@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>معركة الدبابات</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none;overflow:hidden}</style></head>
+<body class="bg-gray-900 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-2xl text-yellow-400 font-bold mb-2" id="score">النقاط: 0</div>
+<div class="text-yellow-300 text-sm mb-2" id="best">الأفضل: 0</div>
+<canvas id="c" class="rounded-xl border-2 border-green-700"></canvas>
+<div id="go" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-4xl text-red-400 font-bold mb-4">انتهت المعركة!</div>
+<div class="text-xl text-yellow-300 mb-4" id="fs"></div>
+<button onclick="startGame()" class="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl text-lg">أعد المحاولة</button></div></div>
+<div id="pz" class="hidden absolute inset-0 flex items-center justify-center bg-black/70 z-10">
+<div class="text-center"><div class="text-4xl text-yellow-300 font-bold mb-4">⏸ إيقاف مؤقت</div>
+<button onclick="togglePause()" class="bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-3 rounded-xl text-lg font-bold">متابعة</button></div></div>
+<div class="mt-3"><button onclick="togglePause()" class="bg-slate-700 hover:bg-slate-600 text-yellow-300 px-5 py-2 rounded-xl text-sm font-bold">⏸ إيقاف</button></div>
+<script>
+const K='tank-battle-best';
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let best=parseInt(sGet(K)||0);
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+canvas.width=400;canvas.height=500;
+let audio;function getAudio(){if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();return audio;}
+function play(f,d,t='sine'){let a=getAudio(),o=a.createOscillator(),g=a.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(a.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+d);o.stop(a.currentTime+d);}
+let player,enemies,bullets,eBullets,score,alive,spawnTimer;
+function startGame(){
+player={x:200,y:460,w:24,h:30};enemies=[];bullets=[];eBullets=[];score=0;alive=true;spawnTimer=0;paused=false;
+document.getElementById('go').classList.add('hidden');document.getElementById('pz').classList.add('hidden');updateUI();
+document.getElementById('best').textContent='الأفضل: '+best;
+}
+function updateUI(){document.getElementById('score').textContent='النقاط: '+score;}
+let keys={};
+let paused=false;
+function togglePause(){
+if(!alive)return;
+paused=!paused;
+document.getElementById('pz').classList.toggle('hidden',!paused);
+if(!paused)loop();
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='p'||e.key==='P'||e.key==='Escape'){togglePause();return;}
+if(paused)return;
+keys[e.key]=true;if(e.key===' '&&alive){bullets.push({x:player.x,y:player.y-15});play(800,0.08,'square');}
+});
+document.addEventListener('keyup',e=>keys[e.key]=false);
+let touchX=null;
+canvas.addEventListener('touchstart',e=>{if(paused||!alive)return;touchX=e.touches[0].clientX;bullets.push({x:player.x,y:player.y-15});play(800,0.08,'square');});
+canvas.addEventListener('touchmove',e=>{const dx=e.touches[0].clientX-touchX;player.x=Math.max(12,Math.min(388,player.x+dx));touchX=e.touches[0].clientX;});
+function spawnEnemy(){
+enemies.push({x:20+Math.random()*360,y:-20,w:22,h:22,vy:1.5+Math.random()*1.5+Math.min(2.5,score*0.008),shoot:Math.random()*120|0});
+}
+function update(){
+if(!alive)return;
+if(paused)return;
+if(keys['ArrowLeft'])player.x=Math.max(12,player.x-4);
+if(keys['ArrowRight'])player.x=Math.min(388,player.x+4);
+if(keys['ArrowUp'])player.y=Math.max(20,player.y-3);
+if(keys['ArrowDown'])player.y=Math.min(480,player.y+3);
+spawnTimer++;if(spawnTimer>Math.max(24,60-score/2)){spawnTimer=0;spawnEnemy();}
+enemies.forEach((e,i)=>{e.y+=e.vy;e.shoot++;if(e.shoot>100){e.shoot=0;eBullets.push({x:e.x,y:e.y+10,vy:3});}
+if(e.y>520)enemies.splice(i,1);
+});
+bullets.forEach((b,i)=>{b.y-=7;if(b.y<-10)bullets.splice(i,1);});
+eBullets.forEach((b,i)=>{b.y+=b.vy;if(b.y>520)eBullets.splice(i,1);});
+for(let i=bullets.length-1;i>=0;i--){
+for(let j=enemies.length-1;j>=0;j--){
+if(Math.abs(bullets[i].x-enemies[j].x)<18&&Math.abs(bullets[i].y-enemies[j].y)<18){
+enemies.splice(j,1);bullets.splice(i,1);score+=10;updateUI();play(300,0.15,'sawtooth');break;
+}
+}
+}
+for(let i=eBullets.length-1;i>=0;i--){
+if(Math.abs(eBullets[i].x-player.x)<14&&Math.abs(eBullets[i].y-player.y)<14){
+alive=false;play(150,0.4,'sawtooth');
+if(score>best){best=score;sSet(K,best);}
+document.getElementById('best').textContent='الأفضل: '+best;
+document.getElementById('fs').textContent='النقاط: '+score;
+document.getElementById('go').classList.remove('hidden');break;
+}
+}
+}
+function draw(){
+ctx.fillStyle='#1a3a1a';ctx.fillRect(0,0,400,500);
+ctx.fillStyle='#2a5a2a';for(let i=0;i<8;i++)for(let j=0;j<10;j++){ctx.fillRect(i*50+5,j*50+5,3,3);}
+ctx.fillStyle='#4ade80';ctx.fillRect(player.x-12,player.y-15,24,30);
+ctx.fillStyle='#22c55e';ctx.fillRect(player.x-4,player.y-20,8,10);
+ctx.fillStyle='#ef4444';enemies.forEach(e=>{ctx.fillRect(e.x-11,e.y-11,22,22);ctx.fillStyle='#991b1b';ctx.fillRect(e.x-3,e.y-15,6,8);ctx.fillStyle='#ef4444';});
+ctx.fillStyle='#facc15';bullets.forEach(b=>{ctx.fillRect(b.x-2,b.y-4,4,8);});
+ctx.fillStyle='#f97316';eBullets.forEach(b=>{ctx.fillRect(b.x-2,b.y-4,4,8);});
+}
+function loop(){if(paused){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,400,500);ctx.fillStyle='#fff';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.fillText('⏸ إيقاف مؤقت',200,250);ctx.font='16px sans-serif';ctx.fillText('اضغط P للمتابعة',200,290);return;}update();draw();requestAnimationFrame(loop);}
+startGame();loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حلّ الكلمة المتقدمة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-purple-900 via-purple-700 to-fuchsia-800 min-h-screen flex items-center justify-center text-white">
+<div id="app" class="w-full max-w-md p-6">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-black mb-4">🔤 حلّ الكلمة المتقدمة</h1>
+<p class="text-purple-200 mb-6">فكّ تشفير الكلمات العربية الطويلة مع تلميح في ١٠ جولات!</p>
+<button id="startBtn" class="px-8 py-4 bg-fuchsia-500 hover:bg-fuchsia-400 rounded-2xl text-xl font-bold shadow-lg">ابدأ اللعب</button>
+<div class="mt-6 text-sm text-purple-300">الأفضل: <span id="bestDisplay">٠</span></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="flex justify-between items-center mb-4 text-sm">
+<span>الجولة: <span id="round">١</span>/١٠</span>
+<span>النقاط: <span id="score">٠</span></span>
+</div>
+<div id="scrambled" class="bg-purple-900/60 rounded-2xl p-6 text-3xl font-black tracking-widest mb-4"></div>
+<div class="text-purple-200 mb-1">الفئة: <span id="category" class="font-bold"></span></div>
+<div class="text-purple-200 mb-4">أول حرف: <span id="firstLetter" class="font-bold text-2xl"></span></div>
+<input id="answerInput" type="text" class="w-full text-center py-3 rounded-xl bg-purple-900/60 text-xl font-bold outline-none focus:ring-2 ring-fuchsia-400 mb-3" placeholder="اكتب الكلمة...">
+<button id="submitBtn" class="px-8 py-3 bg-fuchsia-500 hover:bg-fuchsia-400 rounded-xl text-lg font-bold">تحقق</button>
+<div id="msg" class="text-sm h-6 mt-3"></div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-black mb-4">انتهت اللعبة! 🎉</h2>
+<p class="text-xl mb-4">نتيجتك: <span id="finalScore">٠</span></p>
+<p id="isNewBest" class="text-yellow-300 text-sm mb-6">🎖️ رقم قياسي جديد!</p>
+<div class="text-purple-300 mb-6">الأفضل: <span id="finalBest">٠</span></div>
+<button id="restartBtn" class="px-8 py-4 bg-fuchsia-500 hover:bg-fuchsia-400 rounded-2xl text-xl font-bold">العب مرة أخرى</button>
+</div>
+</div>
+<script>
+let best,round,score,correct,answerTimer,submitted=false;
+let advAudio;
+function getAdvAudio(){if(!advAudio)advAudio=new(window.AudioContext||window.webkitAudioContext)();return advAudio;}
+const WORDS=[{w:'مدرسة',c:'تعليم'},{w:'سيارة',c:'نقل'},{w:'كتاب',c:'قراءة'},{w:'مطبخ',c:'منزل'},{w:'حديقة',c:'طبيعة'},{w:'مستشفى',c:'صحة'},{w:'مطعم',c:'طعام'},{w:'سوق',c:'تسوق'},{w:'مسجد',c:'دين'},{w:'هاتف',c:'اتصال'},{w:'شمس',c:'طبيعة'},{w:'جبل',c:'طبيعة'},{w:'نهر',c:'طبيعة'},{w:'مطر',c:'طقس'},{w:'ثلج',c:'طقس'},{w:'سمك',c:'حيوان'},{w:'طائر',c:'حيوان'},{w:'حصان',c:'حيوان'},{w:'وردة',c:'نبات'},{w:'تفاح',c:'فاكهة'},{w:'موز',c:'فاكهة'},{w:'برتقال',c:'فاكهة'},{w:'عنب',c:'فاكهة'},{w:'جزر',c:'خضار'},{w:'بصل',c:'خضار'},{w:'لبن',c:'ألبان'},{w:'خبز',c:'مخبوزات'},{w:'جبن',c:'ألبان'},{w:'بيض',c:'طعام'},{w:'حليب',c:'ألبان'},{w:'قلم',c:'مكتب'},{w:'ورق',c:'مكتب'},{w:'مقص',c:'مكتب'},{w:'كرة',c:'رياضة'},{w:'جري',c:'رياضة'},{w:'سباح',c:'رياضة'},{w:'نجم',c:'سماء'},{w:'قمر',c:'سماء'},{w:'بحر',c:'طبيعة'},{w:'غابة',c:'طبيعة'},{w:'دجاج',c:'حيوان'},{w:'بقرة',c:'حيوان'},{w:'أسد',c:'حيوان'},{w:'فيل',c:'حيوان'},{w:'زهرة',c:'نبات'},{w:'شجرة',c:'نبات'},{w:'عشب',c:'نبات'},{w:'حجر',c:'طبيعة'},{w:'رمل',c:'طبيعة'},{w:'ضوء',c:'طبيعة'}];
+function init(){best=parseInt(sGet('word-scram-adv-best')||'0')||0;document.getElementById('bestDisplay').textContent=best;}
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function tone(f,x,d){let o=getAdvAudio().createOscillator(),g=getAdvAudio().createGain();o.type=f;o.frequency.value=x;o.connect(g);g.connect(getAdvAudio().destination);g.gain.setValueAtTime(0.13,getAdvAudio().currentTime);g.gain.exponentialRampToValueAtTime(0.001,getAdvAudio().currentTime+d);o.start();o.stop(getAdvAudio().currentTime+d);}
+function setScreen(s){document.getElementById('startScreen').classList.toggle('hidden',s!=='start');document.getElementById('playScreen').classList.toggle('hidden',s!=='play');document.getElementById('finishScreen').classList.toggle('hidden',s!=='finish');}
+function toAr(n){return n.toLocaleString('ar-EG');}
+function scramble(w){let arr=w.split('');do{for(let i=arr.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));let t=arr[i];arr[i]=arr[j];arr[j]=t;}}while(arr.join('')===w);return arr.join('');}
+function pickWord(){let desiredLen=4+Math.min(round>=6?3:Math.floor(round/2),2);let opts=WORDS.filter(function(x){return x.w.length===desiredLen||x.w.length===desiredLen+1;});if(opts.length===0)opts=WORDS.filter(function(x){return x.w.length>=4&&x.w.length<=6;});let e=opts[Math.floor(Math.random()*opts.length)];correct=e;document.getElementById('scrambled').textContent=scramble(e.w);document.getElementById('category').textContent=e.c;document.getElementById('firstLetter').textContent=e.w[0];}
+function newRound(){if(round>10){finish();return;}submitted=false;document.getElementById('round').textContent=toAr(round);pickWord();document.getElementById('answerInput').value='';document.getElementById('msg').textContent='';tone('sine',600,0.1);document.getElementById('answerInput').focus();}
+document.getElementById('startBtn').onclick=function(){init();round=1;score=0;tone('sine',500,0.15);setScreen('play');newRound();};
+document.getElementById('submitBtn').onclick=check;
+document.getElementById('answerInput').onkeydown=function(e){if(e.key==='Enter')check();};
+function check(){if(submitted)return;let val=document.getElementById('answerInput').value.trim();if(val===''){document.getElementById('msg').textContent='⚠️ اكتب كلمة أولاً';return;}submitted=true;if(val===correct.w){score+=100+round*10-10;tone('square',700,0.1);setTimeout(()=>tone('square',900,0.1),100);document.getElementById('msg').textContent='✅ إجابة صحيحة!';}else{tone('sawtooth',200,0.2);document.getElementById('msg').textContent='❌ الصحيح: '+correct.w;}document.getElementById('score').textContent=toAr(score);clearTimeout(answerTimer);answerTimer=setTimeout(function(){round++;newRound();},1200);}
+function finish(){setScreen('finish');document.getElementById('finalScore').textContent=toAr(score);let nb=false;if(score>best){best=score;sSet('word-scram-adv-best',String(best));nb=true;}document.getElementById('isNewBest').classList.toggle('hidden',!nb);document.getElementById('finalBest').textContent=toAr(best);tone('triangle',800,0.2);setTimeout(()=>tone('triangle',1000,0.2),150);}
+document.getElementById('restartBtn').onclick=function(){setScreen('start');init();};
+init();
+</script>
+</body>
+</html>

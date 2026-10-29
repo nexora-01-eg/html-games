@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>متعرّج الكلمات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-amber-50 to-orange-100 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white/80 backdrop-blur rounded-3xl shadow-xl p-8 border border-amber-200">
+<div class="text-6xl mb-4">📝</div>
+<h1 class="text-3xl font-bold text-slate-800 mb-2">متعرّج الكلمات</h1>
+<p class="text-slate-500 mb-6">اكتب كلمات من الحروف المتصلة</p>
+<div class="bg-amber-50 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-600">الأفضل: <span id="best-display" class="font-bold text-amber-600">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white/80 backdrop-blur rounded-3xl shadow-xl p-6 border border-amber-200">
+<div class="flex justify-between items-center mb-4">
+<span class="text-slate-600 font-bold">الوقت: <span id="time-display" class="text-red-500">60</span></span>
+<span class="text-amber-600 font-bold">النقاط: <span id="score-display">0</span></span>
+</div>
+<div id="letter-path" class="flex flex-wrap gap-2 justify-center mb-4"></div>
+<div class="flex gap-2 justify-center mb-4">
+<input id="word-input" type="text" class="border-2 border-amber-300 rounded-xl px-4 py-2 text-center text-lg font-bold w-48" placeholder="اكتب كلمة">
+<button onclick="submitWord()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl">أرسل</button>
+</div>
+<div id="found-words" class="flex flex-wrap gap-2 justify-center mb-2"></div>
+<div id="feedback" class="h-6 text-sm font-bold text-amber-600"></div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white/80 backdrop-blur rounded-3xl shadow-xl p-8 border border-amber-200">
+<div class="text-6xl mb-4">🏆</div>
+<h2 class="text-2xl font-bold text-slate-800 mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-500 mb-2">النقاط: <span id="final-score" class="font-bold text-amber-600"></span></p>
+<p class="text-slate-500 mb-2">الكلمات: <span id="final-words" class="font-bold text-amber-600"></span></p>
+<p class="text-slate-500 mb-6">الأفضل: <span id="final-best" class="font-bold text-amber-600"></span></p>
+<button onclick="location.reload()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+let zigAudio;
+function initAudio() { if (!zigAudio) zigAudio = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = zigAudio.createOscillator();
+let g = zigAudio.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(zigAudio.destination);
+g.gain.setValueAtTime(0.3, zigAudio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, zigAudio.currentTime + dur);
+o.start(); o.stop(zigAudio.currentTime + dur);
+}
+let arabicLetters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ';
+let letters = [];
+let foundWords = [];
+let score = 0, timeLeft = 60, timer = null,paused=false;
+let best = 0;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best = parseInt(sGet('word-zig-best') || '0');
+function startGame() {
+initAudio(); score = 0; timeLeft = 60; foundWords = [];paused=false;
+$('start-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+$('score-display').textContent = 0;
+$('time-display').textContent = 60;
+$('found-words').innerHTML = '';
+letters = [];
+for (let i = 0; i < 12; i++) {
+letters.push(arabicLetters[Math.floor(Math.random() * arabicLetters.length)]);
+}
+renderPath();
+timer = setInterval(() => {
+if(paused)return;
+timeLeft--;
+$('time-display').textContent = timeLeft;
+if (timeLeft <= 0) { endGame(); }
+}, 1000);
+document.addEventListener('keydown', e => {
+if (e.key==='p'||e.key==='P') {
+if($('play-screen').classList.contains('hidden'))return;
+paused=!paused;
+$('feedback').textContent=paused?'⏸ موقوف — اضغط P للمتابعة':'';
+}
+});
+}
+function renderPath() {
+let container = $('letter-path');
+container.innerHTML = '';
+letters.forEach((l, i) => {
+let el = document.createElement('span');
+el.className = 'w-10 h-10 bg-amber-100 border-2 border-amber-300 rounded-lg flex items-center justify-center text-lg font-bold text-slate-700';
+if (i % 2 === 0) el.classList.add('translate-y-0');
+else el.classList.add('translate-y-2');
+el.textContent = l;
+container.appendChild(el);
+});
+}
+function submitWord() {
+if(paused)return;
+let word = $('word-input').value.trim();
+$('word-input').value = '';
+if (!word || word.length < 2) { $('feedback').textContent = 'كلمة قصيرة جداً'; return; }
+if (foundWords.includes(word)) { $('feedback').textContent = 'مكررة!'; return; }
+if (isConnected(word)) {
+foundWords.push(word);
+let pts = word.length * 5;
+score += pts;
+$('score-display').textContent = score;
+$('feedback').textContent = `+${pts} نقطة!`;
+playSound(523, 'sine', 0.2);
+let el = document.createElement('span');
+el.className = 'bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold';
+el.textContent = word;
+$('found-words').appendChild(el);
+} else {
+$('feedback').textContent = 'غير متصلة!';
+playSound(200, 'square', 0.2);
+}
+}
+function isConnected(word) {
+let wArr = [...word];
+let used = new Set();
+for (let wi = 0; wi < wArr.length; wi++) {
+let found = false;
+for (let li = 0; li < letters.length; li++) {
+if (!used.has(li) && letters[li] === wArr[wi]) {
+if (wi === 0) { used.add(li); found = true; break; }
+let lastUsed = [...used].pop();
+if (Math.abs(lastUsed - li) <= 1) {
+used.add(li); found = true; break;
+}
+}
+}
+if (!found) return false;
+}
+return true;
+}
+function endGame() {
+clearInterval(timer); timer = null;
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-score').textContent = score;
+$('final-words').textContent = foundWords.length;
+if (score > best) { best = score; sSet('word-zig-best', best); }
+$('final-best').textContent = best;
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+$('word-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitWord(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سقوط الكلمات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-b from-sky-400 to-sky-200 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">☁️</div>
+<h1 class="text-3xl font-bold text-slate-800 mb-2">سقوط الكلمات</h1>
+<p class="text-slate-500 mb-6">امسك الكلمات التي تنتمي للفئة المطلوبة</p>
+<div id="category-display" class="bg-sky-100 rounded-xl p-3 mb-4">
+<p class="text-sm text-slate-600">الفئة الحالية: <span id="cat-name" class="font-bold text-sky-600"></span></p>
+</div>
+<div class="bg-slate-100 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-600">الأفضل: <span id="best-display" class="font-bold text-sky-600">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-6">
+<div class="flex justify-between items-center mb-3">
+<span class="text-slate-600 font-bold">النقاط: <span id="score-display">0</span></span>
+<span class="text-sky-600 font-bold">الفئة: <span id="current-cat"></span></span>
+<span class="text-red-500 font-bold">الأرواح: <span id="lives-display">❤️❤️❤️</span></span>
+</div>
+<div id="game-area" class="relative bg-sky-50 rounded-xl border-2 border-sky-200 overflow-hidden" style="height:400px"></div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">🌟</div>
+<h2 class="text-2xl font-bold text-slate-800 mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-500 mb-2">النقاط: <span id="final-score" class="font-bold text-sky-600"></span></p>
+<p class="text-slate-500 mb-6">الأفضل: <span id="final-best" class="font-bold text-sky-600"></span></p>
+<button onclick="location.reload()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+let wordFallAudio;
+function initAudio() { if (!wordFallAudio) wordFallAudio = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = wordFallAudio.createOscillator();
+let g = wordFallAudio.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(wordFallAudio.destination);
+g.gain.setValueAtTime(0.3, wordFallAudio.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, wordFallAudio.currentTime + dur);
+o.start(); o.stop(wordFallAudio.currentTime + dur);
+}
+let categories = {
+حيوانات: ['قطة','كلب','حمار','نمر','أسد','فيل','زرافة','قرد','بطة','حمامة'],
+فواكه: ['تفاح','موز','برتقال','عنب','فراولة','مانجو','بطيخ','كرز','كيوي','رمان'],
+ألوان: ['أحمر','أزرق','أخضر','أصفر','برتقالي','بنفسجي','وردي','بني','أبيض','أسود'],
+مركبات: ['سيارة','طائرة','قارب','قطار','دراجة','حافلة','شاحنة','زورق','سفينة','تاكسي']
+};
+let words = [];
+let score = 0, lives = 3, speed = 1, spawnRate = 1500;
+let currentCategory = '', fallingWords = [];
+let spawnTimer = null, moveTimer = null;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+let best = parseInt(sGet('word-fall-best') || '0');
+let paused = false;
+function startGame() {
+initAudio(); score = 0; lives = 3; speed = 1; paused = false;
+$('start-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+$('score-display').textContent = 0;
+$('lives-display').textContent = '❤️❤️❤️';
+changeCategory();
+clearInterval(spawnTimer);clearInterval(moveTimer);
+spawnRate=1500;
+spawnTimer = setInterval(spawnWord, spawnRate);
+moveTimer = setInterval(moveWords, 50);
+}
+function changeCategory() {
+let cats = Object.keys(categories);
+currentCategory = cats[Math.floor(Math.random() * cats.length)];
+$('current-cat').textContent = currentCategory;
+$('cat-name').textContent = currentCategory;
+}
+function spawnWord() {
+let catKeys = Object.keys(categories);
+let cat = catKeys[Math.floor(Math.random() * catKeys.length)];
+let wordList = categories[cat];
+let word = wordList[Math.floor(Math.random() * wordList.length)];
+let area = $('game-area');
+let areaW = area.offsetWidth;
+let el = document.createElement('div');
+el.className = 'absolute px-3 py-1 rounded-lg font-bold text-sm cursor-pointer transition hover:scale-110';
+el.style.left = Math.random() * (areaW - 80) + 'px';
+el.style.top = '-30px';
+el.textContent = word;
+el.dataset.category = cat;
+if (cat === currentCategory) {
+el.classList.add('bg-emerald-400', 'text-white');
+} else {
+el.classList.add('bg-red-400', 'text-white');
+}
+el.onclick = () => catchWord(el);
+area.appendChild(el);
+fallingWords.push({el, speed: speed});
+}
+function moveWords() {
+let area = $('game-area');
+let areaH = area.offsetHeight;
+for (let i = fallingWords.length - 1; i >= 0; i--) {
+let fw = fallingWords[i];
+let top = parseFloat(fw.el.style.top) + fw.speed;
+fw.el.style.top = top + 'px';
+if (top > areaH) {
+fw.el.remove();
+fallingWords.splice(i, 1);
+if (fw.el.dataset.category === currentCategory) {
+loseLife();
+}
+}
+}
+}
+document.addEventListener('keydown',function(e){
+if((e.key==='p'||e.key==='P')&&!$('play-screen').classList.contains('hidden')){
+paused=!paused;
+if(paused){clearInterval(spawnTimer);clearInterval(moveTimer);}
+else{spawnTimer=setInterval(spawnWord,spawnRate);moveTimer=setInterval(moveWords,50);}
+}
+});
+function catchWord(el) {
+initAudio();
+if (paused) return;
+if (el.dataset.category === currentCategory) {
+playSound(523, 'sine', 0.15);
+score += 10;
+$('score-display').textContent = score;
+speed = 1 + Math.floor(score / 50) * 0.3;
+let ns=Math.max(700,1500-Math.floor(score/30)*40);
+if(ns!==spawnRate){spawnRate=ns;clearInterval(spawnTimer);if(!paused)spawnTimer=setInterval(spawnWord,spawnRate);}
+} else {
+playSound(200, 'square', 0.2);
+loseLife();
+}
+let idx = fallingWords.findIndex(fw => fw.el === el);
+if (idx >= 0) fallingWords.splice(idx, 1);
+el.remove();
+if (score > 0 && score % 70 === 0) changeCategory();
+}
+function loseLife() {
+initAudio();
+lives--;
+let hearts = '';
+for (let i = 0; i < lives; i++) hearts += '❤️';
+$('lives-display').textContent = hearts || '💔';
+if (lives <= 0) endGame();
+}
+function endGame() {
+clearInterval(spawnTimer); clearInterval(moveTimer);
+spawnTimer = null; moveTimer = null; paused=false;
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-score').textContent = score;
+if (score > best) { best = score; sSet('word-fall-best', best); }
+$('final-best').textContent = best;
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+</script>
+</body>
+</html>

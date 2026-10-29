@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPAN://VHS 📼</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Consolas','Courier New',monospace;background:#050505;color:#e8e8e8;
+background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
+.chroma{text-shadow:-2.5px 0 rgba(255,0,80,.75),2.5px 0 rgba(0,230,255,.75)}
+.osd{position:absolute;font-weight:900;font-size:.85rem;color:#fff;text-shadow:0 0 6px rgba(255,255,255,.5);letter-spacing:.15em}
+.tracker{position:absolute;left:0;right:0;height:26px;background:linear-gradient(rgba(255,255,255,.09),transparent);
+filter:blur(1px);animation:track 7s linear infinite;pointer-events:none}
+@keyframes track{0%{top:-30px}12%{top:38%}14%{top:41%}60%{top:70%}100%{top:105%}}
+.glitchin{animation:gl .28s steps(2)}
+@keyframes gl{0%{transform:translateX(-4px)}40%{transform:translateX(5px)}100%{transform:translateX(0)}}
+.key{height:52px;border-radius:8px;background:#141418;color:#e8e8e8;font-weight:900;font-size:1.25rem;
+border:1px solid #3a3a44;box-shadow:inset 0 -3px 0 #000;transition:all .07s}
+.key:hover{border-color:#ff2ea6;color:#ff9ad2}
+.key:active{transform:translateY(2px)}
+.slot{width:34px;height:42px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;
+color:#ff9ad2;border-bottom:3px solid #3a3a44}
+.slot.fill{border-color:#00e6ff}
+.btnv{background:#ff2ea6;color:#fff;font-weight:900;border-radius:8px;padding:.55rem 1.8rem;
+box-shadow:0 0 18px rgba(255,46,166,.45);transition:all .08s}
+.btnv:hover{filter:brightness(1.12)}
+.btnv:active{transform:translateY(3px)}
+.chipv{background:#111116;border:1px solid #3a3a44;border-radius:999px;padding:.26rem .95rem;font-weight:800;font-size:.83rem;color:#cfcfd8}
+.blink{animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.tapebox{position:relative;border:2px solid #2c2c34;border-radius:14px;overflow:hidden;
+background:radial-gradient(ellipse at 50% 120%,#15151f,#0a0a10)}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-4">
+<h1 class="text-4xl font-black chroma">SPAN://VHS 📼</h1>
+<p class="text-sm mt-1 opacity-55 font-sans">أرقام تظهر واحد واحد… احفظها واكتبها بالترتيب!</p>
+</header>
+
+<div class="flex gap-2 justify-center mb-3 flex-wrap">
+<span class="chipv">المدى <span id="spanEl" class="text-[#00e6ff] font-black">٣</span></span>
+<span id="livesEl" class="chipv">❤️❤️</span>
+<span class="chipv">⭐ <span id="scoreEl" class="text-[#ff2ea6] font-black">٠</span></span>
+<span class="chipv">أفضل مدى <span id="bestEl" class="font-black">—</span></span>
+</div>
+
+<div class="tapebox w-full max-w-md">
+<span class="osd" style="top:10px;left:14px">▶ PLAY</span>
+<span class="osd blink" style="top:10px;right:14px">● REC <span id="recEl">00:00</span></span>
+<div class="tracker"></div>
+
+<div class="p-6 pt-10">
+
+<div id="screenEl" class="h-24 flex items-center justify-center">
+<span class="chroma text-6xl font-black" id="bigEl">؟</span>
+</div>
+
+<div id="slotsEl" class="flex justify-center gap-1.5 mb-4 min-h-[42px]" dir="ltr"></div>
+
+<div id="keypadEl" class="hidden grid grid-cols-5 gap-1.5 mb-3" dir="ltr"></div>
+
+<button onclick="start()" id="ctlBtn" class="btnv w-full py-2.5 font-sans">▶ شغّل الشريط</button>
+
+<p id="msgEl" class="h-6 mt-3 text-center text-sm font-bold font-sans text-[#00e6ff]"></p>
+</div>
+</div>
+
+<p class="mt-4 text-xs opacity-40 font-sans">لو غلطت غلطتين… الشريط بيتقطع ⏏</p>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='vhs-digitspan-best';
+let seq=[],typed=[],span=3,lives=2,score=0,best=0,
+phase='idle',showT=null,ac=null,secT=null,secs=0;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet(bestKey)||0);
+$('bestEl').textContent=best?AR(best):'—';
+function snd(f,d,type){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=type||'square';o.frequency.value=f;g.gain.setValueAtTime(.04,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+function beepKey(){snd(500+Math.random()*300,.05,'square');}
+function start(){
+clearTimeout(showT);clearInterval(secT);
+span=3;lives=2;score=0;secs=0;
+$('spanEl').textContent='٠٣'.slice(-2);
+$('livesEl').textContent='❤️❤️';
+$('scoreEl').textContent='٠';
+secT=setInterval(()=>{secs++;
+$('recEl').textContent=AR(String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0'));
+},1000);
+nextRound();
+}
+function nextRound(){
+seq=Array.from({length:span},()=>Math.floor(Math.random()*10));
+typed=[];
+phase='showing';
+$('msgEl').textContent=`استعد… ${AR(span)} أرقام جايين`;
+$('bigEl').textContent='●';
+$('ctlBtn').classList.add('hidden');
+buildKeypad();
+renderSlots();
+let i=0;
+const step=()=>{
+if(i<seq.length){
+const big=$('bigEl');
+big.textContent=AR(seq[i]);
+big.classList.remove('glitchin');void big.offsetWidth;big.classList.add('glitchin');
+beepKey();
+i++;
+showT=setTimeout(step,i===1?900:800);
+}else{
+setTimeout(recall,350);
+}
+};
+setTimeout(step,700);
+}
+function recall(){
+phase='input';
+$('bigEl').textContent='✍';
+$('msgEl').textContent='اكتب الأرقام بالترتيب…';
+$('keypadEl').classList.remove('hidden');
+}
+function buildKeypad(){
+const k=$('keypadEl');
+k.innerHTML='';
+for(let d=0;d<=9;d++){
+const b=document.createElement('button');
+b.className='key';b.textContent=AR(d);
+b.onclick=()=>tap(d);
+k.appendChild(b);
+}
+const del=document.createElement('button');
+del.className='key';del.textContent='⌫';
+del.style.gridColumn='span 2';del.style.fontSize='1rem';
+del.onclick=()=>{if(phase==='input'&&typed.length){typed.pop();renderSlots();}};
+k.appendChild(del);
+}
+function renderSlots(){
+const s=$('slotsEl');
+s.innerHTML='';
+for(let i=0;i<span;i++){
+const d=document.createElement('div');
+d.className='slot'+(i<typed.length?' fill':'');
+d.textContent=typed[i]!==undefined?AR(typed[i]):'·';
+s.appendChild(d);
+}
+}
+function tap(d){
+if(phase!=='input')return;
+typed.push(d);
+beepKey();
+renderSlots();
+if(typed.length===span)check();
+}
+function check(){
+phase='wait';
+$('keypadEl').classList.add('hidden');
+const ok=typed.every((v,i)=>v===seq[i]);
+if(ok){
+score+=span*10;
+best=Math.max(best,span);
+sSet(bestKey,best);
+$('bestEl').textContent=AR(best);
+$('scoreEl').textContent=AR(score);
+$('msgEl').textContent=`✅ صح! المدى بيزيد…`;
+snd(600,.09);setTimeout(()=>snd(850,.11),100);
+span++;
+$('spanEl').textContent=AR(String(span).padStart(2,'0'));
+showT=setTimeout(nextRound,1100);
+}else{
+lives--;
+$('livesEl').textContent=lives===1?'❤️🤍':'🖤🖤';
+$('msgEl').textContent='❌ التسجيل مش مطابق!';
+snd(150,.25,'sawtooth');
+[...$('slotsEl').children].forEach((s,i)=>{
+if(typed[i]!==seq[i])s.style.color='#ff4d6d';
+});
+if(lives<=0){
+showT=setTimeout(gameOver,1300);
+}else{
+showT=setTimeout(nextRound,1400);
+}
+}
+}
+function gameOver(){
+clearInterval(secT);
+phase='over';
+$('bigEl').textContent='⏏';
+$('msgEl').textContent='انتهى الشريط — أفضل مدى لك: '+AR(best)+' 📼';
+$('ctlBtn').textContent='↻ شغّل تاني';
+$('ctlBtn').classList.remove('hidden');
+snd(220,.3,'sawtooth');
+}
+function keyTap(e){
+if(phase==='input'&&/^[0-9]$/.test(e.key))tap(+e.key);
+else if(e.key==='Backspace'&&typed.length){typed.pop();renderSlots();}
+}
+document.addEventListener('keydown',keyTap);
+</script>
+</body>
+</html>

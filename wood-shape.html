@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لف الشكل 🔄</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,#2c1810,#4a2c1a);color:#f0e6d6;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#d4a574}
+.sub{font-size:.75rem;color:rgba(240,230,214,.45);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:1.5px solid rgba(212,165,116,.35);border-radius:999px;color:#d4a574}
+.btn{font-family:inherit;background:#d4a574;color:#2c1810;border:none;padding:.55rem 1.5rem;font-weight:900;border-radius:8px;cursor:pointer;transition:all .08s;box-shadow:0 3px 0 #8a5a2a}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:translateY(2px);box-shadow:none}
+canvas{border:3px solid rgba(212,165,116,.3);border-radius:12px;background:rgba(0,0,0,.2)}
+.opts{display:flex;gap:10px;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+.opts button{padding:.5rem 1.2rem;border:2px solid rgba(212,165,116,.4);border-radius:8px;background:rgba(212,165,116,.08);color:#d4a574;font-weight:800;font-size:.9rem;cursor:pointer;transition:all .1s}
+.opts button:hover{background:rgba(212,165,116,.2);border-color:#d4a574}
+.opts button:active{transform:scale(.95)}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.5rem;color:#d4a574}
+</style>
+</head>
+<body>
+<h1>🔄 لف الشكل</h1>
+<p class="sub">الشكل الأصلي كان فين بعد ما اتلطّف؟</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">شكل هيتلف — اختار الزاوية الصح من ٤ خيارات</p>
+<button onclick="start()" class="btn">ابدأ اللف 🔄</button>
+<p style="font-size:.7rem;opacity:.4;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/١٠</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+</div>
+<canvas id="cv" width="280" height="280"></canvas>
+<div class="opts" id="optsRow"></div>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='wood-shape-best';
+const cv=$('cv'),cx=cv.getContext('2d');
+let rz=0,score=0,best=0,ac=null,over=true;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet(bestKey)||0);
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+const SHAPES=[
+(r)=>{cx.beginPath();cx.moveTo(r,-r*.7);cx.lineTo(r*.7,r*.5);cx.lineTo(-r*.7,r*.5);cx.closePath();},
+(r)=>{cx.beginPath();cx.moveTo(r,0);cx.lineTo(0,-r*.7);cx.lineTo(-r,0);cx.lineTo(0,r*.7);cx.closePath();},
+(r)=>{cx.beginPath();for(let i=0;i<5;i++){const a=(i*72-90)*Math.PI/180;const rr=i%2?r*.4:r;
+i===0?cx.moveTo(Math.cos(a)*rr,Math.sin(a)*rr):cx.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);}cx.closePath();},
+(r)=>{cx.beginPath();cx.arc(0,0,r,0,7);cx.fill();cx.clearRect(-r*.35,-r*.35,r*.7,r*.7);},
+(r)=>{cx.beginPath();cx.moveTo(0,-r);cx.lineTo(r*.7,-r*.2);cx.lineTo(r*.4,r*.7);cx.lineTo(-r*.4,r*.7);cx.lineTo(-r*.7,-r*.2);cx.closePath();}
+];
+function start(){rz=0;score=0;$('scoreEl').textContent='٠';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');nextRound();}
+function nextRound(){
+rz++;$('rzEl').textContent=AR(rz);$('rzMsg').textContent='';
+over=true;
+const shapeIdx=Math.floor(Math.random()*SHAPES.length);
+const angles=[0,90,180,270];
+const correct=Math.floor(Math.random()*4);
+const shown=angles[correct];
+cx.clearRect(0,0,cv.width,cv.height);
+cx.save();cx.translate(140,140);cx.rotate(shown*Math.PI/180);
+cx.fillStyle='#d4a574';SHAPES[shapeIdx](80);cx.fill();
+cx.restore();
+cx.fillStyle='rgba(212,165,116,.3)';cx.font='bold 12px monospace';cx.textAlign='center';
+cx.fillText('تذكّر الزاوية...',140,270);
+setTimeout(()=>{
+cx.clearRect(0,0,cv.width,cv.height);
+cx.fillStyle='#d4a574';cx.font='bold 14px monospace';cx.textAlign='center';cx.textBaseline='middle';
+cx.fillText('?',140,140);
+const opts=[...new Set(angles)].sort(()=>Math.random()-.5);
+const row=$('optsRow');row.innerHTML='';
+opts.forEach(a=>{
+const b=document.createElement('button');b.textContent=AR(a)+'°';
+b.onclick=()=>{
+if(over)return;over=true;
+if(a===shown){score+=20+Math.floor(Math.random()*30);$('scoreEl').textContent=AR(score);$('rzMsg').textContent='✅ صح! +'+AR(score);snd(580,.1,'triangle',.05);}
+else{$('rzMsg').textContent='❌ كان '+AR(shown)+'°';snd(180,.15,'sawtooth',.04);}
+rz>=10?finish():setTimeout(nextRound,900);
+};
+row.appendChild(b);
+});
+over=false;
+},1200);
+}
+function finish(){
+over=true;
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid rgba(212,165,116,.3);border-radius:16px;padding:2rem;max-width:320px;background:rgba(0,0,0,.2)">
+<p style="font-size:2rem">🔄</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#d4a574">انتهى اللف!</h2>
+<p style="font-size:2rem;font-weight:900;color:#d4a574">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+const v=+(sGet(bestKey)||0);
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)sSet(bestKey,score);
+}
+</script>
+</body>
+</html>

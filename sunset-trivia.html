@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تحدي الغروب 🌅</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(160deg,#ffb26b,#ff5e78,#9b5de5);background-size:220% 220%;animation:sunshift 16s ease-in-out infinite;color:#43263b;min-height:100vh}
+@keyframes sunshift{0%,100%{background-position:0% 30%}50%{background-position:100% 70%}}
+.card{background:#fff7ec;border-radius:1.4rem;box-shadow:0 16px 40px rgba(90,30,60,.28)}
+.ans{background:#fff;border:2px solid #e8cdb8;border-radius:1rem;font-weight:700;text-align:right;padding:.85rem 1.1rem;transition:all .13s}
+.ans:hover:not(.lock){border-color:#ef5b5b;transform:translateY(-3px);box-shadow:0 10px 24px rgba(239,91,91,.22)}
+.lock{pointer-events:none}
+.right{background:#2e9e6b!important;border-color:#2e9e6b!important;color:#fff!important}
+.wrong{background:#e34b4b!important;border-color:#e34b4b!important;color:#fff!important}
+#tfill{transition:width .12s linear;background:linear-gradient(90deg,#f0a500,#ef5b5b)}
+.chip{padding:.2rem .8rem;border-radius:999px;font-weight:900;font-size:.75rem;color:#fff}
+.heart{font-size:1.35rem;filter:drop-shadow(0 2px 3px rgba(90,30,60,.35))}
+.pop{animation:pp .25s ease-out}
+@keyframes pp{0%{transform:scale(.75)}65%{transform:scale(1.07)}100%{transform:scale(1)}}
+.shake{animation:sh .4s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="card px-10 py-12 text-center max-w-lg w-full">
+<div class="text-6xl mb-3">🌅</div>
+<h1 class="text-4xl font-black mb-2">تحدي الغروب</h1>
+<p class="font-bold text-[#a4508b] mb-3">علوم · تاريخ · كرة قدم</p>
+<p class="leading-relaxed mb-1">١٠ أسئلة مستوى صعب · ١٢ ثانية للسؤال</p>
+<p class="leading-relaxed mb-8">عندك ٣ قلوب فقط… الإجابة السريعة والسلاسل ترفع نقاطك!</p>
+<button onclick="start()" class="bg-[#ef5b5b] hover:bg-[#d94a4a] transition-colors text-white font-black py-3 px-12 rounded-full">ابدأ التحدي</button>
+<p class="mt-6 text-sm font-bold text-[#a4508b]">أفضل نتيجة: <span id="bestStart">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-xl">
+<div class="flex justify-between items-center mb-4 text-sm font-bold text-white drop-shadow">
+<span id="heartsEl" class="flex gap-1"></span>
+<span class="chip pop" id="catChip"></span>
+<span>🔥 <span id="streakEl">0</span> · ⭐ <span id="scoreEl">0</span></span>
+</div>
+
+<div class="h-3 rounded-full bg-white/40 overflow-hidden mb-6"><div id="tfill" class="h-full" style="width:100%"></div></div>
+
+<div class="card px-7 py-8 mb-5">
+<div class="text-xs font-bold text-white/90 mb-1">سؤال <span id="qNumEl"></span></div>
+<div id="qEl" class="text-xl md:text-2xl font-black leading-relaxed"></div>
+</div>
+
+<div id="opts" class="grid gap-3"></div>
+<div id="msg" class="h-9 mt-4 text-center font-black text-lg text-white drop-shadow"></div>
+</div>
+
+<div id="endScr" class="hidden card px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🌇</div>
+<h2 class="text-3xl font-black mb-6">غابت الشمس!</h2>
+<div id="finalScore" class="text-6xl font-black text-[#ef5b5b] mb-2">0</div>
+<p id="endMsg" class="font-bold mb-8 leading-relaxed"></p>
+<button onclick="start()" class="bg-[#9b5de5] hover:bg-[#8847d4] transition-colors text-white font-black py-3 px-12 rounded-full">تحدي جديد ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const BANK=[
+{q:'ما أصغر وحدة في المادة تحتفظ بخصائص العنصر الكيميائي؟',o:['الذرة','الخلية','الجزيء','البروتون'],a:0,c:'علم'},
+{q:'كم عدد عظام جسم الإنسان البالغ؟',o:['186','206','230','256'],a:1,c:'علم'},
+{q:'كم قلباً يملك الأخطبوط؟',o:['قلب واحد','قلبان','ثلاثة','أربعة'],a:2,c:'علم'},
+{q:'ما أكبر عضو في جسم الإنسان؟',o:['الكبد','الجلد','الرئة','المخ'],a:1,c:'علم'},
+{q:'ما العنصر الذي رمزه الكيميائي Au؟',o:['الفضة','الألمنيوم','الذهب','الفضة الحمراء'],a:2,c:'علم'},
+{q:'من مؤسس علم الجبر؟',o:['ابن سينا','الخوارزمي','البيروني','الفارابي'],a:1,c:'تاريخ'},
+{q:'متى وُقّعت اتفاقية سايكس بيكو؟',o:['1914','1916','1919','1923'],a:1,c:'تاريخ'},
+{q:'من قاد معركة عين جالوت ضد المغول؟',o:['صلاح الدين','قطز','الظاهر بيبرس','سيف الدين قلاوون'],a:1,c:'تاريخ'},
+{q:'ما أقدم عاصمة مأهولة باستمرار في العالم؟',o:['أثينا','روما','دمشق','القاهرة'],a:2,c:'تاريخ'},
+{q:'أول منتخب توّج بكأس العالم لكرة القدم؟',o:['البرازيل','إيطاليا','أوروغواي','الأرجنتين'],a:2,c:'كرة'},
+{q:'من سجل هاتريك في نهائي كأس العالم 2022؟',o:['ميسي','مبابي','ألفاريز','غريزمان'],a:1,c:'كرة'},
+{q:'أي منتخب شارك في جميع نسخ كأس العالم حتى الآن؟',o:['ألمانيا','الأرجنتين','إنجلترا','البرازيل'],a:3,c:'كرة'},
+{q:'من الهداف التاريخي لدوري أبطال أوروبا؟',o:['ميسي','رونالدو','رؤوس بنزيما','راؤول'],a:1,c:'كرة'},
+{q:'من ارتدى القميص رقم 10 للبرازيل في مونديال 1970؟',o:['ريفيلينو','توستاو','بيليه','جيلمار'],a:2,c:'كرة'},
+{q:'كم استغرقت رحلة أبولو 11 تقريباً حتى الوصول للقمر؟',o:['حوالي يوم','حوالي 4 أيام','حوالي أسبوع','حوالي أسبوعين'],a:1,c:'تاريخ'},
+{q:'ما أسرع شيء معروف في الكون؟',o:['الصوت','الضوء','الرياح الشمسية','المذياع'],a:1,c:'علم'},
+{q:'في أي عام انتهى حكم الخلافة العثمانية رسمياً بإلغاء السلطنة؟',o:['1918','1922','1924','1930'],a:2,c:'تاريخ'},
+{q:'من طوّر المصباح الكهربائي التجاري الأول؟',o:['نيوتن','إديسون','فولتا','أمبير'],a:1,c:'تاريخ'}
+];
+const TOTAL_Q=10,QTIME=12,LIVES=3,bestKey='sunset-trivia-best';
+const CATS={ 'علم':{label:'🔬 علم',bg:'#ff8c42'},'تاريخ':{label:'📜 تاريخ',bg:'#d64560'},'كرة':{label:'⚽ كرة',bg:'#7d5ba6'} };
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let qs=[],qi=0,score=0,streak=0,lives=LIVES,solved=0,tLeft=QTIME,timer=null,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v||'—';}catch(e){}}
+loadBest();
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function drawHearts(){
+$('heartsEl').innerHTML='';
+for(let i=0;i<LIVES;i++){
+const s=document.createElement('span');
+s.className='heart';s.textContent=i<lives?'❤️':'🖤';
+$('heartsEl').appendChild(s);
+}
+}
+function start(){
+qs=shuffle(BANK).slice(0,TOTAL_Q);
+qi=0;score=0;streak=0;lives=LIVES;solved=0;
+$('streakEl').textContent='0';$('scoreEl').textContent='0';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+drawHearts();
+loadQ();
+}
+function loadQ(){
+const q=qs[qi];
+$('qNumEl').textContent=`${AR(qi+1)} / ${AR(TOTAL_Q)}`;
+const ch=$('catChip');ch.textContent=CATS[q.c].label;ch.style.background=CATS[q.c].bg;
+ch.classList.remove('pop');void ch.offsetWidth;ch.classList.add('pop');
+$('msg').textContent='';
+$('qEl').textContent=q.q;
+const box=$('opts');box.innerHTML='';
+q.o.forEach((op,i)=>{
+const b=document.createElement('button');
+b.className='ans text-lg';b.textContent=op;
+b.onclick=()=>pick(i,b);
+box.appendChild(b);
+});
+tLeft=QTIME;$('tfill').style.width='100%';
+clearInterval(timer);
+timer=setInterval(()=>{
+tLeft-=.12;
+if(tLeft<=0)return pick(-1,null);
+$('tfill').style.width=(tLeft/QTIME*100)+'%';
+},120);
+snd(440,.06,'sine',.04);
+}
+function pick(i,btn){
+clearInterval(timer);
+document.querySelectorAll('.ans').forEach(b=>b.classList.add('lock'));
+const q=qs[qi],m=$('msg');
+if(i===q.a){
+streak++;solved++;
+const gained=100+Math.round(tLeft*8)+streak*15;
+score+=gained;
+$('scoreEl').textContent=score;
+$('streakEl').textContent=streak;
+btn.classList.add('right');
+m.textContent=`أحسنت! +${AR(gained)} نقطة${streak>1?` · سلسلة ×${AR(streak)} 🔥`:''}`;
+snd(600,.1,'triangle',.05);setTimeout(()=>snd(800,.14,'triangle',.05),100);
+}else{
+streak=0;lives--;drawHearts();
+$('streakEl').textContent='0';
+if(btn)btn.classList.add('wrong');
+document.querySelectorAll('.ans')[q.a].classList.add('right');
+$('qEl').closest('.card').classList.add('shake');
+setTimeout(()=>$('qEl').closest('.card').classList.remove('shake'),450);
+m.textContent=i===-1?'⏱ انتهى الوقت!':'✗ إجابة خاطئة!';
+snd(150,.3,'sawtooth',.05);
+}
+setTimeout(()=>{
+qi++;
+if(lives<=0||qi>=TOTAL_Q)return finish();
+loadQ();
+},1700);
+}
+function finish(){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=score;
+const v=+localStorage.getItem(bestKey)||0;
+let m=`أجبت إصابة على ${AR(solved)} من ${AR(TOTAL_Q)} أسئلة.`;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+v;
+$('endMsg').textContent=m;
+[520,650,780].forEach((f,i)=>setTimeout(()=>snd(f,.16,'triangle',.05),i*140));
+}
+</script>
+</body>
+</html>

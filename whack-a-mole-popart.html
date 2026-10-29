@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>اصطياد الخلد POW! 🔨</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Arial Black','Segoe UI',sans-serif;background-color:#fdf3d8;background-image:radial-gradient(rgba(255,93,162,.3) 1.5px,transparent 1.6px);background-size:20px 20px}
+.comic{background:#fff;border:4px solid #000;border-radius:1.4rem;box-shadow:9px 9px 0 #000}
+.titlestroke{color:#ffd400;-webkit-text-stroke:2.5px #000;text-shadow:4px 4px 0 #000}
+.hole{position:relative;height:6rem;overflow:hidden;border-radius:999px;background:#4a2f16;border:4px solid #000;cursor:pointer;box-shadow:inset 0 8px 14px rgba(0,0,0,.55)}
+.mole{position:absolute;left:50%;top:0;font-size:2.6rem;line-height:1;transform:translate(-50%,108%);transition:transform .12s ease-out;z-index:1}
+.up .mole{transform:translate(-50%,14%)}
+.holefront{position:absolute;bottom:-6px;left:-6px;right:-6px;height:38%;background:#33200d;border:4px solid #000;border-radius:999px;z-index:2;pointer-events:none}
+@keyframes floatK{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-42px);opacity:0}}
+.float{position:absolute;top:8%;left:50%;transform:translateX(-50%);z-index:5;font-weight:900;font-size:1.3rem;-webkit-text-stroke:1px #000;pointer-events:none;animation:floatK .7s forwards}
+@keyframes shkp{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+.shakeP{animation:shkp .35s}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 text-black">
+<div id="panel" class="comic w-full max-w-md p-5 md:p-6 relative">
+  <span class="absolute -top-5 -left-4 w-16 h-16 bg-red-600 text-white border-4 border-black rounded-full flex items-center justify-center font-black -rotate-12 text-sm z-10">POW!</span>
+
+  <header class="text-center mb-4">
+    <h1 class="text-4xl font-black italic titlestroke">🔨 اصطياد الخلد!</h1>
+    <p class="text-xs font-bold mt-2 opacity-70">🐹 +1 • 💰 +5 • 💣 −5 … ركّز وما تضرب القنبلة!</p>
+  </header>
+
+  <div class="flex justify-between text-sm font-black mb-4 bg-yellow-100 border-4 border-black rounded-xl py-2 px-3">
+    <span>⏰ <span id="tLeft">30</span></span>
+    <span>🎯 <span id="score" class="text-pink-600">0</span></span>
+    <span>🏅 <span id="best">0</span></span>
+    <span><button onclick="togglePause()" id="ppause" class="bg-black text-white border-2 border-black px-2 rounded text-xs">⏸</button></span>
+  </div>
+
+  <div id="grid" class="grid grid-cols-3 gap-3 md:gap-4"></div>
+
+  <div class="h-3 mt-4 border-4 border-black bg-white"><div id="bar" class="h-full bg-pink-500 transition-all duration-150" style="width:100%"></div></div>
+</div>
+
+<div id="endOv" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="comic p-8 text-center max-w-xs w-full">
+    <div id="eIcon" class="text-6xl mb-2">🔨</div>
+    <h2 class="text-2xl font-black mb-1">انتهى الدور!</h2>
+    <p class="text-5xl font-black text-pink-600 my-3"><span id="eScore">0</span></p>
+    <p id="eRank" class="text-xs font-bold mb-5"></p>
+    <button onclick="startGame()" class="bg-yellow-400 hover:bg-yellow-300 border-4 border-black font-black px-8 py-2 rounded-xl shadow-[5px_5px_0_#000] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none transition">دور جديد 🔁</button>
+  </div>
+</div>
+
+<script>
+const DUR=30;
+let holes=[],score,timeF,timerInt=null,spawnInt=null,best=0,paused=false;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=Number(sGet('whack-pop-best')||0);
+
+const $=function(id){return document.getElementById(id);};
+
+(function build(){
+ const g=$('grid');
+ for(let i=0;i<9;i++){
+   const d=document.createElement('div');
+   d.className='hole';
+   const m=document.createElement('span');
+   m.className='mole';
+   const f=document.createElement('div');
+   f.className='holefront';
+   d.appendChild(m);d.appendChild(f);
+   d.onclick=function(){whack(holes[i]);};
+   g.appendChild(d);
+   holes.push({el:d,mole:m,active:false,kind:''});
+ }
+ $('best').textContent=best;
+})();
+
+function floatTxt(h,txt,color){
+ const s=document.createElement('span');
+ s.className='float';
+ s.style.color=color;
+ s.textContent=txt;
+ h.el.appendChild(s);
+ setTimeout(function(){s.remove();},720);
+}
+
+function whack(h){
+ if(!h.active)return;
+ h.active=false;
+ h.el.classList.remove('up');
+ if(h.kind==='bomb'){
+   score=Math.max(0,score-5);
+   floatTxt(h,'−5','#e11d48');
+   const p=$('panel');
+   p.classList.remove('shakeP');void p.offsetWidth;p.classList.add('shakeP');
+ }else{
+   const pts=h.kind==='gold'?5:1;
+   score+=pts;
+   floatTxt(h,'+'+pts,h.kind==='gold'?'#ca8a04':'#16a34a');
+ }
+ $('score').textContent=score;
+}
+
+function spawn(){
+ if(timeF<=0)return;
+ const free=holes.filter(function(h){return !h.active;});
+ if(!free.length)return;
+ const h=free[Math.floor(Math.random()*free.length)];
+ const r=Math.random();
+ const kind=r<.08?'gold':(r<.2?'bomb':'norm');
+ h.kind=kind;h.active=true;
+ h.mole.textContent=kind==='gold'?'💰':(kind==='bomb'?'💣':'🐹');
+ h.el.classList.add('up');
+ const life=kind==='gold'?700:(kind==='bomb'?950:850);
+ setTimeout(function(){
+   if(h.active&&h.kind===kind){h.active=false;h.el.classList.remove('up');}
+ },life);
+}
+
+function paint(){
+ $('tLeft').textContent=Math.ceil(Math.max(0,timeF));
+ $('bar').style.width=(Math.max(0,timeF)/DUR*100)+'%';
+}
+
+function startGame(){
+ score=0;timeF=DUR;paused=false;
+ clearInterval(timerInt);clearInterval(spawnInt);
+ holes.forEach(function(h){h.active=false;h.el.classList.remove('up');});
+ $('score').textContent='0';
+ $('endOv').classList.add('hidden');
+ paint();
+ spawnInt=setInterval(function(){if(paused)return;spawn();}  , Math.max(280,550-Math.floor((DUR-timeF)/3)*14));
+ timerInt=setInterval(function(){
+   if(paused)return;
+   timeF-=0.1;paint();
+   if(timeF<=0)endGame();
+ },100);
+}
+function togglePause(){
+if(timeF<=0)return;
+paused=!paused;
+$('ppause').textContent=paused?'▶':'⏸';
+}
+document.addEventListener('keydown',function(e){
+if(e.key==='p'||e.key==='P')togglePause();
+});
+
+function endGame(){
+ clearInterval(timerInt);clearInterval(spawnInt);
+ holes.forEach(function(h){h.active=false;h.el.classList.remove('up');});
+ let r,icon;
+ if(score>=40){r='🏆 بطل المزارع! يدك من حديد';icon='🏆';}
+ else if(score>=25){r='💪 ضربات ثقيلة يا نمر';icon='💥';}
+ else if(score>=12){r='🙂 لا باس… بس الخلد ضحك عليك';icon='🐹';}
+ else{r='😴 الخلد قعد يضحك عليك الليلة';icon='💤';}
+ if(score>best){sSet('whack-pop-best',score);best=score;r+=' • رقم قياسي! 🎉';}
+ $('best').textContent=best;
+ $('eIcon').textContent=icon;
+ $('eScore').textContent=score;
+ $('eRank').textContent=r;
+ setTimeout(function(){$('endOv').classList.remove('hidden');},350);
+}
+</script>
+</body>
+</html>

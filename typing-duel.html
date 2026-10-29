@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>سباق الكتابة السريع</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-950 min-h-screen flex items-center justify-center font-sans"><div class="bg-gray-900 border border-green-500/30 p-8 rounded-3xl w-full max-w-lg text-center text-green-400 shadow-lg shadow-green-500/10">
+<div class="text-3xl font-bold mb-1">⌨️ سباق الكتابة السريع</div>
+<div id="bestDisp" class="text-gray-500 text-sm mb-4"></div>
+<div id="startScreen">
+<div class="text-green-300/60 mb-4">20 كلمة بالعربية — اكتب بسرعة!</div>
+<button onclick="startGame()" class="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl text-xl font-bold transition">ابدأ</button>
+</div>
+<div id="gameScreen" class="hidden">
+<div class="flex justify-between text-sm mb-4 text-gray-400"><span>الكلمة: <span id="wordNum" class="text-green-400">1</span>/20</span><span>⏱️ <span id="timer">5.0</span>s</span><span>النتيجة: <span id="score" class="text-yellow-400">0</span></span></div>
+<div class="h-1 bg-gray-800 rounded-full mb-6 overflow-hidden"><div id="timerBar" class="h-full bg-green-500 transition-all duration-100" style="width:100%"></div></div>
+<div id="currentWord" class="text-4xl font-bold mb-6 text-white"></div>
+<input id="input" type="text" class="bg-gray-800 border border-green-500/30 rounded-xl px-6 py-4 text-2xl text-center w-full focus:outline-none focus:border-green-400 text-white" autocomplete="off" autocapitalize="off" placeholder="اكتب الكلمة هنا...">
+<div id="feedback" class="h-6 mt-3 text-lg font-bold"></div>
+</div>
+<div id="endScreen" class="hidden">
+<div class="text-4xl font-bold mb-4">🏁 انتهت!</div>
+<div class="text-xl mb-1">النتيجة: <span id="finalScore" class="text-yellow-400 text-2xl"></span></div>
+<div class="text-gray-400 mb-2">الكلمات الصحيحة: <span id="correctCount"></span>/20</div>
+<div class="text-gray-400 mb-2">السرعة: <span id="wpm"></span> كلمة/دقيقة</div>
+<div id="newBest" class="text-green-400 font-bold mb-2 hidden">🏆 رقم قياسي جديد!</div>
+<button onclick="startGame()" class="mt-4 bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div><script>
+const WORDS_T=["كتاب","قمر","شمس","نار","بحر","سماء","قلب","عين","سلام","حب","قدس","فلك","نجم","زهرة","أرض","ريح","حرب","بيت","ورد","مطر"];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let wordList=[],current=0,score=0,correct=0,timeLeft=5,timerInt=null,best=0,duelAudio,paused=false;
+function sGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function sSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+best=+(sGet('type-duel-best'))||0;
+function getDuelAudio(){if(!duelAudio)duelAudio=new(window.AudioContext||window.webkitAudioContext)();return duelAudio;}
+function playSound(f,d,t){let ctx=getDuelAudio(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+function updateBest(){document.getElementById('bestDisp').textContent=best>0?'أفضل نتيجة: '+best+'':'';}
+updateBest();
+function startGame(){
+wordList=[...WORDS_T].sort(()=>Math.random()-0.5).slice(0,20);
+current=0;score=0;correct=0;paused=false;
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+document.getElementById('gameScreen').classList.remove('hidden');
+document.getElementById('score').textContent='0';
+document.getElementById('feedback').textContent='';
+showWord();
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='p'||e.key==='P'){if(document.getElementById('gameScreen').classList.contains('hidden'))return;paused=!paused;document.getElementById('feedback').textContent=paused?'⏸ موقوف — اضغط P للمتابعة':'';}
+});
+function showWord(){
+if(current>=20)return endGame();
+timeLeft=5;
+document.getElementById('wordNum').textContent=AR(current+1);
+document.getElementById('currentWord').textContent=wordList[current];
+document.getElementById('timer').textContent='٥٫٠';
+document.getElementById('timerBar').style.width='100%';
+document.getElementById('input').value='';
+document.getElementById('input').focus();
+clearInterval(timerInt);
+timerInt=setInterval(()=>{
+if(paused)return;
+timeLeft-=0.1;
+if(timeLeft<=0){timeLeft=0;clearInterval(timerInt);playSound(200,0.3,'sawtooth');current++;document.getElementById('feedback').innerHTML='<span class="text-red-400">⏰ انتهى الوقت!('+wordList[current-1]+')</span>';setTimeout(showWord,800);}
+document.getElementById('timer').textContent=AR(timeLeft.toFixed(1));
+document.getElementById('timerBar').style.width=(timeLeft/5*100)+'%';
+document.getElementById('timerBar').className='h-full transition-all duration-100 '+(timeLeft<2?'bg-red-500':'bg-green-500');
+},100);
+}
+document.getElementById('input').addEventListener('input',e=>{
+if(current>=20||paused)return;
+let typed=e.target.value.trim();
+if(typed===wordList[current]){
+clearInterval(timerInt);
+let pts=Math.round(timeLeft*10+10);score+=pts;correct++;
+playSound(600+current*10,0.15);
+document.getElementById('score').textContent=AR(score);
+document.getElementById('feedback').innerHTML='<span class="text-green-400">✅ +'+AR(pts)+'</span>';
+current++;setTimeout(showWord,500);
+}
+});
+function endGame(){
+clearInterval(timerInt);
+document.getElementById('gameScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.remove('hidden');
+document.getElementById('finalScore').textContent=AR(score);
+document.getElementById('correctCount').textContent=AR(correct);
+document.getElementById('wpm').textContent=AR(Math.round(correct*12));
+let isNew=score>best;
+if(isNew){best=score;sSet('type-duel-best',best);document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+}
+</script></body></html>
