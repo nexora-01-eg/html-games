@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>المعادلة الذهبية 🏅</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0d0f1a;color:#f5f0e8;
+background-image:radial-gradient(ellipse at 50% 0%,rgba(212,175,55,.07) 0,rgba(0,0,0,0) 70%)}
+.chiplux{background:rgba(212,175,55,.08);border:1.5px solid rgba(212,175,55,.35);border-radius:999px;padding:.22rem .85rem;font-weight:700;font-size:.82rem;color:#d4af37}
+.btnlux{background:transparent;color:#d4af37;font-weight:900;border-radius:10px;padding:.6rem 2rem;
+border:2px solid #d4af37;transition:all .08s;text-shadow:0 0 10px rgba(212,175,55,.35)}
+.btnlux:hover{background:rgba(212,175,55,.1);box-shadow:0 0 22px rgba(212,175,55,.25)}
+.btnlux:active{transform:scale(.97)}
+.opSlot{width:60px;height:60px;display:flex;align-items:center;justify-content:center;
+border:2px solid rgba(212,175,55,.45);border-radius:12px;font-size:1.6rem;font-weight:900;
+color:#d4af37;background:rgba(212,175,55,.04);cursor:pointer;transition:all .12s;
+text-shadow:0 0 10px rgba(212,175,55,.5);user-select:none}
+.opSlot:active{transform:scale(.92);background:rgba(212,175,55,.12)}
+.opSlot.correct{border-color:#4ade80;color:#4ade80;box-shadow:0 0 14px rgba(74,222,128,.35);text-shadow:0 0 10px rgba(74,222,128,.5)}
+.numSlot{min-width:52px;padding:.5rem 1rem;border-radius:10px;text-align:center;font-weight:900;font-size:1.45rem}
+.equalSign{font-size:1.8rem;font-weight:900;color:rgba(212,175,55,.5);padding:0 .4rem}
+.targetSlot{padding:.6rem 1.5rem;border:2px solid #d4af37;border-radius:999px;font-weight:900;font-size:1.7rem;
+text-shadow:0 0 14px rgba(212,175,55,.5);background:rgba(212,175,55,.06)}
+.ring{position:absolute;border:50%;border-radius:50%;pointer-events:none;
+border-top:2.5px solid #d4af37;border-right:2.5px solid transparent;animation:spin 4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-5">
+<h1 class="text-4xl font-black" style="color:#d4af37;text-shadow:0 0 20px rgba(212,175,55,.45)">🏅 المعادلة الذهبية</h1>
+<p class="text-sm mt-1 opacity-65">اضغط على المشغّل (∗) لتبديله: <b style="color:#d4af37">+ − × ÷</b></p>
+</header>
+
+<div id="startScr" class="relative text-center">
+<div class="ring" style="width:280px;height:280px;top:-50px;border-left-color:transparent;border-bottom-color:transparent"></div>
+<div class="relative bg-gradient-to-b from-[#111528] to-[#0d0f1a] border border-[rgba(212,175,55,.3)] rounded-2xl p-8">
+<div class="text-5xl mb-3">🏛</div>
+<p class="leading-relaxed mb-2 font-bold">٥ جولات — اربط الأرقام بعمليات رياضية عشان توصل للرقم المطلوب</p>
+<p class="text-sm opacity-55 mb-5">أرقام ×(+−×÷) أرقام</p>
+<button onclick="start()" class="btnlux px-12 py-3 text-lg">ابدأ التحدي</button>
+<p class="mt-4 text-xs opacity-50">أفضل نتيجة: <span id="bestStart" class="font-bold" style="color:#d4af37">—</span></p>
+</div>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex gap-2 flex-wrap justify-center mb-4">
+<span class="chiplux">جولة <span id="rzEl" class="font-black">١</span>/٥</span>
+<span class="chiplux">⭐ <span id="scoreEl" class="font-black">٠</span></span>
+<span class="chiplux">⏱ <span id="timeEl" class="font-bold">١٠</span>s</span>
+<span class="chiplux">🏆 <span id="bestEl" class="font-black">—</span></span>
+</div>
+
+<div class="bg-gradient-to-b from-[#111528] to-[#0d0f1a] border border-[rgba(212,175,55,.3)] rounded-2xl p-6 text-center max-w-lg mx-auto">
+<div class="flex items-center justify-center gap-3 flex-wrap mb-3" id="eqRow"></div>
+<div class="flex items-center justify-center gap-3 mb-6">
+<div class="equalSign">=</div>
+<div class="targetSlot" id="targetEl">?</div>
+</div>
+<div class="flex justify-center gap-3 flex-wrap">
+<button onclick="checkEq()" class="btnlux px-10 py-2.5">🔍 تحقق</button>
+<button onclick="resetOps()" class="btnlux px-8 py-2.5">↺ مسح</button>
+</div>
+<div id="eqMsg" class="h-7 mt-4 font-bold text-center" style="color:#d4af37"></div>
+</div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='luxeq-best';
+let rounds=[],rz=0,score=0,ops=[],timer=null,timeLeft=0,over=true,ac=null,best=0;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function evalEq(nums,oArr){
+let vals=[nums[0]],ops=[];
+for(let i=0;i<oArr.length;i++){
+if(oArr[i]==='*'||oArr[i]==='/'){
+let p=vals.pop();
+vals.push(oArr[i]==='*'?p*nums[i+1]:p/nums[i+1]);
+}else{ops.push(oArr[i]);vals.push(nums[i+1]);}
+}
+let r=vals[0];
+for(let i=0;i<ops.length;i++)r+=(ops[i]==='+'?1:-1)*vals[i+1];
+return r;
+}
+function genRound(){
+for(let attempt=0;attempt<200;attempt++){
+const len=3+Math.floor(Math.random()*2);
+const nums=Array.from({length:len},()=>Math.floor(Math.random()*11)+1);
+const opsSet=['+','-','*','/'];
+const sol=Array.from({length:len-1},()=>opsSet[Math.floor(Math.random()*4)]);
+const target=evalEq(nums,sol);
+if(!isFinite(target)||target!==Math.round(target))continue;
+if(target<-50||target>50)continue;
+const sol2=[];let found=false;
+for(let mask=0;mask<Math.pow(4,len-1);mask++){
+const candidate=[];
+let m=mask;
+for(let j=0;j<len-1;j++){candidate.push(opsSet[m%4]);m=Math.floor(m/4);}
+if(Math.abs(evalEq(nums,candidate)-target)<.0001){found=true;break;}
+}
+if(!found)continue;
+return{nums,target};
+}
+return{nums:[2,3,4],target:14};
+}
+function start(){
+rounds=[];for(let i=0;i<5;i++)rounds.push(genRound());
+rz=0;score=0;
+$('scoreEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+startRound();
+}
+function startRound(){
+const rd=rounds[rz];
+ops=Array(rd.nums.length-1).fill('*');
+renderEq();
+$('rzEl').textContent=AR(rz+1);
+$('targetEl').textContent=AR(rd.target);
+$('eqMsg').textContent='';
+timeLeft=10+rz;
+$('timeEl').textContent=AR(timeLeft);
+clearInterval(timer);
+timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=AR(timeLeft);
+if(timeLeft<=0){clearInterval(timer);$('eqMsg').textContent='⏰ خلص الوقت!';nextRound(false);}
+},1000);
+over=false;
+}
+function renderEq(){
+const rd=rounds[rz];
+const row=$('eqRow');row.innerHTML='';
+rd.nums.forEach((n,i)=>{
+const ns=document.createElement('div');
+ns.className='numSlot bg-[#111528] border border-[rgba(212,175,55,.25)]';
+ns.textContent=AR(n);
+row.appendChild(ns);
+if(i<rd.nums.length-1){
+const os=document.createElement('div');
+os.className='opSlot';os.textContent=AR_op(ops[i]);
+os.onclick=()=>{if(over)return;ops[i]=nextOp(ops[i]);os.textContent=AR_op(ops[i]);snd(440,.06,'sine',.04);};
+row.appendChild(os);
+}
+});
+}
+function AR_op(op){return{'+':'+' ,'-':'−', '*':'×', '/':'÷'}[op]||op;}
+function nextOp(cur){return{'+':'-', '-':'*', '*':'/', '/':'+'}[cur];}
+function resetOps(){if(over)return;ops.fill('*');renderEq();snd(280,.05,'sine');}
+function checkEq(){
+if(over)return;
+const rd=rounds[rz];
+const res=evalEq(rd.nums,ops);
+const eqEls=$('eqRow').querySelectorAll('.opSlot');
+if(Math.abs(res-rd.target)<.0001){
+clearInterval(timer);over=true;
+eqEls.forEach(e=>e.classList.add('correct'));
+const gain=timeLeft*15+10;
+score+=gain;$('scoreEl').textContent=AR(score);
+$('eqMsg').textContent='✅ صحيحة! +'+AR(gain);
+snd(700,.12,'triangle',.05);snd(900,.12,'triangle',.05);
+setTimeout(()=>nextRound(true),900);
+}else{
+$('eqMsg').textContent='❌ '+AR(Math.round(res))+' ≠ '+AR(rd.target);
+snd(180,.18,'sawtooth',.05);
+}
+}
+function nextRound(success){
+rz++;
+if(rz>=rounds.length)return finish();
+startRound();
+}
+function finish(){
+over=true;clearInterval(timer);
+$('playScr').innerHTML=`
+<div class="bg-gradient-to-b from-[#111528] to-[#0d0f1a] border border-[rgba(212,175,55,.3)] rounded-2xl p-10 text-center">
+<div class="text-5xl mb-2">🏛</div>
+<h2 class="text-3xl font-black mb-2" style="color:#d4af37">التحدي انتهى!</h2>
+<div class="text-5xl font-black mb-2" style="color:#d4af37;text-shadow:0 0 14px rgba(212,175,55,.5)">${AR(score)}</div>
+<p class="opacity-70 mb-4" id="finMsg"></p>
+<button onclick="location.reload()" class="btnlux px-10 py-2.5">جولة جديدة ↻</button>
+</div>`;
+const v=+localStorage.getItem(bestKey)||0;
+document.getElementById('finMsg').textContent=
+score>v&&score>0?'🏆 رقم قياسي جديد!':`أفضل نتيجة: ${AR(Math.max(v,score))}`;
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score);}catch(e){}
+chord([600,800,1050],.14);
+}
+function chord(fs,d){fs.forEach((f,i)=>setTimeout(()=>snd(f,d||.16,'triangle',.05),i*100));}
+</script>
+</body>
+</html>

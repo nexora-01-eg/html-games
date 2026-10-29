@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>بلِتز الرياضيات 🫧</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Trebuchet MS','Segoe UI',sans-serif;background:linear-gradient(130deg,#dfe9ff,#ece4ff,#ffe9f2,#e2fbff);background-size:300% 300%;animation:bgmove 14s ease infinite}
+@keyframes bgmove{0%{background-position:0% 20%}50%{background-position:100% 80%}100%{background-position:0% 20%}}
+.glass{background:rgba(255,255,255,.45);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.75)}
+.opt{transition:all .12s ease}
+.opt:hover:not(:disabled){transform:translateY(-3px);background:rgba(255,255,255,.85)}
+@keyframes shakeK{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.shake{animation:shakeK .3s}
+@keyframes popK{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.pop{animation:popK .25s ease-out}
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 text-indigo-950">
+ <main class="glass w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8">
+
+  <section id="startScr" class="text-center py-6">
+    <div class="text-6xl mb-3">🫧</div>
+    <h1 class="text-3xl font-extrabold mb-2">بلِتز الرياضيات</h1>
+    <p class="opacity-70 text-sm leading-6 mb-6">٦٠ ثانية… حساب سريع ومتواصل!<br>إجابة خاطئة تحرق ٣ ثوانٍ 🔥 وكل سلسلة صحيحة تضاعف نقاطك.</p>
+    <p class="text-sm mb-6">🏆 أفضل نتيجة: <b id="bestStart">—</b></p>
+    <button onclick="start()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg px-10 py-3 rounded-2xl shadow-lg transition active:scale-95">ابدأ التحدي</button>
+  </section>
+
+  <section id="gameScr" class="hidden">
+    <div class="flex justify-between items-center mb-5 text-sm font-bold">
+      <span>⏱️ <span id="timeLeft" class="text-xl">60</span></span>
+      <span class="text-indigo-600">النقاط: <span id="score" class="text-xl">0</span></span>
+      <span>🔥 <span id="streak">0</span></span>
+    </div>
+    <div class="h-2 rounded-full bg-white/60 overflow-hidden mb-6">
+      <div id="bar" class="h-full bg-gradient-to-l from-indigo-500 to-fuchsia-400 transition-all duration-500" style="width:100%"></div>
+    </div>
+    <div id="qBox" dir="ltr" class="text-center text-4xl md:text-5xl font-extrabold py-8 tracking-wide"></div>
+    <div id="opts" class="grid grid-cols-2 gap-3"></div>
+    <div id="fb" class="text-center h-8 mt-4 font-bold"></div>
+  </section>
+
+  <section id="endScr" class="hidden text-center py-6">
+    <div class="text-6xl mb-2" id="endEmoji">🏁</div>
+    <h2 class="text-2xl font-extrabold mb-1">انتهى الوقت!</h2>
+    <p class="text-5xl font-black text-indigo-600 my-4"><span id="finalScore">0</span></p>
+    <p id="endDetail" class="opacity-70 text-sm mb-6"></p>
+    <button onclick="start()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-10 py-3 rounded-2xl shadow-lg transition active:scale-95">مرة ثانية</button>
+  </section>
+ </main>
+
+<script>
+const GAME_TIME=60,PENALTY=3;
+let score,streak,timeLeft,timer,cur,correctCount,wrongCount;
+
+const $=function(id){return document.getElementById(id);};
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function genQ(){
+ const t=Math.random();let a,b,c,ans,txt;
+ if(t<.3){a=rnd(12,19);b=rnd(6,12);ans=a*b;txt=a+' × '+b;}
+ else if(t<.5){a=rnd(13,25);ans=a*a;txt=a+'\u00B2';}
+ else if(t<.72){a=rnd(40,150);b=rnd(20,90);c=rnd(10,60);ans=a+b-c;txt=a+' + '+b+' \u2212 '+c;}
+ else if(t<.86){b=rnd(4,12);ans=rnd(6,15);txt=(b*ans)+' \u00F7 '+b;}
+ else{a=rnd(15,60);b=rnd(15,60);c=rnd(15,60);ans=a+b+c;txt=a+' + '+b+' + '+c;}
+ return {txt:txt,ans:ans};
+}
+
+function makeOpts(ans){
+ const s=new Set([ans]);
+ let guard=0;
+ while(s.size<4&&guard<200){
+   guard++;
+   const v=ans+rnd(1,10)*(Math.random()<.5?-1:1);
+   if(v>=0)s.add(v);
+ }
+ return Array.from(s).sort(function(){return Math.random()-.5;});
+}
+
+function start(){
+ score=0;streak=0;timeLeft=GAME_TIME;correctCount=0;wrongCount=0;
+ $('startScr').classList.add('hidden');$('endScr').classList.add('hidden');$('gameScr').classList.remove('hidden');
+ $('score').textContent='0';$('streak').textContent='0';
+ renderTime();nextQ();
+ clearInterval(timer);
+ timer=setInterval(tick,1000);
+}
+
+function renderTime(){
+ $('timeLeft').textContent=timeLeft;
+ $('bar').style.width=(timeLeft/GAME_TIME*100)+'%';
+ $('timeLeft').className='text-xl '+(timeLeft<=10?'text-rose-600 animate-pulse':'');
+}
+
+function tick(){
+ timeLeft--;renderTime();
+ if(timeLeft<=0)end();
+}
+
+function nextQ(){
+ if(timeLeft<=0)return;
+ cur=genQ();
+ const q=$('qBox');
+ q.textContent=cur.txt;
+ q.classList.remove('pop');void q.offsetWidth;q.classList.add('pop');
+ const box=$('opts');box.innerHTML='';
+ makeOpts(cur.ans).forEach(function(v){
+   const b=document.createElement('button');
+   b.className='opt glass rounded-2xl py-4 text-2xl font-bold';
+   b.textContent=v;
+   b.onclick=function(){answer(b,v);};
+   box.appendChild(b);
+ });
+ $('fb').textContent='';
+}
+
+function answer(btn,v){
+ if(timeLeft<=0)return;
+ Array.prototype.forEach.call($('opts').children,function(x){x.disabled=true;});
+ if(v===cur.ans){
+   streak++;correctCount++;
+   const gain=10+streak*2;
+   score+=gain;
+   $('fb').className='text-center h-8 mt-4 font-bold text-emerald-600';
+   $('fb').textContent='+ '+gain+(streak>=3?' 🔥 سلسلة '+streak:'');
+ }else{
+   streak=0;wrongCount++;
+   timeLeft=Math.max(1,timeLeft-PENALTY);renderTime();
+   btn.classList.add('shake');
+   $('fb').className='text-center h-8 mt-4 font-bold text-rose-600';
+   $('fb').textContent='خطأ! −'+PENALTY+' ثوانٍ 😬 الصحيح: '+cur.ans;
+ }
+ $('score').textContent=score;$('streak').textContent=streak;
+ setTimeout(nextQ,650);
+}
+
+function end(){
+ clearInterval(timer);
+ const total=correctCount+wrongCount;
+ $('gameScr').classList.add('hidden');$('endScr').classList.remove('hidden');
+ $('finalScore').textContent=score;
+ let best=0;try{best=+localStorage.getItem('glass-math-best')||0;}catch(e){}
+ let rec='';
+ if(score>best){try{localStorage.setItem('glass-math-best',score);}catch(e){}rec=' — رقم قياسي جديد! 🏆';}
+ $('endEmoji').textContent=score>=300?'🏆':score>=150?'👏':'💪';
+ $('endDetail').textContent='صحيحة: '+correctCount+' • خاطئة: '+wrongCount+' • الدقة: '+(total?Math.round(correctCount/total*100):0)+'%'+rec;
+}
+
+(function(){let b=0;try{b=+localStorage.getItem('glass-math-best')||0;}catch(e){}if(b)$('bestStart').textContent=b;})();
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سباق المعادلات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;overflow:hidden;background:#1a3a1a;font-family:sans-serif}
+</style>
+</head>
+<body>
+<div class="flex flex-col items-center justify-center h-screen">
+<div class="text-green-300 text-xl mb-2 font-bold">سباق المعادلات</div>
+<div class="flex gap-6 text-green-200 mb-3 text-sm">
+<span>السؤال: <b id="qn">1</b>/15</span>
+<span>الوقت: <b id="timer">5.0</b></span>
+<span>النتيجة: <b id="score">0</b></span>
+<span>الأفضل: <b id="best">0</b></span>
+</div>
+<div id="eq" class="text-green-100 text-5xl font-bold mb-6 tracking-wider" dir="ltr"></div>
+<input id="inp" type="number" class="text-4xl text-center bg-green-950 border-2 border-green-500 text-green-300 rounded-lg px-6 py-3 outline-none w-48 font-bold" placeholder="?" autocomplete="off">
+<div id="msg" class="text-green-300 mt-3 text-lg font-bold h-6"></div>
+<div class="mt-4 text-green-600 text-xs">أجب بالكيبورد وأدخل للتأكيد</div>
+</div>
+<script>
+let questions=[],cur=0,score=0,best=0,timeLeft=5,timerI=null,answered=false,ac=null;
+try{best=parseInt(localStorage.getItem('math-dash-best'))||0;}catch(e){}
+document.getElementById('best').textContent=best;
+
+function genQuestions(){
+questions=[];
+for(let i=0;i<15;i++){
+const d=Math.min(i+1,10);
+let a,b,op,ans;
+if(d<=3){op=Math.random()<0.5?'+':'-';a=rand(1,10+d*2);b=rand(1,10+d*2);if(op==='-'&&a<b)[a,b]=[b,a];ans=op==='+'?a+b:a-b;}
+else if(d<=6){op=Math.random()<0.5?'×':'+';a=rand(1,5+Math.floor(d/2));b=rand(1,5+Math.floor(d/2));ans=op==='×'?a*b:a+b;}
+else{const ops=['+','-','×','÷'];op=ops[Math.floor(Math.random()*4)];a=rand(2,10+d);b=rand(1,10+Math.floor(d/2));if(op==='-')a=a+b;if(op==='×'){a=rand(2,8);b=rand(2,8);}if(op==='÷'){b=rand(1,9);a=b*rand(1,9);}
+ans=op==='+'?a+b:op==='-'?a-b:op==='×'?a*b:a/b;}
+questions.push({a,b,op,ans});
+}
+}
+
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+
+function start(){
+cur=0;score=0;
+document.getElementById('score').textContent=0;
+document.getElementById('inp').style.display='';
+document.getElementById('msg').textContent='';
+genQuestions();loadQ();
+}
+
+function loadQ(){
+if(cur>=15){end();return;}
+answered=false;
+const q=questions[cur];
+document.getElementById('eq').textContent=q.a+' '+q.op+' '+q.b+' =';
+document.getElementById('qn').textContent=cur+1;
+document.getElementById('inp').value='';document.getElementById('inp').focus();
+document.getElementById('msg').textContent='';
+timeLeft=5;updateTimer();
+if(timerI)clearInterval(timerI);
+timerI=setInterval(()=>{
+if(answered)return;
+timeLeft-=0.1;
+updateTimer();
+if(timeLeft<=0){
+answered=true;
+document.getElementById('msg').textContent='✗ الإجابة: '+questions[cur].ans;
+cur++;
+setTimeout(loadQ,1200);
+}
+},100);
+}
+
+function updateTimer(){
+document.getElementById('timer').textContent=timeLeft.toFixed(1);
+}
+
+function check(){
+if(answered)return;
+answered=true;
+const inp=parseInt(document.getElementById('inp').value);
+const q=questions[cur];
+if(inp===q.ans){
+const pts=Math.round(timeLeft*10);
+score+=pts;
+document.getElementById('score').textContent=score;
+document.getElementById('msg').textContent='✓ '+'+'+pts;
+playF(500+Math.min(pts,80),.08,'triangle');
+}else{
+document.getElementById('msg').textContent='✗ الإجابة: '+q.ans;
+playF(180,.15,'square');
+}
+cur++;
+setTimeout(loadQ,1000);
+}
+
+function end(){
+clearInterval(timerI);
+document.getElementById('eq').textContent='—';
+document.getElementById('inp').style.display='none';
+document.getElementById('msg').innerHTML='🎉 النتيجة: '+score+'<br><button onclick="start()" class="mt-3 bg-green-600 hover:bg-green-500 px-6 py-2 rounded-lg text-sm font-bold transition">جولة جديدة ↻</button>';
+if(score>best){best=score;try{localStorage.setItem('math-dash-best',best);}catch(e){}playF(700,.09,'triangle');}
+document.getElementById('best').textContent=best;
+}
+
+function playF(f,d,t){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=.12;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+
+document.getElementById('inp').addEventListener('keydown',e=>{
+if(e.key==='Enter')check();
+});
+
+start();
+</script>
+</body>
+</html>

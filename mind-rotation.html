@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دوران العقل 🧠</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0f172a;color:#fff}
+.blob{position:fixed;border-radius:9999px;filter:blur(90px);opacity:.55;pointer-events:none}
+@keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(-80px,60px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(70px,-90px)}}
+.glass{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:1.25rem}
+.optcard{transition:transform .15s,border-color .15s,box-shadow .15s;cursor:pointer}
+.optcard:hover:not(.dead){transform:translateY(-5px);border-color:rgba(103,232,249,.8);box-shadow:0 12px 40px rgba(103,232,249,.18)}
+.dead{pointer-events:none;opacity:.55}
+.win{border-color:#34d399!important;box-shadow:0 0 35px rgba(52,211,153,.4)!important;opacity:1!important}
+.fail{border-color:#fb7185!important;box-shadow:0 0 35px rgba(251,113,133,.35)!important;opacity:1!important}
+#tbar{transition:width .1s linear;background:linear-gradient(90deg,#22d3ee,#e879f9)}
+svg{filter:drop-shadow(0 0 10px rgba(232,121,249,.25))}
+</style>
+</head>
+<body class="min-h-screen overflow-hidden">
+<div class="blob" style="width:420px;height:420px;background:#7c3aed;top:-120px;right:-100px;animation:drift1 14s infinite ease-in-out"></div>
+<div class="blob" style="width:380px;height:380px;background:#db2777;bottom:-130px;left:-80px;animation:drift2 17s infinite ease-in-out"></div>
+<div class="blob" style="width:300px;height:300px;background:#0891b2;top:40%;left:35%;animation:drift1 20s infinite ease-in-out reverse"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="glass px-8 md:px-14 py-12 text-center max-w-lg">
+<div class="text-6xl mb-4">🧠</div>
+<h1 class="text-4xl font-black mb-3 bg-gradient-to-l from-cyan-300 to-fuchsia-400 bg-clip-text text-transparent">دوران العقل</h1>
+<p class="leading-relaxed text-white/75 mb-2">انظر للشكل الهدف… ثم اختر من الأربع أشكال:<br><span class="font-bold text-cyan-300">نفس الشكل</span> لكن مُدار — وليس صورته المعكوسة!</p>
+<p class="text-sm text-white/50 mb-8">٨ ألغاز · ١٥ ثانية للغز · الإجابة السريعة نقاط إضافية</p>
+<button onclick="start()" class="px-10 py-3 rounded-full font-bold bg-white/90 text-slate-900 hover:bg-cyan-200 transition-colors">ابدأ التحدي</button>
+<p class="mt-6 text-sm text-white/50">أفضل نتيجة: <span id="bestStart" class="font-bold text-fuchsia-300">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-2xl">
+<div class="flex justify-between items-center mb-4 text-sm">
+<span class="glass px-4 py-1.5">لغز <span id="rNum" class="font-bold text-cyan-300">١</span>/<span id="rTot">٨</span></span>
+<span class="glass px-4 py-1.5">النقاط <span id="scoreEl" class="font-bold text-fuchsia-300">0</span></span>
+</div>
+<div class="h-2 w-full rounded-full bg-white/10 overflow-hidden mb-8"><div id="tbar" class="h-full" style="width:100%"></div></div>
+
+<div class="glass mx-auto w-fit px-10 py-5 mb-8">
+<div class="text-xs text-white/60 mb-2 text-center">الشكل الهدف</div>
+<div id="targetBox"></div>
+</div>
+
+<div id="opts" class="grid grid-cols-2 gap-4"></div>
+<div id="msg" class="h-9 mt-6 text-center font-bold text-lg"></div>
+</div>
+
+<div id="endScr" class="hidden glass px-14 py-12 text-center">
+<div class="text-5xl mb-3">🏁</div>
+<h2 class="text-3xl font-black mb-6">انتهى التحدي!</h2>
+<div id="finalScore" class="text-7xl font-black bg-gradient-to-l from-cyan-300 to-fuchsia-400 bg-clip-text text-transparent mb-3">0</div>
+<p id="endMsg" class="text-white/70 mb-8"></p>
+<button onclick="start()" class="px-10 py-3 rounded-full font-bold bg-white/90 text-slate-900 hover:bg-fuchsia-200 transition-colors">مرة ثانية ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const CS=26,QTIME=15,TOTAL=8,bestKey='mind-rotation-best';
+let rounds=[],ri=0,score=0,timer=null,tLeft=QTIME,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0}catch(e){};$('bestStart').textContent=v||'—';}
+loadBest();
+function genShape(){
+for(let tries=0;tries<40;tries++){
+const cells=new Set(['0,0']);const arr=[[0,0]];
+while(arr.length<7){
+const [x,y]=arr[Math.floor(Math.random()*arr.length)];
+const dirs=[[1,0],[-1,0],[0,1],[0,-1]],d=dirs[Math.floor(Math.random()*4)];
+const k=(x+d[0])+','+(y+d[1]);
+if(!cells.has(k)){cells.add(k);arr.push([x+d[0],y+d[1]]);}
+}
+const norm=cs=>{const xs=cs.map(c=>c[0]),ys=cs.map(c=>c[1]),mx=Math.min(...xs),my=Math.min(...ys);return cs.map(c=>[c[0]-mx,c[1]-my]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);};
+const base=norm(arr);
+const rot1=c=>c.map(([x,y])=>[-y,x]);
+let v=base,mirror=true;
+for(let r=0;r<4;r++){v=rot1(norm(v));if(JSON.stringify(norm(base))===JSON.stringify(norm(v)))mirror=false;}
+const flip=base.map(([x,y])=>[-x,y]);
+if(mirror&&JSON.stringify(norm(flip))!==JSON.stringify(norm(base)))return base;
+}
+return [[0,0],[1,0],[2,0],[2,1],[2,2],[1,2]];
+}
+function drawSVG(cells,rot,flip,size){
+const xs=cells.map(c=>c[0]),ys=cells.map(c=>c[1]);
+const gx=(Math.min(...xs)+Math.max(...xs)+1)/2,gy=(Math.min(...ys)+Math.max(...ys)+1)/2;
+const w=(Math.max(...xs)-Math.min(...xs)+1.6)*CS,h=(Math.max(...ys)-Math.min(...ys)+1.6)*CS;
+const s=size||140,k=w>h?s/w:s/h;
+const body=cells.map(c=>`<rect x="${((c[0]+.5-gx)*CS-11).toFixed(1)}" y="${((c[1]+.5-gy)*CS-11).toFixed(1)}" width="22" height="22" rx="5"/>`).join('');
+return `<svg width="${(w*k).toFixed(0)}" height="${(h*k).toFixed(0)}" viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}"><g transform="translate(${(w/2).toFixed(1)} ${(h/2).toFixed(1)}) rotate(${rot})${flip?' scale(-1 1)':''}" fill="#e2e8f0" stroke="rgba(255,255,255,.5)" stroke-width="1">${body}</g></svg>`;
+}
+function makeRound(){
+const shape=genShape();
+const opts=[
+{cells:shape,flip:false},
+{cells:shape.map(([x,y])=>[-x,y]),flip:true},
+{cells:shape.map(([x,y])=>[-x,y]),flip:true},
+{cells:shape.map(([x,y])=>[y,-x]),flip:true}
+];
+const rots=[0,1,2,3].map(()=>rndRot());
+const idx=[0,1,2,3].sort(()=>Math.random()-.5);
+return{shape,idx,rots,
+correct:idx.indexOf(0),
+render:i=>drawSVG(opts[idx[i]].cells,rots[i],opts[idx[i]].flip)};
+}
+function rndRot(){const a=[0,30,45,60,90,120,135,150,180,210,225,270,300,315];return a[Math.floor(Math.random()*a.length)];}
+function start(){
+rounds=[];for(let i=0;i<TOTAL;i++)rounds.push(makeRound());
+score=0;ri=0;
+$('scoreEl').textContent='0';
+$('endScr').classList.add('hidden');
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+loadRound();
+}
+function loadRound(){
+const r=rounds[ri];
+$('rNum').textContent=AR(ri+1);
+$('rTot').textContent=AR(TOTAL);
+$('targetBox').innerHTML=drawSVG(r.shape,r.rots[0],false,170);
+$('msg').textContent='';
+const box=$('opts');box.innerHTML='';
+for(let i=0;i<4;i++){
+const d=document.createElement('div');
+d.className='optcard glass flex items-center justify-center py-6';
+d.innerHTML=r.render(i);
+d.onclick=()=>pick(i,d);
+box.appendChild(d);
+}
+tLeft=QTIME;$('tbar').style.width='100%';
+clearInterval(timer);
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0){reveal(-1,null);return;}
+$('tbar').style.width=(tLeft/QTIME*100)+'%';
+},100);
+snd(520,.07,'triangle',.05);
+}
+function pick(i,el){if(tLeft>0)reveal(i,el);}
+function reveal(i,el){
+clearInterval(timer);
+document.querySelectorAll('.optcard').forEach(c=>c.classList.add('dead'));
+const r=rounds[ri],m=$('msg');
+if(i===r.correct){
+const bonus=Math.round(tLeft*10);
+score+=150+bonus;
+$('scoreEl').textContent=score;
+el.classList.add('win');
+m.textContent=`صح! ✨ +${150+bonus}`;
+m.style.color='#34d399';
+snd(660,.1,'triangle',.06);setTimeout(()=>snd(880,.16,'triangle',.06),100);
+}else{
+el&&el.classList.add('fail');
+document.querySelectorAll('.optcard')[r.correct].classList.add('win');
+m.textContent=i===-1?'انتهى الوقت! ⌛':'خطأ — هذا هو الصحيح ✗';
+m.style.color='#fb7185';
+snd(120,.35,'sawtooth',.06);
+}
+setTimeout(()=>{ri++;ri>=TOTAL?finish():loadRound();},1600);
+}
+function finish(){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=score;
+const v=+localStorage.getItem(bestKey)||0;
+let m='';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){}m='رقم قياسي جديد! 🏆';loadBest();}
+else if(v)m='أفضل نتيجة لك: '+v;
+$('endMsg').textContent=m;
+snd(523,.13,'triangle',.06);setTimeout(()=>snd(659,.13,'triangle',.06),130);setTimeout(()=>snd(880,.25,'triangle',.06),260);
+}
+</script>
+</body>
+</html>

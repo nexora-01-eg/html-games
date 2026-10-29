@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ليغو مِرج 🧱</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4f1ea;color:#1b1b1b;
+background-image:radial-gradient(rgba(0,0,0,.05) 2px,transparent 2.5px);background-size:30px 30px}
+.studs{background-image:
+radial-gradient(circle 7px at 25% 22%,rgba(255,255,255,.55) 45%,transparent 50%),
+radial-gradient(circle 7px at 75% 22%,rgba(255,255,255,.55) 45%,transparent 50%),
+radial-gradient(circle 7px at 25% 48%,rgba(255,255,255,.55) 45%,transparent 50%),
+radial-gradient(circle 7px at 75% 48%,rgba(255,255,255,.55) 45%,transparent 50%)}
+.tile{width:74px;height:74px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+font-weight:900;font-size:1.55rem;border:3px solid #1b1b1b;
+box-shadow:inset 0 -6px 0 rgba(0,0,0,.22),3px 4px 0 rgba(27,27,27,.35);
+animation:pop .13s ease-out}
+@keyframes pop{from{transform:scale(.82)}}
+.t2{background:#f5c518;color:#1b1b1b}.t4{background:#ff9f1c;color:#fff}
+.t8{background:#d01012;color:#fff}.t16{background:#e63946;color:#fff}
+.t32{background:#237841;color:#fff}.t64{background:#2a9d8f;color:#fff}
+.t128{background:#0057a6;color:#fff;font-size:1.3rem}
+.t256{background:#3a0ca3;color:#fff;font-size:1.3rem}
+.t512{background:#7209b7;color:#fff;font-size:1.3rem}
+.t1024{background:#560bad;color:#fff;font-size:1.1rem}
+.t2048{background:#1b1b1b;color:#f5c518;font-size:1.1rem}
+.chipl{background:#fff;border:3px solid #1b1b1b;border-radius:.8rem;padding:.28rem 1rem;font-weight:900;font-size:.88rem;
+box-shadow:3px 3px 0 rgba(27,27,27,.25)}
+.btn-lg{background:#d01012;color:#fff;font-weight:900;border-radius:.8rem;padding:.6rem 1.8rem;
+border:3px solid #1b1b1b;box-shadow:0 5px 0 #1b1b1b;transition:all .08s}
+.btn-lg:hover{filter:brightness(1.07)}
+.btn-lg:active{transform:translateY(4px);box-shadow:0 1px 0 #1b1b1b}
+.btn-lg.y{background:#f5c518;color:#1b1b1b}
+.overlayl{position:absolute;inset:0;background:rgba(244,241,234,.93);display:flex;flex-direction:column;
+align-items:center;justify-content:center;border-radius:.9rem;z-index:5;text-align:center;padding:1rem}
+#boardEl{position:relative;display:grid;grid-template-columns:repeat(4,74px);gap:10px;
+background:#dcd6c8;border:4px solid #1b1b1b;border-radius:14px;padding:12px;touch-action:none}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-4">
+<h1 class="text-4xl font-black" style="color:#d01012">ليغو مِرج 🧱</h1>
+<p class="text-sm mt-1 opacity-60">أسهم أو سحب بإيدك · ادمج القطع المتشابهة ووصّل لطوبة <b>٥١٢</b>!</p>
+</header>
+
+<div class="flex gap-2 justify-center flex-wrap mb-3">
+<span class="chipl">⭐ <span id="scoreEl" class="text-[#d01012]">٠</span></span>
+<span class="chipl">🏆 أفضل: <span id="bestEl">—</span></span>
+<button onclick="undo()" id="undoBtn" class="btn-lg y !py-1.5 !px-4 text-sm">↩ تراجع (مرة)</button>
+<button onclick="start()" class="btn-lg !py-1.5 !px-4 text-sm">↻ جديد</button>
+</div>
+
+<div id="boardEl" dir="ltr"></div>
+
+<div id="overOv" class="overlayl hidden" style="max-width:344px;margin-top:-332px">
+<div class="text-5xl mb-2" id="ovIcon">🧱</div>
+<div class="text-2xl font-black mb-2" id="ovTitle"></div>
+<p class="opacity-70 mb-4 text-sm" id="ovMsg"></p>
+<button onclick="start()" class="btn-lg px-10 py-2.5">ابنِ من جديد ↻</button>
+</div>
+
+<p class="mt-4 text-xs opacity-45">كل حركة بتظهر طوبة جديدة… خطّط قبل ما اللبشة تقفل! 🚧</p>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='lego-2048-best';
+let b=[],score=0,best=0,prevSnap=null,undoUsed=false,won=false,over=true,ac=null;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestEl').textContent=best?AR(best):'—';
+function snd(f,d,type){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=type||'square';o.frequency.value=f;g.gain.setValueAtTime(.04,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+function addTile(){
+const empty=[];
+b.forEach((v,i)=>{if(!v)empty.push(i);});
+if(!empty.length)return;
+b[empty[Math.floor(Math.random()*empty.length)]]=Math.random()<.9?2:4;
+}
+function start(){
+b=Array(16).fill(0);score=0;won=false;over=false;undoUsed=false;prevSnap=null;
+$('scoreEl').textContent='٠';$('undoBtn').disabled=false;$('undoBtn').style.opacity='1';
+$('overOv').classList.add('hidden');
+addTile();addTile();
+render();
+snd(520,.09);
+}
+function render(){
+const el=$('boardEl');
+el.querySelectorAll('.tile').forEach(t=>t.remove());
+b.forEach(v=>{
+const d=document.createElement('div');
+d.className='tile studs'+(v?' t'+v:' t2');
+if(!v){
+d.style.background='#efeadd';
+d.style.boxShadow='inset 0 3px 8px rgba(0,0,0,.12)';
+d.style.borderColor='rgba(27,27,27,.25)';
+}else{
+d.textContent=AR(v);
+}
+el.appendChild(d);
+});
+$('scoreEl').textContent=AR(score);
+}
+function lines(dir){
+const idx=[];
+for(let i=0;i<4;i++){
+const line=[];
+for(let j=0;j<4;j++){
+let r,c;
+if(dir==='l'){r=i;c=j;}
+else if(dir==='r'){r=i;c=3-j;}
+else if(dir==='u'){r=j;c=i;}
+else{r=3-j;c=i;}
+line.push(r*4+c);
+}
+idx.push(line);
+}
+return idx;
+}
+function move(dir){
+if(over)return;
+prevSnap={b:[...b],score};
+let movedAny=false,gain=0;
+for(const line of lines(dir)){
+const vals=line.map(i=>b[i]).filter(v=>v);
+for(let k=0;k<vals.length-1;k++){
+if(vals[k]===vals[k+1]){
+vals[k]*=2;
+gain+=vals[k];
+vals.splice(k+1,1);
+if(vals[k]>=512&&!won){
+won=true;
+setTimeout(winToast,300);
+}
+}
+}
+line.forEach((bi,j)=>{
+if(b[bi]!==vals[j])movedAny=true;
+b[bi]=vals[j]||0;
+});
+}
+if(!movedAny)return;
+score+=gain;
+if(gain>0)snd(400+Math.min(gain,600),.08,'triangle');
+addTile();
+render();
+if(!canMove())gameOver();
+}
+function canMove(){
+if(b.some(v=>!v))return true;
+for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+const v=b[r*4+c];
+if(c<3&&b[r*4+c+1]===v)return true;
+if(r<3&&b[(r+1)*4+c]===v)return true;
+}
+return false;
+}
+function undo(){
+if(over||undoUsed||!prevSnap)return;
+b=prevSnap.b;score=prevSnap.score;
+undoUsed=true;
+$('undoBtn').disabled=true;$('undoBtn').style.opacity='.4';
+render();
+snd(300,.09,'sine');
+}
+function winToast(){
+snd(700,.12);setTimeout(()=>snd(900,.14),120);setTimeout(()=>snd(1150,.16),260);
+const ov=$('overOv');
+document.getElementById('contBtn')?.remove();
+$('ovIcon').textContent='🏆';
+$('ovTitle').textContent='وصلت لطوبة ٥١٢!';
+$('ovMsg').textContent='كمّل لو تقدر… النقاط بتزيد!';
+ov.classList.remove('hidden');
+const btn=document.createElement('button');
+btn.id='contBtn';
+btn.className='btn-lg y px-8 py-2.5';
+btn.textContent='كمّل لعب ▸';
+btn.onclick=()=>ov.classList.add('hidden');
+$('ovMsg').after(btn);
+}
+function gameOver(){
+over=true;
+const v=Math.max(...b.filter(Boolean));
+$('ovIcon').textContent='🧱';
+$('ovTitle').textContent='اللبشة اتقفلت!';
+$('ovMsg').innerHTML=`أعلى طوبة: <b>${AR(v)}</b> · نقاطك: <b style="color:#d01012">${AR(score)}</b>`;
+$('overOv').classList.remove('hidden');
+if(score>best&&score>0){best=score;try{localStorage.setItem(bestKey,best);}catch(e){};$('bestEl').textContent=AR(best);}
+snd(200,.25);setTimeout(()=>snd(140,.3),160);
+}
+document.addEventListener('keydown',e=>{
+const map={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'u',ArrowDown:'d'};
+if(map[e.key]){e.preventDefault();move(map[e.key]);}
+});
+let tx=null,ty=null;
+const bd=$('boardEl');
+bd.addEventListener('pointerdown',e=>{tx=e.clientX;ty=e.clientY;});
+bd.addEventListener('pointerup',e=>{
+if(tx===null)return;
+const dx=e.clientX-tx,dy=e.clientY-ty;
+if(Math.abs(dx)>24||Math.abs(dy)>24)
+move(Math.abs(dx)>Math.abs(dy)?(dx>0?'r':'l'):(dy>0?'d':'u'));
+tx=null;
+});
+start();
+</script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تعقّب الأهداف 🎯</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0f0a18;color:#f5f0ff;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#ff2d95;text-shadow:0 0 20px rgba(255,45,149,.5)}
+.sub{font-size:.75rem;color:rgba(245,240,255,.5);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:1.5px solid rgba(255,45,149,.35);border-radius:999px;color:#ff2d95}
+.btn{font-family:inherit;background:#ff2d95;color:#fff;border:none;padding:.55rem 1.5rem;font-weight:900;font-size:.85rem;border-radius:999px;cursor:pointer;box-shadow:0 0 14px rgba(255,45,149,.35);transition:all .08s}
+.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.96)}
+#arena{position:relative;width:min(88vw,400px);height:min(88vw,400px);border:2px solid rgba(255,45,149,.3);border-radius:16px;background:rgba(255,45,149,.03);overflow:hidden}
+.dot{position:absolute;width:40px;height:40px;border-radius:50%;cursor:pointer;transition:transform .08s;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:900;color:rgba(255,255,255,.9)}
+.dot:hover{transform:scale(1.15)}
+.dot.target{background:#ff2d95;box-shadow:0 0 18px rgba(255,45,149,.6)}
+.dot.decoy{background:rgba(255,45,149,.2);border:2px solid rgba(255,45,149,.4)}
+.dot.hit{background:#4ade80!important;box-shadow:0 0 18px rgba(74,222,128,.6)!important}
+.dot.miss{background:#ef4444!important;box-shadow:0 0 18px rgba(239,68,68,.6)!important}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;color:#ff2d95}
+</style>
+</head>
+<body>
+<h1>🎯 تعقّب الأهداف</h1>
+<p class="sub">الهدف اللي بيتغير لونه — اضغطه بسرعة!</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">دوائر كتيرة بتتحرك — واحدة فيهم بتتحول <span style="color:#ff2d95;font-weight:900">وردي غامق</span><br>اضغطها قبل ما تتغير تاني!</p>
+<button onclick="start()" class="btn">ابدأ التعقّب 🎯</button>
+<p style="font-size:.7rem;opacity:.4;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/١٢</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>🔥 <b id="streakEl">٠</b></span>
+</div>
+<div id="arena"></div>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='neon-mot-best';
+const origPlay=$('playScr').innerHTML;
+function restartGame(){$('playScr').innerHTML=origPlay;start();}
+let score=0,streak=0,rz=0,best=0,ac=null,over=true,dots=[],raf=null,targetIdx=-1,changeTime=0,nextChange=0,hitTimeout=null;
+try{best=+localStorage.getItem(bestKey)||0}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function start(){
+score=0;streak=0;rz=0;
+$('scoreEl').textContent='٠';$('streakEl').textContent='٠';
+$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');
+nextRound();
+}
+function nextRound(){
+rz++;$('rzEl').textContent=AR(rz);
+$('rzMsg').textContent='';
+const count=4+Math.floor(rz/2);
+const arena=$('arena');arena.innerHTML='';dots=[];
+for(let i=0;i<count;i++){
+const d=document.createElement('div');
+d.className='dot decoy';
+const angle=(i/count)*Math.PI*2;
+const r=arena.clientWidth*.32;
+const cx=arena.clientWidth/2-20,cy=arena.clientHeight/2-20;
+d.style.left=(cx+Math.cos(angle)*r)+'px';
+d.style.top=(cy+Math.sin(angle)*r)+'px';
+d.dataset.i=i;
+d.onclick=()=>hitDot(i);
+arena.appendChild(d);
+dots.push({el:d,x:cx+Math.cos(angle)*r,y:cy+Math.sin(angle)*r,
+vx:(Math.random()-.5)*60,vy:(Math.random()-.5)*60,angle,speed:.3+Math.random()*.5});
+}
+targetIdx=Math.floor(Math.random()*count);
+changeTime=performance.now();
+nextChange=changeTime+Math.max(1200,2500-rz*100);
+over=false;
+if(raf)cancelAnimationFrame(raf);
+raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+if(over)return;
+const W=$('arena').clientWidth,H=$('arena').clientHeight;
+dots.forEach(d=>{
+d.angle+=d.speed*.016;
+d.x=W/2-20+Math.cos(d.angle)*W*.32;
+d.y=H/2-20+Math.sin(d.angle)*H*.32;
+d.el.style.left=d.x+'px';d.el.style.top=d.y+'px';
+});
+if(ts>nextChange){
+const newTarget=Math.floor(Math.random()*dots.length);
+if(newTarget===targetIdx)dots[newTarget].el.classList.remove('target');
+dots[targetIdx].el.classList.remove('target');dots[targetIdx].el.classList.add('decoy');
+targetIdx=newTarget;
+dots[targetIdx].el.classList.remove('decoy');dots[targetIdx].el.classList.add('target');
+changeTime=ts;
+nextChange=ts+Math.max(1200,2500-rz*100);
+snd(600+targetIdx*40,.06,'sine',.03);
+}
+raf=requestAnimationFrame(tick);
+}
+function hitDot(i){
+if(over)return;
+if(i===targetIdx){
+clearTimeout(hitTimeout);
+streak++;
+score+=50+streak*10;
+$('scoreEl').textContent=AR(score);$('streakEl').textContent=AR(streak);
+dots[i].el.classList.add('hit');
+snd(800,.08,'triangle',.04);
+setTimeout(()=>dots[i].el.classList.remove('hit'),200);
+$('rzMsg').textContent='✅ +'+AR(50+streak*10);
+rz>=12?finish():nextRound();
+}else{
+streak=0;$('streakEl').textContent='٠';
+dots[i].el.classList.add('miss');setTimeout(()=>dots[i].el.classList.remove('miss'),250);
+$('rzMsg').textContent='❌ ده مش الهدف!';
+snd(180,.15,'sawtooth',.04);
+}
+}
+function finish(){
+over=true;cancelAnimationFrame(raf);
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid #ff2d95;border-radius:16px;padding:2rem;max-width:320px;background:rgba(255,45,149,.05)">
+<p style="font-size:2rem">🎯</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#ff2d95">انتهى التعقّب!</h2>
+<p style="font-size:2rem;font-weight:900;color:#ff2d95">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button class="btn" onclick="restartGame()">جولة جديدة ↻</button>
+</div>`;
+const v=+localStorage.getItem(bestKey)||0;
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score)}catch(e){}
+}
+</script>
+</body>
+</html>

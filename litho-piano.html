@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مفاتيح المطبعة 🎹</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f2e8d5;color:#2b3a67;
+background-image:radial-gradient(rgba(43,58,103,.08) 1.4px,transparent 1.5px);background-size:14px 14px}
+.litho{background:#f7efdd;border:4px solid #2b3a67;border-radius:10px;
+box-shadow:8px 8px 0 rgba(29,122,116,.35)}
+.chipl{background:#efe3c8;border:2.5px solid #2b3a67;border-radius:999px;padding:.25rem .95rem;font-weight:800;font-size:.85rem}
+.btnli{background:#1d7a74;color:#f7efdd;font-weight:900;border-radius:8px;padding:.55rem 2rem;
+border:3px solid #2b3a67;box-shadow:0 5px 0 #2b3a67;transition:all .08s}
+.btnli:hover{filter:brightness(1.09)}
+.btnli:active{transform:translateY(4px);box-shadow:0 1px 0 #2b3a67}
+.overlayli{position:absolute;inset:0;background:rgba(247,239,221,.95);display:flex;flex-direction:column;
+align-items:center;justify-content:center;z-index:5;text-align:center;padding:1rem;border-radius:6px}
+.offset-title{text-shadow:2.5px 2.5px 0 rgba(230,57,70,.45),-2px -2px 0 rgba(29,122,116,.35)}
+canvas{display:block;border-radius:6px;touch-action:none}
+.keyhint{display:inline-flex;width:30px;height:30px;border:2.5px solid #2b3a67;border-radius:6px;
+align-items:center;justify-content:center;font-weight:900;background:#efe3c8;margin:0 .15rem}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-4">
+<h1 class="text-4xl font-black offset-title">مفاتيح المطبعة 🎹</h1>
+<p class="text-sm mt-1 opacity-75 font-bold">
+اضرب البلاطة وهي في <span style="background:#e63946;color:#fff;padding:.05rem .4rem;border-radius:4px">الشريط الأحمر</span>
+· كيبورد:
+<span class="keyhint">D</span><span class="keyhint">F</span><span class="keyhint">J</span><span class="keyhint">K</span>
+أو دوس المسارات
+</p>
+</header>
+
+<div class="flex gap-2 flex-wrap justify-center mb-3">
+<span class="chipl">⭐ <span id="scoreEl" class="text-[#1d7a74] font-black">٠</span></span>
+<span class="chipl">🔥 ×<span id="comboEl" class="font-black">١</span></span>
+<span id="heartsEl" class="chipl font-black">❤️❤️❤️</span>
+<span class="chipl">🏆 <span id="bestEl" class="font-black">—</span></span>
+</div>
+
+<div class="litho p-2 relative">
+<canvas id="cv" width="380" height="470"></canvas>
+
+<div id="startOv" class="overlayli">
+<div class="text-5xl mb-2">🖨</div>
+<div class="text-xl font-black mb-1 offset-title">ورشة سريعة!</div>
+<p class="text-sm opacity-80 mb-4 leading-relaxed font-bold">٣ قلوب بس · السرعة بتزيد كل ضربة صح<br>والضربة الفاضية بتبوّظ الكومبو</p>
+<button onclick="start()" class="btnli px-12 py-2.5 text-lg">شغّل المطبعة ▸</button>
+</div>
+
+<div id="endOv" class="overlayli hidden">
+<div class="text-5xl mb-2" id="eIcon">🎵</div>
+<div class="text-xl font-black mb-2 offset-title" id="eTitle"></div>
+<p class="font-bold opacity-80 mb-4">النقاط: <span id="finEl" class="text-xl text-[#1d7a74]">٠</span></p>
+<button onclick="start()" class="btnli px-10 py-2.5">طبعة جديدة ↻</button>
+</div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='litho-piano-best';
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const W=cv.width,H=cv.height,LW=W/4,HITY=H-92,HITB=64;
+let tiles=[],spawnAcc=0,speed=270,score=0,combo=1,lives=3,
+best=0,lastTs=0,raf=null,over=true,
+flashLanes=[0,0,0,0],ac=null,pulseT=0,paused=false;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestEl').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function note(i){snd([330,392,494,587][i],.16,'triangle',.06);}
+function start(){
+tiles=[];score=0;combo=1;lives=3;speed=270;spawnAcc=0;over=false;paused=false;
+$('scoreEl').textContent='٠';$('comboEl').textContent='١';
+$('heartsEl').textContent='❤️❤️❤️';
+$('startOv').classList.add('hidden');$('endOv').classList.add('hidden');
+lastTs=performance.now();
+cancelAnimationFrame(raf);
+raf=requestAnimationFrame(tick);
+}
+function spawn(){
+const n=Math.random()<Math.min(.32,score/600)?2:1;
+const used=new Set();
+for(let k=0;k<n;k++){
+let l=Math.floor(Math.random()*4);
+let guard=0;
+while(used.has(l)&&guard++<8)l=Math.floor(Math.random()*4);
+used.add(l);
+tiles.push({lane:l,y:-90});
+}
+}
+function tick(ts){
+if(over||paused)return;
+const dt=Math.min(.04,((ts-lastTs)||16)/1000);
+lastTs=ts;
+speed=Math.min(720,270+score*.85);
+pulseT+=dt;
+spawnAcc+=dt;
+const gap=Math.max(.34,.72-score/900);
+if(spawnAcc>=gap){spawnAcc=0;spawn();}
+cx.clearRect(0,0,W,H);
+for(let i=1;i<4;i++){
+cx.strokeStyle='rgba(43,58,103,.18)';
+cx.setLineDash([6,7]);
+cx.beginPath();cx.moveTo(i*LW,0);cx.lineTo(i*LW,H);cx.stroke();
+cx.setLineDash([]);
+}
+const pulse=.55+.35*Math.sin(pulseT*5);
+cx.fillStyle=`rgba(230,57,70,${pulse})`;
+cx.fillRect(0,HITY,W,HITB);
+cx.fillStyle='rgba(255,255,255,.25)';
+cx.fillRect(0,HITY,W,3);
+flashLanes.forEach((f,i)=>{
+if(f>0){
+cx.fillStyle=`rgba(29,122,116,${f*.4})`;
+cx.fillRect(i*LW,HITY-HITB,LW,HITB*2.2);
+flashLanes[i]-=dt*4;
+}
+});
+for(let i=tiles.length-1;i>=0;i--){
+const t=tiles[i];
+t.y+=speed*dt;
+if(t.y>HITB&&t.y<HITB+HITB){
+cx.fillStyle='#2b3a67';
+rr(t.lane*LW+9,t.y+4,LW-18,HITB-8,7);cx.fill();
+cx.fillStyle='rgba(242,232,213,.9)';
+rr(t.lane*LW+13,t.y+8,LW-26,10,4);cx.fill();
+}
+if(t.y+tiles_h()>HITB+HITB+40){
+tiles.splice(i,1);
+missTile();
+continue;
+}
+if(t.y>H+120)tiles.splice(i,1);
+}
+drawHalftoneCorner();
+raf=requestAnimationFrame(tick);
+}
+function tiles_h(){return HITB;}
+function rr(x,y,w,h,r){
+cx.beginPath();
+cx.moveTo(x+r,y);
+cx.arcTo(x+w,y,x+w,y+h,r);
+cx.arcTo(x+w,y+h,x,y+h,r);
+cx.arcTo(x,y+h,x,y,r);
+cx.arcTo(x,y,x+w,y,r);
+cx.closePath();
+}
+function drawHalftoneCorner(){
+cx.fillStyle='rgba(227,178,60,.5)';
+for(let i=0;i<5;i++)for(let j=0;j<3;j++){
+cx.beginPath();
+cx.arc(14+i*11,14+j*11,2.2-(i+j)*.28,0,7);
+cx.fill();
+}
+}
+function missTile(){
+lives--;combo=1;
+$('comboEl').textContent='١';
+$('heartsEl').textContent=lives===2?'❤️❤️🤍':lives===1?'❤️🤍🤍':'🖤🖤🖤';
+snd(140,.28,'sawtooth',.07);
+document.querySelector('.litho').classList.add('shake');
+setTimeout(()=>document.querySelector('.litho').classList.remove('shake'),320);
+if(lives<=0)finish();
+}
+function hitLane(l){
+if(over||paused)return;
+flashLanes[l]=1;
+const idx=tiles.findIndex(t=>t.lane===l&&t.y>HITB-46&&t.y<HITB+HITB-6);
+if(idx>-1){
+tiles.splice(idx,1);
+score+=10*combo;
+combo=Math.min(4,combo+1);
+$('scoreEl').textContent=AR(score);
+$('comboEl').textContent=AR(combo);
+note(l);
+}else{
+combo=1;
+$('comboEl').textContent='١';
+snd(110,.12,'square',.04);
+}
+}
+function finish(){
+over=true;
+cancelAnimationFrame(raf);
+$('eIcon').textContent=score>=500?'🏆':'🎹';
+$('eTitle').textContent=score>=500?'تحفة مطبوعية!':'الحبر خلص!';
+$('finEl').textContent=AR(score);
+$('endOv').classList.remove('hidden');
+if(score>best&&score>0){best=score;localStorage.setItem(bestKey,best);$('bestEl').textContent=AR(best);}
+[300,200].forEach((f,i)=>setTimeout(()=>snd(f,.22,'sawtooth'),i*160));
+}
+const KEYMAP={d:0,f:1,j:2,k:3,D:0,F:1,J:2,K:3};
+document.addEventListener('keydown',e=>{
+if(e.key in KEYMAP){e.preventDefault();hitLane(KEYMAP[e.key]);}
+});
+cv.addEventListener('pointerdown',e=>{
+const r=cv.getBoundingClientRect();
+hitLane(Math.floor((e.clientX-r.left)*(W/r.width)));
+});
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'&&!over){
+paused=!paused;
+if(paused){cancelAnimationFrame(raf);}
+else{lastTs=performance.now();raf=requestAnimationFrame(tick);}
+}
+if(e.key==='p'||e.key==='P'){if(!over&&paused===false)paused=true;else if(paused)paused=false;}
+});
+</script>
+</body>
+</html>

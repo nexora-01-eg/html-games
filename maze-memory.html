@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>متاهة الذاكرة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-slate-800 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">🧠</div>
+<h1 class="text-3xl font-bold text-white mb-2">متاهة الذاكرة</h1>
+<p class="text-slate-300 mb-6">تذكر الجدران وصل إلى الهدف</p>
+<div class="bg-white/10 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-300">الأفضل: <span id="best-display" class="font-bold text-emerald-400">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-6 border border-white/20">
+<div class="flex justify-between items-center mb-3">
+<span class="text-slate-300 font-bold">المستوى: <span id="level-display">1</span>/5</span>
+<span class="text-slate-300 font-bold">المحاولات: <span id="moves-display">0</span></span>
+</div>
+<div id="mem-timer" class="text-amber-400 font-bold text-lg mb-2"></div>
+<div id="game-board" class="mx-auto mb-4" style="width:fit-content"></div>
+<p class="text-slate-400 text-xs mb-2">استخدم الأسهم للحركة</p>
+<div id="feedback" class="h-6 text-sm font-bold"></div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">🏆</div>
+<h2 class="text-2xl font-bold text-white mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-300 mb-2">المستوى: <span id="final-level" class="font-bold text-emerald-400"></span></p>
+<p class="text-slate-300 mb-6">الأفضل: <span id="final-best" class="font-bold text-emerald-400"></span></p>
+<button onclick="location.reload()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let levels = [
+{size:5, walls:[[0,1],[1,1],[2,1],[2,2],[2,3],[3,3],[4,3]], start:[0,0], end:[4,4]},
+{size:6, walls:[[0,1],[1,1],[1,2],[1,3],[2,3],[3,3],[3,2],[4,2],[4,4],[5,4]], start:[0,0], end:[5,5]},
+{size:6, walls:[[0,2],[1,2],[1,4],[2,4],[2,0],[3,0],[3,2],[4,2],[4,4],[5,0],[5,2]], start:[0,0], end:[5,5]},
+{size:7, walls:[[0,2],[1,2],[1,4],[2,4],[2,6],[3,6],[3,0],[4,0],[4,2],[4,4],[5,4],[6,4]], start:[0,0], end:[6,6]},
+{size:7, walls:[[0,3],[1,3],[1,1],[2,1],[2,5],[3,5],[3,3],[4,3],[4,1],[5,1],[5,5],[6,5]], start:[0,0], end:[6,6]}
+];
+let level = 0, moves = 0, playerPos = {x:0,y:0};
+let boardSize = 5, walls = [], startPos = [0,0], endPos = [4,4];
+let showingWalls = true, memTimer = null;
+let best = 0;
+try { best = parseInt(localStorage.getItem('maze-mem-best') || '0'); } catch(e) {}
+function startGame() {
+initAudio(); level = 0; moves = 0;
+$('start-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+document.addEventListener('keydown', handleKey);
+loadLevel();
+}
+function loadLevel() {
+let lv = levels[level];
+boardSize = lv.size;
+walls = lv.walls.map(w => ({x:w[0],y:w[1]}));
+startPos = lv.start;
+endPos = lv.end;
+playerPos = {x:startPos[0],y:startPos[1]};
+$('level-display').textContent = level + 1;
+$('moves-display').textContent = moves;
+$('feedback').textContent = '';
+showingWalls = true;
+renderBoard();
+let countdown = 3;
+$('mem-timer').textContent = `تذكر الجدران: ${countdown} ثانية`;
+memTimer = setInterval(() => {
+countdown--;
+$('mem-timer').textContent = countdown > 0 ? `تذكر الجدران: ${countdown} ثانية` : '!';
+if (countdown <= 0) {
+clearInterval(memTimer);
+memTimer = null;
+showingWalls = false;
+$('mem-timer').textContent = 'اذهب!';
+renderBoard();
+}
+}, 1000);
+}
+function renderBoard() {
+let container = $('game-board');
+container.innerHTML = '';
+let cellSize = Math.min(45, Math.floor(350 / boardSize));
+container.style.display = 'grid';
+container.style.gridTemplateColumns = `repeat(${boardSize}, ${cellSize}px)`;
+container.style.gridTemplateRows = `repeat(${boardSize}, ${cellSize}px)`;
+for (let y = 0; y < boardSize; y++) {
+for (let x = 0; x < boardSize; x++) {
+let cell = document.createElement('div');
+cell.style.width = cellSize + 'px';
+cell.style.height = cellSize + 'px';
+cell.className = 'border border-white/10 rounded flex items-center justify-center text-sm font-bold transition';
+let isWall = walls.find(w => w.x === x && w.y === y);
+let isPlayer = playerPos.x === x && playerPos.y === y;
+let isStart = startPos[0] === x && startPos[1] === y;
+let isEnd = endPos[0] === x && endPos[1] === y;
+if (isWall && showingWalls) {
+cell.style.background = '#ef4444';
+cell.textContent = '🧱';
+} else if (isWall && !showingWalls) {
+cell.style.background = '#1e293b';
+} else {
+cell.style.background = '#1e293b';
+}
+if (isStart && !isPlayer) {
+cell.style.background = '#22c55e';
+cell.textContent = '🟢';
+}
+if (isEnd) {
+cell.style.background = isPlayer ? '#22c55e' : '#eab308';
+cell.textContent = isPlayer ? '🧑' : '🏁';
+}
+if (isPlayer) {
+cell.textContent = '🧑';
+cell.style.background = '#22c55e';
+cell.style.zIndex = '1';
+}
+container.appendChild(cell);
+}
+}
+}
+function handleKey(e) {
+initAudio();
+if (showingWalls) return;
+let dir = null;
+if (e.key === 'ArrowUp') dir = {x:0,y:-1};
+if (e.key === 'ArrowDown') dir = {x:0,y:1};
+if (e.key === 'ArrowLeft') dir = {x:-1,y:0};
+if (e.key === 'ArrowRight') dir = {x:1,y:0};
+if (!dir) return;
+e.preventDefault();
+let nx = playerPos.x + dir.x;
+let ny = playerPos.y + dir.y;
+if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) return;
+if (walls.find(w => w.x === nx && w.y === ny)) {
+  playSound(200, 'square', 0.2);
+  $('feedback').textContent = 'اصطدمت بالحائط!';
+  $('feedback').className = 'h-6 text-sm font-bold text-red-400';
+  return;
+}
+playerPos.x = nx;
+playerPos.y = ny;
+moves++;
+$('moves-display').textContent = moves;
+playSound(300, 'triangle', 0.05);
+renderBoard();
+if (nx === endPos[0] && ny === endPos[1]) {
+playSound(523, 'sine', 0.3);
+level++;
+if (level >= levels.length) { endGame(); }
+else {
+$('feedback').textContent = '✅ وصلت!';
+$('feedback').className = 'h-6 text-sm font-bold text-emerald-400';
+setTimeout(loadLevel, 1000);
+}
+}
+}
+function endGame() {
+clearInterval(memTimer);
+document.removeEventListener('keydown', handleKey);
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+let done=Math.min(level,levels.length);
+$('final-level').textContent = done;
+if (done > best) { best = done; try { localStorage.setItem('maze-mem-best', best); } catch(e) {} }
+$('final-best').textContent = best;
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+</script>
+</body>
+</html>

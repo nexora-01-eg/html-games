@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>شبكة المعادلات</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}</style>
+</head>
+<body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">شبكة المعادلات</h1>
+<p class="text-gray-400 text-sm">اجعل مجموع كل صف وعمود يساوي <span id="target"></span></p>
+<p class="text-yellow-400 text-sm mt-1">الوقت: <span id="timer">60</span> | النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span></p>
+</div>
+<div id="grid" class="grid grid-cols-4 gap-1 mb-6"></div>
+<button id="startBtn" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<script>
+let N=3, best=0;
+try{best=+(localStorage.getItem('math-grid-best')||0)}catch(e){}
+let grid=[],fixed=[],target,score=0,round=0,timerVal=0,timerRef=null,playing=false;
+document.getElementById('best').textContent=best;
+let ctx=new(window.AudioContext||window.webkitAudioContext)();
+function beep(f,d,t='sine'){const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.3;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.stop(ctx.currentTime+d);}
+const gridEl=document.getElementById('grid');
+function genPuzzle(){
+target=Math.floor(Math.random()*15)+6;
+const solution=[];
+for(let i=0;i<N;i++){
+solution.push([]);
+for(let j=0;j<N-1;j++){
+solution[i].push(Math.floor(Math.random()*8)+1);
+}
+const rowSum=solution[i].reduce((a,b)=>a+b,0);
+solution[i].push(target-rowSum);
+}
+solution.forEach(r=>r.forEach((v,j)=>{if(v<1||v>9)r[j]=1;}));
+fixed=[];
+const keep=Math.floor(Math.random()*2)+1;
+const indices=[];
+for(let i=0;i<N*N;i++)indices.push(i);
+for(let i=indices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[indices[i],indices[j]]=[indices[j],indices[i]];}
+for(let k=0;k<keep;k++)fixed.push(indices[k]);
+grid=solution;
+document.getElementById('target').textContent=target;
+renderGrid();
+}
+function renderGrid(){
+gridEl.innerHTML='';
+for(let i=0;i<N;i++){
+for(let j=0;j<N;j++){
+const idx=i*N+j;
+const d=document.createElement('div');
+d.className='w-16 h-16 flex items-center justify-center rounded-lg text-xl font-bold';
+if(fixed.includes(idx)){
+d.className+=' bg-gray-700 text-blue-300';
+d.textContent=grid[i][j];
+}else{
+d.className+=' bg-gray-800 border-2 border-gray-600';
+const inp=document.createElement('input');
+inp.type='number';inp.min=1;inp.max=9;inp.className='w-full h-full bg-transparent text-center text-white text-xl font-bold outline-none';
+inp.style='-moz-appearance:textfield';
+inp.oninput=()=>{grid[i][j]=+inp.value||0;beep(500+i*50+j*30,0.1);checkWin();};
+d.appendChild(inp);
+}
+  gridEl.appendChild(d);
+  }
+  }
+}
+function checkWin(){
+for(let i=0;i<N;i++){
+let r=0,c=0;
+for(let j=0;j<N;j++){r+=grid[i][j];c+=grid[j][i];}
+if(r!==target||c!==target)return;
+}
+beep(800,0.2);beep(1000,0.3);
+score+=Math.floor(timerVal)*2+50;
+document.getElementById('score').textContent=score;
+clearInterval(timerRef);
+playing=false;
+document.getElementById('startBtn').style.display='block';
+document.getElementById('startBtn').textContent='الجولة التالية';
+if(score>best){try{localStorage.setItem('math-grid-best',score)}catch(e){}document.getElementById('best').textContent=score;}
+}
+function startTimer(){
+timerVal=60;
+document.getElementById('timer').textContent=timerVal;
+timerRef=setInterval(()=>{
+timerVal--;
+document.getElementById('timer').textContent=timerVal;
+if(timerVal<=0){clearInterval(timerRef);playing=false;document.getElementById('startBtn').style.display='block';document.getElementById('startBtn').textContent='انتهى الوقت! جولة جديدة';}
+},1000);
+}
+function start(){
+score=0;playing=true;
+document.getElementById('score').textContent=0;
+document.getElementById('startBtn').style.display='none';
+genPuzzle();startTimer();
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

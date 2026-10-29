@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نبض الحمم 🌋</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0d0708;color:#f5e9dc;min-height:100vh;overflow:hidden}
+.glowbg{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 115%,rgba(229,56,59,.4),transparent 55%),radial-gradient(ellipse at 85% -10%,rgba(255,107,53,.14),transparent 45%),radial-gradient(ellipse at 10% 20%,rgba(120,20,30,.25),transparent 40%)}
+.ember{position:fixed;width:5px;height:5px;border-radius:50%;background:#ff6b35;filter:blur(1px);opacity:0;animation:rise linear infinite}
+@keyframes rise{0%{transform:translateY(105vh) scale(.7);opacity:.85}100%{transform:translateY(-8vh) scale(1.3);opacity:0}}
+.lane{position:relative;height:150px;background:linear-gradient(180deg,#17090a,#220c0d);border-block:3px solid #47191b;overflow:hidden}
+.hitzone{position:absolute;left:12%;top:50%;width:86px;height:86px;margin-top:-43px;border-radius:50%;border:4px solid #ff6b35;box-shadow:0 0 26px rgba(255,107,53,.55),inset 0 0 18px rgba(229,56,59,.35);display:flex;align-items:center;justify-content:center}
+.hitzone.pulse{animation:pulse .3s}
+@keyframes pulse{50%{box-shadow:0 0 60px rgba(255,140,66,.95)}}
+.note{position:absolute;top:50%;width:52px;height:52px;margin-top:-26px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffc37e,#ff6b35 55%,#c1121f);box-shadow:0 0 18px rgba(255,107,53,.65)}
+.note.perfect-flash{background:radial-gradient(circle,#fff,#ffd166);box-shadow:0 0 34px #ffe29a}
+.judge{position:absolute;left:12%;top:16%;font-weight:900;font-size:1.15rem;pointer-events:none;animation:jpop .5s ease-out forwards;text-shadow:0 0 12px currentColor}
+@keyframes jpop{0%{transform:translateY(6px);opacity:1}100%{transform:translateY(-26px);opacity:0}}
+.hudchip{background:#1c0d0e;border:1px solid #47191b;border-radius:999px;padding:.3rem 1rem;font-weight:800}
+.btn-lava{background:linear-gradient(180deg,#ff6b35,#c1121f);border-radius:999px;font-weight:900;box-shadow:0 8px 28px rgba(229,56,59,.45);transition:transform .1s}
+.btn-lava:hover{transform:translateY(-2px)}
+.btn-lava:active{transform:scale(.96)}
+</style>
+</head>
+<body>
+<div class="glowbg"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="text-center max-w-lg">
+<div class="text-7xl mb-3">🌋</div>
+<h1 class="text-5xl font-black mb-3" style="color:#ff6b35;text-shadow:0 0 30px rgba(255,107,53,.6)">نبض الحمم</h1>
+<p class="leading-relaxed mb-1 opacity-90">النوتات المنصهرة تجري نحو فوهة البركان…<br><b style="color:#ffd166">اضغط (أو مسطرة المسافة)</b> لحظة دخولها الحلقة!</p>
+<p class="text-sm opacity-60 mb-8">إيقاع هادئ ٨٨ BPM · مثالي ١٠٠ نقطة · جيد ٥٠</p>
+<button onclick="start()" class="btn-lava px-12 py-3.5 text-xl">أشعل النار 🔥</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#ffd166]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-3xl">
+<div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+<span class="hudchip">النقاط <span id="scoreEl" class="text-[#ffd166]">0</span></span>
+<span class="hudchip">كومبو <span id="comboEl" class="text-[#ff6b35]">×0</span></span>
+<span class="hudchip">النوطة <span id="progEl">0</span>/<span id="totEl">32</span></span>
+</div>
+
+<div id="lane" class="lane w-full rounded-xl">
+<div id="hitzone" class="hitzone"><div class="w-8 h-8 rounded-full" style="background:radial-gradient(circle,#ffb37e,#c1121f)"></div></div>
+<div id="countdown" class="absolute inset-0 hidden items-center justify-center text-8xl font-black" style="color:#ff6b35"></div>
+</div>
+
+<p class="mt-3 text-center text-sm opacity-50">مسافة أو انقر على المسار</p>
+</div>
+
+<div id="endScr" class="hidden text-center">
+<div class="text-6xl mb-2">🥁</div>
+<h2 class="text-4xl font-black mb-6" style="color:#ff6b35">انطفأ الإيقاع!</h2>
+<div class="flex gap-10 justify-center mb-8">
+<div><div id="finalScore" class="text-5xl font-black text-[#ffd166]">0</div><div class="text-xs opacity-60 mt-1">النقاط</div></div>
+<div><div id="finalCombo" class="text-5xl font-black text-[#ff6b35]">0</div><div class="text-xs opacity-60 mt-1">أطول كومبو</div></div>
+<div><div id="finalAcc" class="text-5xl font-black text-emerald-400">0%</div><div class="text-xs opacity-60 mt-1">الدقة</div></div>
+</div>
+<p id="endMsg" class="opacity-75 mb-8"></p>
+<button onclick="start()" class="btn-lava px-12 py-3 text-xl">من جديد 🔁</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const BPM=88,BEAT=60/BPM,TRAVEL=2.2,TOT_NOTES=32,bestKey='lava-rhythm-best';
+let ac=null,notes=[],t0=0,raf=null,score=0,combo=0,maxCombo=0,perfects=0,goods=0,misses=0,nextBeat=0,beatCount=0,musicTimer=null,paused=false;
+function loadBest(){const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v||'—';}
+loadBest();
+for(let i=0;i<14;i++){
+const e=document.createElement('div');
+e.className='ember';
+e.style.left=Math.random()*100+'vw';
+e.style.animationDuration=(4+Math.random()*5)+'s';
+e.style.animationDelay=(Math.random()*6)+'s';
+e.style.width=e.style.height=(3+Math.random()*4)+'px';
+document.body.appendChild(e);
+}
+function initAudio(){
+ac=new(window.AudioContext||webkitAudioContext)();
+nextBeat=ac.currentTime+.1;
+beatCount=0;
+musicTimer=setInterval(scheduleMusic,60);
+}
+function scheduleMusic(){
+if(!ac)return;
+while(nextBeat<ac.currentTime+.18){
+if(beatCount%2===0)kick(nextBeat);
+hat(nextBeat+BEAT/2);
+nextBeat+=BEAT/2;
+beatCount++;
+}
+}
+function kick(t){
+const o=ac.createOscillator(),g=ac.createGain();
+o.type='sine';
+o.frequency.setValueAtTime(150,t);
+o.frequency.exponentialRampToValueAtTime(42,t+.22);
+g.gain.setValueAtTime(.16,t);
+g.gain.exponentialRampToValueAtTime(.001,t+.26);
+o.connect(g);g.connect(ac.destination);
+o.start(t);o.stop(t+.3);
+}
+function hat(t){
+const o=ac.createOscillator(),g=ac.createGain();
+o.type='square';o.frequency.value=6500;
+g.gain.setValueAtTime(.02,t);
+g.gain.exponentialRampToValueAtTime(.0001,t+.04);
+o.connect(g);g.connect(ac.destination);
+o.start(t);o.stop(t+.05);
+}
+function blip(f,d,g){
+try{
+const o=ac.createOscillator(),v=ac.createGain();
+o.type='triangle';o.frequency.value=f;
+v.gain.setValueAtTime(g||.08,ac.currentTime);
+v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));
+o.connect(v);v.connect(ac.destination);
+o.start();o.stop(ac.currentTime+(d||.12));
+}catch(e){}
+}
+function buildNotes(){
+notes=[];
+let b=3;
+for(let i=0;i<TOT_NOTES;i++){
+notes.push({beat:b,time:b*BEAT,hit:false,judged:false,el:null});
+b+=(Math.random()<.72?1:2)+(i>24&&Math.random()<.2?.5:0);
+}
+$('totEl').textContent=TOT_NOTES;
+}
+async function start(){
+score=0;combo=0;maxCombo=0;perfects=0;goods=0;misses=0;paused=false;
+$('scoreEl').textContent='0';$('comboEl').textContent='×0';$('progEl').textContent='0';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+initAudio();
+buildNotes();
+await countdown();
+t0=performance.now();
+loop();
+}
+function countdown(){
+return new Promise(res=>{
+const cd=$('countdown');
+cd.classList.remove('hidden');cd.style.display='flex';
+let n=3;
+cd.textContent=n;
+blip(440,.15,.07);
+const iv=setInterval(()=>{
+n--;
+if(n===0){cd.textContent='اذهب!';blip(880,.25,.09);}
+else if(n>0){cd.textContent=n;blip(440,.15,.07);}
+else{clearInterval(iv);cd.classList.add('hidden');res();}
+},BEAT*1000);
+});
+}
+function loop(){
+const now=(performance.now()-t0)/1000;
+notes.forEach(n=>{
+if(!n.el&&now>n.time-TRAVEL){
+n.el=document.createElement('div');
+n.el.className='note';
+$('lane').appendChild(n.el);
+}
+if(n.el&&!n.judged){
+const p=Math.min(1,(now-(n.time-TRAVEL))/TRAVEL);
+const laneW=$('lane').clientWidth;
+const x=laneW*(1-p*.82)-26;
+n.el.style.left=x+'px';
+}
+if(!n.judged&&now>n.time+.33){
+judge(n,'miss');
+}
+});
+const alive=!paused&&(notes.some(n=>!n.judged)||(performance.now()-t0)/1000<notes[notes.length-1].time+1);
+if(alive)raf=requestAnimationFrame(loop);
+else if(!paused)finish();
+}
+function tryHit(){
+const now=(performance.now()-t0)/1000;
+const hz=$('hitzone');
+hz.classList.remove('pulse');void hz.offsetWidth;hz.classList.add('pulse');
+let best=null,bestD=1e9;
+notes.forEach(n=>{
+if(n.judged)return;
+const d=Math.abs(now-n.time);
+if(d<bestD){bestD=d;best=n;}
+});
+if(best&&bestD<=.32)judge(best,bestD<=.18?'perfect':'good');
+else blip(180,.06,'square',.02);
+}
+function judge(n,res){
+n.judged=true;
+$('progEl').textContent=notes.filter(x=>x.judged).length;
+const colors={perfect:'#ffd166',good:'#ff6b35',miss:'#7a4a4a'};
+const label={perfect:'PERFECT!',good:'جيد',miss:'فوات'};
+const j=document.createElement('div');
+j.className='judge';
+j.style.color=colors[res];
+j.textContent=label[res];
+$('lane').appendChild(j);
+setTimeout(()=>j.remove(),520);
+if(res==='miss'){
+combo=0;misses++;
+n.el&&(n.el.style.opacity=.25);
+blip(130,.2,'sawtooth',.05);
+}else{
+if(res==='perfect'){perfects++;score+=100;n.el&&n.el.classList.add('perfect-flash');}
+else{goods++;score+=50;}
+combo++;maxCombo=Math.max(maxCombo,combo);
+score+=combo*2;
+blip(res==='perfect'?1100:700,.1,'triangle',.07);
+if(combo>0&&combo%8===0)setTimeout(()=>blip(1560,.15,'triangle',.06),90);
+}
+if(n.el)setTimeout(()=>n.el.remove(),res==='miss'?250:120);
+$('scoreEl').textContent=score;
+$('comboEl').textContent='×'+combo;
+}
+function finish(){
+cancelAnimationFrame(raf);
+clearInterval(musicTimer);
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+const total=perfects+goods+misses;
+const acc=Math.round((perfects*100+goods*50)/(total*100)*100);
+$('finalScore').textContent=score;
+$('finalCombo').textContent=maxCombo;
+$('finalAcc').textContent=acc+'%';
+const v=+localStorage.getItem(bestKey)||0;
+let m=acc>=90?'إحساس إيقاعي أسطوري! 🎆':acc>=70?'حس طيب… تحتاج تدفئة بسيطة 🔥':'الحمة زادت عن اللزوم 😅';
+if(score>v&&score>0){localStorage.setItem(bestKey,score);m+=' رقم قياسي جديد 🏆';loadBest();}
+$('endMsg').textContent=m;
+[520,660,784].forEach((f,i)=>setTimeout(()=>blip(f,.18,.06),i*140));
+}
+$('lane').addEventListener('pointerdown',tryHit);
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'&&!$('playScr').classList.contains('hidden')&&$('endScr').classList.contains('hidden')){
+if(paused){
+paused=false;
+const wasT0=t0;t0=performance.now();
+notes.forEach(n=>{if(!n.judged)n.time+=((t0-wasT0)/1000);});
+if(ac)ac.resume();
+loop();
+}else{
+paused=true;
+cancelAnimationFrame(raf);
+if(ac)ac.suspend();
+}
+return;
+}
+if(e.code==='Space'&&!$('playScr').classList.contains('hidden')&&!paused){e.preventDefault();tryHit();}
+});
+</script>
+</body>
+</html>

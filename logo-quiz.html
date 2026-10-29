@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خمّن اللوجو</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:linear-gradient(135deg,#0f172a,#1e3a5f)}
+.logo-shape{position:absolute}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-white">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-cyan-400">خمّن اللوجو</h1>
+<p class="mb-6 text-lg text-gray-300">اكتشف العلامة التجارية من الأشكال</p>
+<button onclick="startGame()" class="bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-cyan-300"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-3 text-lg font-bold"><span id="roundDisplay">الجولة: 1/8</span></div>
+<div id="logoArea" class="relative w-64 h-64 mx-auto bg-slate-800 rounded-2xl mb-6 border-2 border-cyan-600"></div>
+<div id="options" class="grid grid-cols-2 gap-3 max-w-sm mx-auto"></div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-cyan-400">انتهت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-cyan-600 hover:bg-cyan-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-500 hover:bg-gray-600 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let round=0,score=0,best=parseInt(localStorage.getItem('logo-quiz-best'))||0;
+const logos=[
+{shapes:[{type:'circle',x:20,y:20,w:100,h:100,color:'#f97316'},{type:'triangle',x:40,y:40,w:60,h:60,color:'#facc15'}],answer:'أبل',opts:['سامسونج','أبل','مايكروسوفت','جوجل']},
+{shapes:[{type:'rect',x:30,y:30,w:200,h:60,color:'#3b82f6'},{type:'circle',x:180,y:50,w:50,h:50,color:'#ef4444'}],answer:'مايكروسوفت',opts:['أبل','ميتا','مايكروسوفت','تويتر']},
+{shapes:[{type:'circle',x:82,y:20,w:100,h:100,color:'#ef4444'},{type:'rect',x:102,y:45,w:60,h:50,color:'#3b82f6'}],answer:'يويوتوب',opts:['نتفليكس','سبوتيفاي','يويوتوب','تيك توك']},
+{shapes:[{type:'triangle',x:80,y:20,w:0,h:0,color:'#22c55e',size:120}],answer:'غوغل',opts:['إنستغرام','تويتر','غوغل','واتساب']},
+{shapes:[{type:'rect',x:20,y:50,w:100,h:100,color:'#8b5cf6',rx:true},{type:'rect',x:140,y:50,w:100,h:100,color:'#ec4899',rx:true}],answer:'ميتا',opts:['ميتا','سنابشات','تيليجرام','ديسكورد']},
+{shapes:[{type:'circle',x:50,y:20,w:160,h:160,color:'#22c55e'},{type:'circle',x:70,y:40,w:120,h:120,color:'#15803d'}],answer:'واتساب',opts:['واتساب','سبوتيفاي','تيك توك','بينترست']},
+{shapes:[{type:'rect',x:40,y:50,w:80,h:80,color:'#f43f5e',rx:true},{type:'rect',x:140,y:50,w:80,h:80,color:'#8b5cf6',rx:true}],answer:'سنابشات',opts:['سنابشات','إنستغرام','مايكروسوفت','أبل']},
+{shapes:[{type:'circle',x:82,y:10,w:100,h:100,color:'#3b82f6'},{type:'rect',x:62,y:140,w:140,h:60,color:'#3b82f6'}],answer:'تويتر',opts:['تويتر','غوغل','ميتا','إنستغرام']}
+];
+function $(id){return document.getElementById(id)}
+let actx=null;
+function audioCtx(){return actx=actx||new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(f,t,d){try{let c=audioCtx(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}catch(e){}}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل نتيجة: '+best+'/8':'';}
+function drawLogo(area,shapes){
+area.innerHTML='';
+shapes.forEach(s=>{
+let el=document.createElement('div');el.className='logo-shape';
+if(s.type==='circle'){el.style.cssText=`width:${s.w}px;height:${s.h}px;border-radius:50%;background:${s.color};left:${s.x}px;top:${s.y}px;`;}
+else if(s.type==='rect'){let br=s.rx?'50%':'4px';el.style.cssText=`width:${s.w}px;height:${s.h}px;border-radius:${br};background:${s.color};left:${s.x}px;top:${s.y}px;`;}
+else if(s.type==='triangle'){let sz=s.size||60;el.style.cssText=`width:0;height:0;border-left:${sz/2}px solid transparent;border-right:${sz/2}px solid transparent;border-bottom:${sz}px solid ${s.color};left:${s.x}px;top:${s.y}px;`;}
+area.appendChild(el);
+});
+}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+round=0;score=0;showRound();
+}
+function showRound(){
+if(round>=8){let sc=score;if(sc>best){best=sc;try{localStorage.setItem('logo-quiz-best',best);}catch(e){}}
+$('finalStats').textContent='النتيجة: '+sc+'/8';$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');return;}
+$('roundDisplay').textContent='الجولة: '+(round+1)+'/8';
+let l=logos[round];drawLogo($('logoArea'),l.shapes);
+let opts=[...l.opts];shuffle(opts);
+let c=$('options');c.innerHTML='';
+opts.forEach(o=>{
+let b=document.createElement('button');
+b.className='bg-slate-700 hover:bg-cyan-700 text-white px-4 py-3 rounded-xl text-lg font-bold transition';
+b.textContent=o;
+b.onclick=()=>pick(o,l.answer);
+c.appendChild(b);
+});
+}
+let picking=false;
+function pick(chosen,correct){
+if(picking)return;picking=true;
+const keys=[...document.querySelectorAll('#options button')];
+if(chosen===correct){
+score++;playTone(880,'sine',0.15);
+const on=keys.find(k=>k.textContent===chosen);
+if(on)on.className='bg-green-600 text-white px-4 py-3 rounded-xl text-lg font-bold transition';
+}else{
+playTone(200,'sawtooth',0.2);
+const on=keys.find(k=>k.textContent===chosen);
+if(on)on.className='bg-rose-600 text-white px-4 py-3 rounded-xl text-lg font-bold transition';
+const cc=keys.find(k=>k.textContent===correct);
+if(cc)cc.className='bg-green-600 text-white px-4 py-3 rounded-xl text-lg font-bold transition';
+}
+keys.forEach(k=>k.disabled=true);
+setTimeout(()=>{round++;picking=false;showRound();},900);
+}
+goHome();
+</script>
+</body>
+</html>

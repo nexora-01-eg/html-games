@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حساب البرق ⏱</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fafaf7;color:#141414}
+.mono{font-family:'Consolas','Courier New',monospace}
+#bar{transition:width .12s linear}
+.qflash{animation:qf .22s ease-out}
+@keyframes qf{0%{transform:scale(.97);opacity:.4}100%{transform:scale(1);opacity:1}}
+.shake{animation:sh .3s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<div class="h-1.5 w-full bg-neutral-200"><div id="bar" class="h-full bg-[#e63946]" style="width:100%"></div></div>
+
+<main class="flex-1 flex items-center justify-center px-6">
+<div class="w-full max-w-md text-center">
+
+<div id="startScr">
+<h1 class="text-5xl md:text-6xl font-black tracking-tight">حساب <span class="text-[#e63946]">البرق</span></h1>
+<p class="mt-5 text-neutral-500 leading-relaxed">٦٠ ثانية · عمليات حسابية بذهنك · Enter للتأكيد<br>كل إجابة غلط تخصم <span class="font-bold text-[#e63946]">٤ ثوانٍ</span> من وقتك</p>
+<p class="mt-4 mono text-sm text-neutral-400">أفضل نتيجة: <span id="bestStart">—</span></p>
+<button onclick="begin()" class="mt-9 bg-neutral-900 text-white font-bold py-3 px-14 tracking-wider hover:bg-[#e63946] transition-colors">ابدأ</button>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex justify-between items-end mb-12">
+<div><div class="text-xs text-neutral-400 tracking-[.25em]">النقاط</div><div id="score" class="mono text-4xl font-bold">0</div><div id="streak" class="h-4 mt-1 text-xs font-bold"></div></div>
+<div class="text-left"><div class="text-xs text-neutral-400 tracking-[.25em]">الوقت</div><div id="time" class="mono text-4xl font-bold">60</div></div>
+</div>
+<div id="q" dir="ltr" class="mono text-6xl md:text-7xl font-bold tracking-tight">7 × 13</div>
+<input id="inp" type="number" inputmode="numeric" autocomplete="off" placeholder="؟"
+class="mono mt-10 w-44 text-center text-4xl font-bold bg-transparent border-b-4 border-neutral-800 focus:border-[#e63946] outline-none pb-2 transition-colors">
+<div id="fb" class="h-7 mt-6 text-sm font-black tracking-[.2em]"></div>
+</div>
+
+<div id="endScr" class="hidden">
+<div class="text-xs tracking-[.35em] text-neutral-400 mb-4">انتهى الوقت</div>
+<div id="finalScore" class="mono text-8xl font-black">0</div>
+<p id="endMsg" class="mt-5 text-neutral-500 leading-relaxed"></p>
+<button onclick="begin()" class="mt-10 border-2 border-neutral-900 font-bold py-3 px-14 hover:bg-neutral-900 hover:text-white transition-colors">مرة ثانية</button>
+</div>
+
+</div>
+</main>
+
+<script>
+const qEl=document.getElementById('q'),inp=document.getElementById('inp'),scoreEl=document.getElementById('score'),timeEl=document.getElementById('time'),bar=document.getElementById('bar'),fb=document.getElementById('fb'),streakEl=document.getElementById('streak');
+const DUR=60,bestKey='math-blitz-best';
+let score=0,streak=0,ans=0,endAt=0,tick=null,playing=false,ac=null;
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+function beep(f,d,t){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=t||'square';o.frequency.value=f;g.gain.setValueAtTime(.04,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+function showBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}document.getElementById('bestStart').textContent=v||'—';}
+showBest();
+function gen(){let a,b,t,r;
+switch(ri(0,3)){
+case 0:a=ri(45,899);b=ri(45,899);t=a+' + '+b;r=a+b;break;
+case 1:a=ri(120,989);b=ri(15,a-10);t=a+' − '+b;r=a-b;break;
+case 2:a=ri(12,42);b=ri(6,19);t=a+' × '+b;r=a*b;break;
+default:b=ri(3,13);a=b*ri(4,26);t=a+' ÷ '+b;r=a/b;}
+return[t,r];}
+function nextQ(){const[t,r]=gen();ans=r;qEl.textContent=t;qEl.classList.remove('qflash');void qEl.offsetWidth;qEl.classList.add('qflash');inp.value='';setTimeout(()=>inp.focus(),40);}
+function begin(){score=0;streak=0;playing=true;
+scoreEl.textContent='0';streakEl.textContent='';fb.textContent='';bar.style.width='100%';
+document.getElementById('startScr').classList.add('hidden');
+document.getElementById('endScr').classList.add('hidden');
+document.getElementById('playScr').classList.remove('hidden');
+nextQ();
+endAt=Date.now()+DUR*1000;
+clearInterval(tick);
+tick=setInterval(()=>{const left=endAt-Date.now();
+if(left<=0){over();return;}
+timeEl.textContent=Math.ceil(left/1000);bar.style.width=(left/(DUR*10))+'%';},100);}
+function over(){clearInterval(tick);playing=false;timeEl.textContent='0';bar.style.width='0%';
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m='أجبت عن '+score+(score===1?' نقطة':' نقاط')+'.';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';showBest();}
+else if(v)m+=' أفضل نتيجة لك: '+v;
+document.getElementById('finalScore').textContent=score;
+document.getElementById('endMsg').textContent=m;
+document.getElementById('playScr').classList.add('hidden');
+document.getElementById('endScr').classList.remove('hidden');
+beep(score>v?880:220,.25,'triangle');}
+inp.addEventListener('keydown',e=>{
+if(e.key!=='Enter'||!playing||inp.value==='')return;
+if(+inp.value===ans){
+streak++;
+score+=streak>=3?2:1;
+scoreEl.textContent=score;
+streakEl.textContent=streak>=3?'🔥 سلسلة ×٢':streak>1?'سلسلة ×'+streak:'';
+streakEl.style.color='#2a9d8f';
+fb.textContent='صح ✓';fb.style.color='#2a9d8f';
+beep(660,.07,'square');
+nextQ();
+}else{
+streak=0;streakEl.textContent='';
+endAt-=4000;
+fb.textContent='غلط −٤ث ✗';fb.style.color='#e63946';
+qEl.classList.remove('shake');void qEl.offsetWidth;qEl.classList.add('shake');
+beep(180,.18,'square');}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!playing&&document.getElementById('endScr').classList.contains('hidden')===false)begin();});
+</script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>حقل الألغام الصناعي 💣</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:Consolas,'Courier New',monospace;background:#141419}
+.panel{background:#1e1e25;border:1px solid #3a3a46}
+.cell{background:#2c2c36;border:2px outset #4a4a58;display:flex;align-items:center;justify-content:center;font-weight:bold;user-select:none;cursor:pointer}
+.cell:hover:not(.open){background:#383844}
+.cell.open{background:#17171d;border:1px solid #26262e;cursor:default}
+.hazard{height:10px;background:repeating-linear-gradient(-45deg,#f5b301 0 14px,#141419 14px 28px)}
+@keyframes boomK{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+.boom{animation:boomK .4s}
+</style>
+</head>
+<body class="min-h-screen text-gray-300 flex flex-col items-center py-6 px-3">
+<h1 class="text-2xl font-bold tracking-widest text-amber-400 mb-1">⚠ FIELD 10×10 ⚠</h1>
+<p class="text-xs text-gray-500 mb-3">// وضع صعب — ١٦ لغم مدفون تحت الرمال</p>
+<div class="hazard w-full max-w-md rounded-sm mb-4"></div>
+
+<div class="panel w-full max-w-md rounded-lg p-3">
+  <div class="flex justify-between items-center mb-3 text-sm">
+    <span class="text-red-400 font-bold">💣 <span id="minesLeft">16</span></span>
+    <button onclick="reset()" class="panel rounded px-3 py-1 text-amber-400 hover:text-amber-200">↻ جديد</button>
+    <button id="flagBtn" onclick="toggleFlagMode()" class="panel rounded px-3 py-1">🚩 وضع العلم</button>
+    <span class="font-bold text-cyan-300">⏱ <span id="clock">0</span></span>
+  </div>
+
+  <div class="relative">
+    <div id="grid" class="grid gap-[3px]"></div>
+    <div id="overlay" class="hidden absolute inset-0 bg-black/75 flex flex-col items-center justify-center rounded text-center p-4">
+      <div id="ovIcon" class="text-5xl mb-2"></div>
+      <p id="ovMsg" class="font-bold text-lg mb-1"></p>
+      <p id="ovSub" class="text-xs text-gray-400 mb-4"></p>
+      <button onclick="reset()" class="panel rounded px-6 py-2 text-amber-400 font-bold hover:text-amber-200">محاولة أخرى</button>
+    </div>
+  </div>
+
+  <p class="text-[11px] text-gray-500 mt-3 text-center">كليك يمين = علم 🚩 (كمبيوتر) • فعِّل «وضع العلم» للمس</p>
+</div>
+<div class="hazard w-full max-w-md rounded-sm mt-4"></div>
+
+<script>
+const COLS=10,ROWS=10,MINES=16;
+let mine,rev,flag,started=false,over=false,flags=0,opened=0,timerInt=null,flagMode=false,startedAt=0;
+
+const $=function(id){return document.getElementById(id);};
+const NUM_COLORS=['','#67e8f9','#4ade80','#f5b301','#fb7185','#c084fc','#22d3ee','#fca5a5','#d4d4d8'];
+
+function idx(r,c){return r*COLS+c;}
+function neighbors(i){
+ const r=Math.floor(i/COLS),c=i%COLS,res=[];
+ for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+   if(!dr&&!dc)continue;
+   const nr=r+dr,nc=c+dc;
+   if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS)res.push(idx(nr,nc));
+ }
+ return res;
+}
+
+function reset(){
+ clearInterval(timerInt);timerInt=null;
+ started=false;over=false;flags=0;opened=0;
+ mine=new Array(ROWS*COLS).fill(false);
+ rev=new Array(ROWS*COLS).fill(false);
+ flag=new Array(ROWS*COLS).fill(false);
+ $('overlay').classList.add('hidden');
+ $('clock').textContent='0';
+ $('minesLeft').textContent=MINES;
+ buildGrid();
+}
+
+function buildGrid(){
+ const g=$('grid');
+ g.style.gridTemplateColumns='repeat('+COLS+',minmax(0,1fr))';
+ g.innerHTML='';
+ for(let i=0;i<ROWS*COLS;i++){
+   const d=document.createElement('div');
+   d.className='cell aspect-square text-sm md:text-base';
+   d.dataset.i=i;
+   d.onclick=function(){cellClick(i);};
+   d.oncontextmenu=function(e){e.preventDefault();toggleFlag(i);};
+   g.appendChild(d);
+ }
+}
+
+function plantMines(safeI){
+ const banned=new Set([safeI].concat(neighbors(safeI)));
+ const free=[];
+ for(let i=0;i<ROWS*COLS;i++)if(!banned.has(i))free.push(i);
+ for(let i=free.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[free[i],free[j]]=[free[j],free[i]];}
+ for(let k=0;k<Math.min(MINES,free.length);k++)mine[free[k]]=true;
+}
+
+function countAdj(i){return neighbors(i).filter(function(n){return mine[n];}).length;}
+
+function cellClick(i){
+ if(over)return;
+ if(flagMode){toggleFlag(i);return;}
+ if(rev[i]||flag[i])return;
+ if(!started){
+   started=true;startedAt=Date.now();
+   plantMines(i);
+   timerInt=setInterval(function(){$('clock').textContent=Math.floor((Date.now()-startedAt)/1000);},250);
+ }
+ reveal(i);
+}
+
+function reveal(i){
+ if(rev[i]||flag[i])return;
+ rev[i]=true;
+ const cell=$('grid').children[i];
+ if(mine[i]){
+   cell.classList.add('open','boom');
+   cell.style.background='#7f1d1d';
+   cell.textContent='💥';
+   gameOver(false);
+   return;
+ }
+ opened++;
+ const n=countAdj(i);
+ cell.classList.add('open');
+ if(n){cell.textContent=n;cell.style.color=NUM_COLORS[n];}
+ else{
+   cell.textContent='';
+   neighbors(i).forEach(function(nb){if(!rev[nb])reveal(nb);});
+ }
+ checkWin();
+}
+
+function toggleFlag(i){
+ if(over||rev[i])return;
+ flag[i]=!flag[i];
+ flags+=flag[i]?1:-1;
+ $('minesLeft').textContent=MINES-flags;
+ $('grid').children[i].textContent=flag[i]?'🚩':'';
+}
+
+function toggleFlagMode(){
+ flagMode=!flagMode;
+ $('flagBtn').className='panel rounded px-3 py-1 '+(flagMode?'text-amber-300 border border-amber-500':'');
+}
+
+function checkWin(){if(opened===ROWS*COLS-MINES)gameOver(true);}
+
+function gameOver(won){
+ over=true;clearInterval(timerInt);
+ const t=Math.floor((Date.now()-startedAt)/1000);
+ if(!won){
+   for(let i=0;i<ROWS*COLS;i++)if(mine[i]&&!rev[i]){
+     const c=$('grid').children[i];c.classList.add('open');c.textContent='💣';
+   }
+ }
+  let rec='';
+  if(won){
+    let b=0;try{b=Number(localStorage.getItem('mine-ind-best')||0)}catch(e){}
+    if(!b||t<b){try{localStorage.setItem('mine-ind-best',t)}catch(e){}rec=' — رقم قياسي! 🏅';}
+  }
+  let bestV=0;try{bestV=Number(localStorage.getItem('mine-ind-best')||0)}catch(e){}
+  $('ovIcon').textContent=won?'🏆':'☠️';
+  $('ovMsg').textContent=won?'تم تطهير المنطقة بالكامل!':'بوووم! لغم!';
+  $('ovSub').textContent=(won?('زمنك: '+t+'ث'+rec+' • الأفضل: '+bestV+'ث'):('بقي عندك '+flags+' علم معلق في الوحل'));
+ setTimeout(function(){$('overlay').classList.remove('hidden');},won?600:900);
+}
+
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تذكّر التسلسل</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}</style>
+</head>
+<body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">تذكّر التسلسل</h1>
+<p id="info" class="text-gray-400 text-sm"></p>
+</div>
+<div id="board" class="grid grid-cols-2 gap-4 mb-6"></div>
+<button id="startBtn" class="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<div id="scoreBox" class="mt-4 text-lg">النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span></div>
+<script>
+const COLORS = ['#ef4444','#22c55e','#3b82f6','#eab308'];
+let seq = [], playerSeq = [], round = 0, score = 0, best = 0, playing = false, inputLocked = true, seqTimers = [];
+try{best=+(localStorage.getItem('mem-seq-best')||0)}catch(e){}
+document.getElementById('best').textContent = best;
+const ctx = new (window.AudioContext||window.webkitAudioContext)();
+function beep(f,d,t='sine'){
+const o=ctx.createOscillator(),g=ctx.createGain();
+o.type=t;o.frequency.value=f;g.gain.value=0.3;
+o.connect(g);g.connect(ctx.destination);o.start();
+g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);
+o.stop(ctx.currentTime+d);
+}
+const board = document.getElementById('board');
+COLORS.forEach((c,i)=>{
+const d = document.createElement('div');
+d.className = 'w-20 h-20 rounded-xl cursor-pointer opacity-30 transition-all duration-200';
+d.style.backgroundColor = c;
+d.dataset.idx = i;
+d.addEventListener('click',()=>handleInput(i));
+board.appendChild(d);
+});
+const cells = board.children;
+function flash(i){
+return new Promise(r=>{
+cells[i].style.opacity='1';
+cells[i].style.transform='scale(1.15)';
+beep(400+i*100,0.3);
+setTimeout(()=>{cells[i].style.opacity='0.3';cells[i].style.transform='scale(1)';r();},400);
+});
+}
+function playSeq(){
+  inputLocked=true;
+  document.getElementById('info').textContent='راقب التسلسل...';
+  seq.push(Math.floor(Math.random()*4));
+  seq.forEach((c,i)=>{
+    seqTimers.push(setTimeout(()=>flash(c),i*Math.max(250,500-round*30)));
+  });
+  seqTimers.push(setTimeout(()=>{inputLocked=false;playerSeq=[];document.getElementById('info').textContent='كرّر التسلسل';},seq.length*Math.max(250,500-round*30)+200));
+}
+function handleInput(i){
+if(inputLocked||!playing)return;
+cells[i].style.opacity='1';
+setTimeout(()=>cells[i].style.opacity='0.3',150);
+playerSeq.push(i);
+const idx=playerSeq.length-1;
+if(playerSeq[idx]!==seq[idx]){
+beep(150,0.4,'sawtooth');
+score+=round*10;
+  if(score>best){best=score;try{localStorage.setItem('mem-seq-best',best)}catch(e){}}
+  document.getElementById('best').textContent=best;
+  document.getElementById('score').textContent=score;
+  document.getElementById('info').textContent='خطأ! اضغط للبدء';
+  inputLocked=true;
+  playing=false;
+  seqTimers.forEach(clearTimeout);seqTimers=[];
+  document.getElementById('startBtn').style.display='block';
+  return;
+}
+if(playerSeq.length===seq.length){
+beep(600,0.2);beep(800,0.3);
+round++;
+score+=round*15+seq.length*5;
+document.getElementById('score').textContent=score;
+setTimeout(()=>playSeq(),600);
+}
+}
+function start(){
+  round=0;score=0;seq=[];playing=true;
+  document.getElementById('score').textContent=0;
+  seqTimers.forEach(clearTimeout);seqTimers=[];
+  document.getElementById('startBtn').style.display='none';
+  playSeq();
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

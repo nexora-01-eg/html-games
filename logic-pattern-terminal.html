@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>محلل الأنماط SEQ.EXE 🟢</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Courier New',monospace;background:#000;color:#39ff6b;text-shadow:0 0 6px rgba(57,255,107,.55)}
+.scan::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 2px,transparent 2px 4px)}
+@keyframes flickK{0%,96%,100%{opacity:1}97%{opacity:.85}98%{opacity:1}}
+.flick{animation:flickK 5s infinite}
+.blink{animation:blk 1s steps(1) infinite}
+@keyframes blk{50%{opacity:0}}
+.optT{border:1px solid #1c7c38;background:#031a09;transition:all .12s}
+.optT:hover:not(:disabled){background:#0b3318;border-color:#39ff6b}
+.optT:disabled{opacity:.45;cursor:default}
+</style>
+</head>
+<body class="min-h-screen scan flick flex flex-col items-center justify-center p-4">
+<div class="w-full max-w-lg border border-[#1c7c38] bg-black/60">
+  <div class="flex items-center gap-1.5 border-b border-[#1c7c38] px-3 py-2 text-xs opacity-80">
+    <span class="w-2.5 h-2.5 rounded-full border border-[#39ff6b]"></span>
+    <span class="w-2.5 h-2.5 rounded-full border border-[#39ff6b]"></span>
+    <span class="w-2.5 h-2.5 rounded-full border border-[#39ff6b]"></span>
+    <span class="mx-auto" dir="ltr">C:\GAMES\SEQ_ANALYZER.EXE</span>
+  </div>
+  <div class="p-5 md:p-7">
+    <p class="text-xs opacity-70 mb-5">&gt; نظام تحليل المتتاليات العددية — الإصدار ٢.٤_</p>
+
+    <section id="home" class="text-center py-6 space-y-5">
+      <p class="text-sm leading-8">&gt; ستظهر أمامك متتالية أرقام بنمط مخفي.<br>&gt; حلّل الفرق والعلاقات… وخمّن العدد التالي.<br>&gt; عشرة أنماط في كل جلسة.</p>
+      <p class="text-xs opacity-70">أفضل نتيجة مسجلة: <span id="bestHome">—</span></p>
+      <button onclick="startGame()" class="optT w-full py-3 font-bold tracking-widest">[ تشغيل التحليل ]</button>
+    </section>
+
+    <section id="play" class="hidden">
+      <div class="flex justify-between text-xs mb-4 opacity-80">
+        <span>النمط <span id="qN">1</span>/10</span>
+        <span>النتيجة <span id="score">0</span></span>
+        <span>سلسلة <span id="streak">0</span>🔥</span>
+      </div>
+      <div id="seqBox" dir="ltr" class="border border-dashed border-[#1c7c38] px-3 py-6 text-center text-xl md:text-2xl font-bold tracking-widest break-words min-h-[4rem]"></div>
+      <div class="text-left text-3xl my-3"><span class="blink">█</span></div>
+      <div id="opts" class="grid grid-cols-2 gap-2"></div>
+      <div id="fb" class="h-7 mt-3 text-center text-sm"></div>
+    </section>
+
+    <section id="end" class="hidden text-center py-8 space-y-4">
+      <p class="text-2xl font-bold">&gt;&gt; انتهى التحليل &lt;&lt;</p>
+      <p class="text-5xl font-black my-4"><span id="fScore">0</span><span class="text-xl">/10</span></p>
+      <p id="fRank" class="text-sm opacity-80"></p>
+      <button onclick="startGame()" class="optT w-full py-3 font-bold tracking-widest mt-2">[ جلسة جديدة ]</button>
+    </section>
+  </div>
+</div>
+
+<script>
+const $=function(id){return document.getElementById(id);};
+let qn,score,streak,cur,ac=null;
+function snd(f,d,t){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=t||'square';o.frequency.value=f;g.gain.setValueAtTime(.03,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function genSeq(){
+ const t=Math.random();let seq=[],ans;
+ if(t<.2){const a=ri(2,12),d=ri(2,9);for(let i=0;i<5;i++)seq.push(a+d*i);ans=a+5*d;}
+ else if(t<.36){const a=ri(1,5),r=ri(2,3);for(let i=0;i<5;i++)seq.push(a*Math.pow(r,i));ans=a*Math.pow(r,5);}
+ else if(t<.53){const s=ri(1,8);for(let i=0;i<5;i++)seq.push((s+i)*(s+i));ans=(s+5)*(s+5);}
+ else if(t<.69){let a=ri(1,6),b=ri(2,8);seq=[a,b];while(seq.length<5)seq.push(seq[seq.length-1]+seq[seq.length-2]);ans=seq[4]+seq[3];}
+ else if(t<.86){const up=ri(5,15),dn=ri(1,4);let x=ri(10,30);seq=[x];for(let i=0;i<4;i++){x+=(i%2===0?up:-dn);seq.push(x);}ans=x+up;}
+ else{const P=[2,3,5,7,11,13,17,19,23,29,31,37,41,43];const st=ri(0,8);seq=P.slice(st,st+5);ans=P[st+5];}
+ return {txt:seq.join(' , ')+' , ؟',ans:ans};
+}
+
+function makeOpts(ans){
+ const s=new Set([ans]);let g=0;
+ while(s.size<4&&g++<200){
+   const v=ans+ri(1,9)*ri(1,3)*(Math.random()<.5?-1:1);
+   if(v>=0)s.add(v);
+ }
+ return Array.from(s).sort(function(){return Math.random()-.5;});
+}
+
+function startGame(){
+ qn=0;score=0;streak=0;
+ $('home').classList.add('hidden');$('end').classList.add('hidden');$('play').classList.remove('hidden');
+ nextQ();
+}
+
+function nextQ(){
+ qn++;
+ if(qn>10){endGame();return;}
+ $('qN').textContent=qn;$('score').textContent=score;$('streak').textContent=streak;$('fb').textContent='';
+ cur=genSeq();
+ $('seqBox').textContent=cur.txt;
+ const box=$('opts');box.innerHTML='';
+ makeOpts(cur.ans).forEach(function(v){
+   const b=document.createElement('button');
+   b.className='optT py-3 font-bold text-lg';
+   b.textContent=v;
+   b.onclick=function(){answer(b,v);};
+   box.appendChild(b);
+ });
+}
+
+function answer(btn,v){
+ Array.prototype.forEach.call($('opts').children,function(x){x.disabled=true;});
+ const fb=$('fb');
+if(v===cur.ans){
+    streak++;score++;
+    fb.className='h-7 mt-3 text-center text-sm text-[#7dffa5]';
+    fb.textContent='> إجابة صحيحة. النمط مؤكد ✔';
+    snd(880,.09,'square',.04);
+  }else{
+    streak=0;
+    fb.className='h-7 mt-3 text-center text-sm text-red-400';
+    fb.textContent='> خطأ في التحليل! الصحيح: '+cur.ans;
+    snd(180,.18,'square',.05);
+  }
+ $('score').textContent=score;$('streak').textContent=streak;
+ setTimeout(nextQ,900);
+}
+
+function endGame(){
+ $('play').classList.add('hidden');$('end').classList.remove('hidden');
+ $('fScore').textContent=score;
+ let best=0;try{best=+localStorage.getItem('seq-best')||0;}catch(e){}
+ if(score>best){try{localStorage.setItem('seq-best',score);}catch(e){}}
+ let r;
+ if(score>=9)r='🧠 عقل تحليلي فائق';
+ else if(score>=6)r='📈 محلل واعد';
+ else if(score>=3)r='🤔 تحتاج معايرة';
+ else r='💤 النظام دخل وضع السكون';
+ $('fRank').textContent=r+' • أفضل نتيجة: '+Math.max(score,best)+'/10';
+}
+
+(function(){let b=0;try{b=+localStorage.getItem('seq-best')||0;}catch(e){}if(b)$('bestHome').textContent=b+'/10';})();
+document.addEventListener('keydown',function(e){if((e.key==='Escape'||e.key==='Enter')&&!$('play').classList.contains('hidden')){if(qn>10||$('end').classList.contains('hidden')===false)startGame();}});
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&$('end').classList.contains('hidden')===false)startGame();});
+</script>
+</body>
+</html>

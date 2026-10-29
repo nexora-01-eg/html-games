@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الشَّك 🎬</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Times New Roman','Traditional Arabic',Georgia,serif;background:#0a0a0a;color:#e8e8e8}
+.grain{position:fixed;inset:-60px;pointer-events:none;z-index:40;opacity:.09;
+background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+animation:gr .5s steps(4) infinite}
+@keyframes gr{0%{transform:translate(0,0)}25%{transform:translate(-22px,14px)}50%{transform:translate(14px,-20px)}75%{transform:translate(-12px,-12px)}100%{transform:translate(18px,18px)}}
+.vig{position:fixed;inset:0;pointer-events:none;z-index:39;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.72))}
+.bar{position:fixed;left:0;right:0;height:44px;background:#000;z-index:41;border-color:#000}
+.cardn{background:#111;border:1px solid #3c3c3c;box-shadow:0 18px 50px rgba(0,0,0,.7)}
+.pick{width:92px;height:92px;font-size:2.5rem;background:#161616;border:1px solid #4d4d4d;border-radius:.8rem;transition:all .15s}
+.pick:hover:not(:disabled){background:#242424;border-color:#fff;transform:translateY(-4px)}
+.pick:disabled{opacity:.35}
+.stagecard{width:120px;height:120px;display:flex;align-items:center;justify-content:center;font-size:3.4rem;
+background:#141414;border:1px double #666;border-radius:1rem}
+.flip{animation:fl .45s ease-out}
+@keyframes fl{from{transform:rotateY(90deg);opacity:0}}
+.hist{font-size:1.05rem;letter-spacing:.35em;opacity:.55;min-height:1.6rem}
+.chipno{border:1px solid #3f3f3f;border-radius:999px;padding:.28rem .95rem;font-size:.85rem;color:#bdbdbd;background:#101010}
+.btn-noir{background:#e8e8e8;color:#0a0a0a;font-weight:700;border-radius:2px;padding:.65rem 2.4rem;transition:all .1s;font-family:inherit}
+.btn-noir:hover{background:#fff}
+.btn-noir:active{transform:translateY(3px)}
+</style>
+</head>
+<body class="select-none">
+<div class="grain"></div><div class="vig"></div>
+<div class="bar top-0"></div><div class="bar bottom-0"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-16">
+
+<div id="startScr" class="cardn px-10 py-12 text-center max-w-lg">
+<p class="text-xs tracking-[.5em] opacity-50 mb-3">فيلم نوار · ١٩٤٧ · أبيض وأسود</p>
+<h1 class="text-5xl md:text-6xl font-black mb-4">الشَّـك</h1>
+<p class="leading-relaxed mb-2 text-[#cfcfcf]">خصمك مش عبيط… بيتفرج عليك،<br>بيعدّ حركاتك، وبيلعب <b>اللي بتغلبها</b>.</p>
+<p class="text-sm opacity-60 mb-8">٣ قلوب · كل فوز بيرفع المضاعب 🎞️<br>غيّر نمطك قبل ما يقراك</p>
+<button onclick="start()" class="btn-noir text-lg tracking-widest">ابدأ العرض ▸</button>
+<p class="mt-6 text-sm opacity-55">أفضل نتيجة: <span id="bestStart" class="font-bold text-white">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-xl text-center">
+
+<div class="flex justify-center gap-2 mb-5 flex-wrap">
+<span class="chipno">⭐ <span id="scoreEl" class="font-black text-white">٠</span></span>
+<span class="chipno">🔥 سلسلة <span id="streakEl" class="font-black text-white">٠</span></span>
+<span id="heartsEl" class="chipno font-black">❤️❤️❤️</span>
+</div>
+
+<div class="flex items-center justify-center gap-8 mb-6">
+<div>
+<div class="stagecard" id="aiCard">؟</div>
+<div class="mt-2 text-sm opacity-60">الخصم</div>
+</div>
+<div class="text-3xl opacity-40 font-black">VS</div>
+<div>
+<div class="stagecard" id="meCard">—</div>
+<div class="mt-2 text-sm opacity-60">أنت</div>
+</div>
+</div>
+
+<div id="readEl" class="h-7 text-sm opacity-0 transition-opacity duration-500 mb-4"></div>
+
+<div class="hist mb-6" id="histEl"></div>
+
+<button class="pick mx-1.5" onclick="play(0)">✊</button>
+<button class="pick mx-1.5" onclick="play(1)">✋</button>
+<button class="pick mx-1.5" onclick="play(2)">✌️</button>
+
+<div id="msg" class="h-9 mt-6 text-xl font-black"></div>
+</div>
+
+<div id="endScr" class="hidden cardn px-12 py-12 text-center max-w-md w-full">
+<p class="text-xs tracking-[.5em] opacity-50 mb-3">نهاية الفيلم · THE END</p>
+<h2 class="text-4xl font-black mb-6">سقطتَ في الشك</h2>
+<div id="finalScore" class="text-6xl font-black mb-3">٠</div>
+<p id="endMsg" class="opacity-75 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-noir tracking-widest">عرض إعادة ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const bestKey='noir-rps-best';
+const ICON=['✊','✋','✌️'];
+const NAME=['حجرة','ورقة','مقص'];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let hist=[],myHist=[],score=0,streak=0,streakBest=0,hearts=3,busy=false,over=true,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0}catch(e){};$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+function aiPick(){
+const recent=myHist.slice(-7);
+if(recent.length<3||Math.random()<.28)
+return Math.floor(Math.random()*3);
+const freq=[0,0,0];
+recent.forEach(m=>freq[m]++);
+let maxI=0;
+for(let i=1;i<3;i++)if(freq[i]>freq[maxI])maxI=i;
+return (maxI+1)%3;
+}
+function play(me){
+if(busy||over)return;
+busy=true;
+document.querySelectorAll('.pick').forEach(b=>b.disabled=true);
+$('meCard').textContent=ICON[me];
+$('msg').textContent='';
+$('readEl').style.opacity='0';
+snd(220,.08,'square',.03);
+const ai=aiPick();
+setTimeout(()=>{
+const c=$('aiCard');
+c.textContent=ICON[ai];
+c.classList.remove('flip');void c.offsetWidth;c.classList.add('flip');
+snd(140,.14,'sine',.06);
+setTimeout(()=>resolve(me,ai),520);
+},650+Math.random()*550);
+}
+function resolve(me,ai){
+const diff=(me-ai+3)%3;
+hist.push(diff?'W':'L');
+$('histEl').textContent=hist.slice(-14).map(h=>h==='W'?'◆':'◇').join(' ');
+const read=$('readEl');
+if(myHist.length>=4){
+const recent=myHist.slice(-7),freq=[0,0,0];
+recent.forEach(m=>freq[m]++);
+let maxI=0;for(let i=1;i<3;i++)if(freq[i]>freq[maxI])maxI=i;
+read.textContent=`🎞 الخصم كان متوقع إنك هتلعب «${NAME[maxI]}»`;
+read.style.opacity='.75';
+}
+myHist.push(me);
+if(diff===1){
+streak++;streakBest=Math.max(streakBest,streak);
+const gain=10*streak;
+score+=gain;
+$('msg').textContent=`فوز! +${AR(gain)} نقطة`;
+$('msg').style.color='#ffffff';
+[520,700].forEach((f,i)=>setTimeout(()=>snd(f,.1,'triangle',.05),i*100));
+}else if(diff===0){
+$('msg').textContent='تعادل… الصمت يثقل';
+$('msg').style.color='#9a9a9a';
+}else{
+hearts--;streak=0;
+$('heartsEl').textContent='❤️'.repeat(hearts)+'🖤'.repeat(3-hearts);
+$('msg').textContent='خسارة… الكاميرا بتلف عليك';
+$('msg').style.color='#777';
+snd(110,.3,'sawtooth',.06);
+}
+$('scoreEl').textContent=AR(score);
+$('streakEl').textContent=AR(streak);
+if(hearts<=0)return setTimeout(die,900);
+document.querySelectorAll('.pick').forEach(b=>b.disabled=false);
+busy=false;
+}
+function die(){
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+const v=+localStorage.getItem(bestKey)||0;
+let m=`أطول سلسلة فوز: ${AR(streakBest)} 🎞️`;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){}m+=' — رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=` — أفضل نتيجة لك: ${AR(v)}`;
+$('endMsg').textContent=m;
+[300,200].forEach((f,i)=>setTimeout(()=>snd(f,.25,'sine',.05),i*170));
+}
+function start(){
+hist=[];myHist=[];score=0;streak=0;streakBest=0;hearts=3;busy=false;
+$('scoreEl').textContent='٠';$('streakEl').textContent='٠';
+$('heartsEl').textContent='❤️❤️❤️';
+$('histEl').textContent='';$('msg').textContent='';
+$('meCard').textContent='—';$('aiCard').textContent='؟';
+$('readEl').style.opacity='0';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+over=false;
+snd(180,.2,'sine',.05);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>المسار الرياضي</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">🔢</div>
+<h1 class="text-3xl font-bold text-slate-800 mb-2">المسار الرياضي</h1>
+<p class="text-slate-500 mb-6">اعثر على المسار الذي مجموعه يساوي الهدف</p>
+<div class="bg-blue-50 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-600">الأفضل: <span id="best-display" class="font-bold text-blue-600">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-6">
+<div class="flex justify-between items-center mb-3">
+<span class="text-slate-600 font-bold">اللغز: <span id="round-display">1</span>/8</span>
+<span class="text-blue-600 font-bold">النقاط: <span id="score-display">0</span></span>
+</div>
+<div class="bg-indigo-50 rounded-xl p-3 mb-4">
+<p class="text-sm text-indigo-700">الهدف: <span id="target-display" class="font-bold text-lg"></span></p>
+</div>
+<div id="grid-container" class="grid gap-1 mx-auto mb-3" style="width:fit-content"></div>
+<p class="text-slate-500 text-xs mb-2">اختر خلايا متصلة من البداية للنهاية</p>
+<div id="selected-cells" class="flex flex-wrap gap-1 justify-center mb-2 min-h-[24px]"></div>
+<div class="flex gap-2 justify-center mb-3">
+<button onclick="clearSelection()" class="bg-slate-300 hover:bg-slate-400 text-slate-700 font-bold py-1 px-4 rounded-lg text-sm">مسح</button>
+<button onclick="confirmPath()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-4 rounded-lg text-sm">تأكيد</button>
+</div>
+<div id="feedback" class="h-6 text-sm font-bold"></div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white rounded-3xl shadow-xl p-8">
+<div class="text-6xl mb-4">🧮</div>
+<h2 class="text-2xl font-bold text-slate-800 mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-500 mb-2">النقاط: <span id="final-score" class="font-bold text-blue-600"></span></p>
+<p class="text-slate-500 mb-6">الأفضل: <span id="final-best" class="font-bold text-blue-600"></span></p>
+<button onclick="location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let gridSize = 4, round = 0, score = 0, totalRounds = 8;
+let best = 0;
+try { best = parseInt(localStorage.getItem('math-path-best') || '0'); } catch(e) {}
+let grid = [], target = 0, selected = [];
+function startGame() {
+initAudio(); round = 0; score = 0;
+$('start-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+nextRound();
+}
+function nextRound() {
+if (round >= totalRounds) { endGame(); return; }
+round++;
+$('round-display').textContent = round;
+$('score-display').textContent = score;
+$('feedback').textContent = '';
+selected = [];
+grid = [];
+for (let i = 0; i < gridSize; i++) {
+grid[i] = [];
+for (let j = 0; j < gridSize; j++) {
+grid[i][j] = Math.floor(Math.random() * 9) + 1;
+}
+}
+let pathSum = 0;
+let r = 0, c = 0;
+let pathCells = [`${r},${c}`];
+pathSum += grid[r][c];
+for (let s = 0; s < gridSize; s++) {
+let dirs = [[1,0],[0,1],[1,1]].sort(() => Math.random() - 0.5);
+for (let d of dirs) {
+let nr = r + d[0], nc = c + d[1];
+if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && !pathCells.includes(`${nr},${nc}`)) {
+r = nr; c = nc;
+pathSum += grid[r][c];
+pathCells.push(`${r},${c}`);
+break;
+}
+}
+}
+target = pathSum;
+$('target-display').textContent = target;
+let container = $('grid-container');
+container.innerHTML = '';
+container.style.gridTemplateColumns = `repeat(${gridSize}, 60px)`;
+for (let i = 0; i < gridSize; i++) {
+for (let j = 0; j < gridSize; j++) {
+let cell = document.createElement('div');
+cell.className = 'w-[60px] h-[60px] rounded-lg flex items-center justify-center text-xl font-bold border-2 border-indigo-200 bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition';
+cell.textContent = grid[i][j];
+cell.onclick = () => toggleCell(i, j);
+container.appendChild(cell);
+}
+}
+$('selected-cells').innerHTML = '';
+}
+function toggleCell(r, c) {
+initAudio();
+let key = `${r},${c}`;
+let idx = selected.indexOf(key);
+if (idx >= 0) { selected.splice(idx, 1); }
+else { selected.push(key); }
+renderSelected();
+playSound(440, 'triangle', 0.1);
+}
+function renderSelected() {
+let cont = $('selected-cells');
+cont.innerHTML = '';
+let sum = 0;
+selected.forEach(key => {
+let [r, c] = key.split(',').map(Number);
+sum += grid[r][c];
+let el = document.createElement('span');
+el.className = 'bg-indigo-200 text-indigo-800 px-2 py-1 rounded text-sm font-bold';
+el.textContent = grid[r][c];
+cont.appendChild(el);
+});
+let sumEl = document.createElement('span');
+sumEl.className = 'bg-indigo-500 text-white px-2 py-1 rounded text-sm font-bold';
+sumEl.textContent = `= ${sum}`;
+cont.appendChild(sumEl);
+}
+function clearSelection() {
+selected = [];
+renderSelected();
+}
+function confirmPath() {
+initAudio();
+let sum = 0;
+selected.forEach(key => {
+let [r, c] = key.split(',').map(Number);
+sum += grid[r][c];
+});
+if (sum === target) {
+playSound(523, 'sine', 0.3);
+score += 15;
+$('score-display').textContent = score;
+$('feedback').textContent = '✅ مجموع صحيح!';
+$('feedback').className = 'h-6 text-sm font-bold text-emerald-600';
+} else {
+playSound(200, 'square', 0.3);
+$('feedback').textContent = `❌ المجموع ${sum} وليس ${target}`;
+$('feedback').className = 'h-6 text-sm font-bold text-red-600';
+}
+round++;
+setTimeout(nextRound, 1200);
+}
+function endGame() {
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-score').textContent = score;
+if (score > best) { best = score; try { localStorage.setItem('math-path-best', best); } catch(e) {} }
+$('final-best').textContent = best;
+playSound(660, 'triangle', 0.5);
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+</script>
+</body>
+</html>

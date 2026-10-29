@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ذاكرة الزقاق القديم 🧺</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{font-family:'Traditional Arabic','Amiri',Georgia,serif}
+  .paper-bg{background-color:#f4ecd8;background-image:radial-gradient(#d9c9a3 1px,transparent 1px);background-size:18px 18px}
+  .flip{perspective:900px}
+  .inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,.2,.2,1)}
+  .flipped .inner{transform:rotateY(180deg)}
+  .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:.9rem;display:flex;align-items:center;justify-content:center}
+  .rear{transform:rotateY(180deg)}
+  .matched{outline:3px solid #7c8b3f;opacity:.92}
+</style>
+</head>
+<body class="paper-bg min-h-screen text-[#4a3626]">
+  <header class="text-center pt-8 pb-4 px-4">
+    <h1 class="text-4xl md:text-5xl font-bold tracking-wide">🧺 ذاكرة الزقاق القديم</h1>
+    <p class="mt-2 opacity-70">اقلب البطاقات ووصّل كل فاكهة بنِسْختها… بأقل عدد محاولات!</p>
+  </header>
+
+  <div class="max-w-lg mx-auto px-4">
+    <div class="flex justify-between items-center bg-[#fffaf0] border-2 border-[#4a3626] rounded-xl px-4 py-2 mb-5 shadow-[4px_4px_0_#4a3626] text-sm md:text-base">
+      <span>⏱️ <b id="timer">00:00</b></span>
+      <span>🔄 محاولات: <b id="moves">0</b></span>
+      <span>🏅 الأفضل: <b id="best">—</b></span>
+    </div>
+    <div id="grid" class="grid grid-cols-4 gap-3 pb-10"></div>
+  </div>
+
+  <div id="winOverlay" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-[#fffaf0] border-2 border-[#4a3626] rounded-2xl p-8 text-center shadow-[6px_6px_0_#4a3626] max-w-xs w-full">
+      <div class="text-6xl mb-2">🎉</div>
+      <h2 class="text-2xl font-bold mb-1">خلصتها يا بطل!</h2>
+      <p id="winStats" class="mb-5 opacity-80"></p>
+      <button onclick="init()" class="bg-[#a53f2b] text-[#fffaf0] px-6 py-2 rounded-lg font-bold border-2 border-[#4a3626] shadow-[3px_3px_0_#4a3626] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition">العب من جديد</button>
+    </div>
+  </div>
+
+<script>
+const FRUITS=['🍊','🍋','🍇','🍉','🍓','🍑','🍍','🥝'];
+const grid=document.getElementById('grid');
+let first=null,lock=false,moves=0,matches=0,timerInt=null,startTs=null,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function loadBest(){try{return JSON.parse(localStorage.getItem('vintage-memory-best')||'null');}catch(e){return null;}}
+function fmt(s){const m=String(Math.floor(s/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');return m+':'+ss;}
+
+function init(){
+  clearInterval(timerInt);
+  first=null;lock=false;moves=0;matches=0;startTs=null;
+  document.getElementById('moves').textContent='0';
+  document.getElementById('timer').textContent='00:00';
+  document.getElementById('winOverlay').classList.add('hidden');
+  const b=loadBest();
+  document.getElementById('best').textContent=b?b.moves+' محاولة':'—';
+  const deck=shuffle([...FRUITS,...FRUITS]);
+  grid.innerHTML='';
+  deck.forEach(function(f){
+    const c=document.createElement('div');
+    c.className='flip aspect-[3/4] cursor-pointer select-none';
+    c.dataset.fruit=f;c.dataset.done='';
+    c.innerHTML='<div class="inner">'+
+      '<div class="face bg-[#6b4a32] border-2 border-[#4a3626] shadow-[3px_3px_0_rgba(74,54,38,.6)] text-[#f4ecd8] text-3xl font-bold">؟</div>'+
+      '<div class="face rear bg-[#fffaf0] border-2 border-[#4a3626] text-4xl">'+f+'</div>'+
+    '</div>';
+    c.addEventListener('click',function(){pick(c);});
+    grid.appendChild(c);
+  });
+}
+
+function startTimer(){
+  if(startTs)return;
+  startTs=Date.now();
+  timerInt=setInterval(function(){
+    document.getElementById('timer').textContent=fmt(Math.floor((Date.now()-startTs)/1000));
+  },500);
+}
+
+function pick(c){
+  if(lock||c.classList.contains('flipped')||c.dataset.done)return;
+  startTimer();
+  c.classList.add('flipped');
+  snd(300,.06,'sine',.04);
+  if(!first){first=c;return;}
+  moves++;document.getElementById('moves').textContent=moves;
+  if(first.dataset.fruit===c.dataset.fruit){
+    first.dataset.done='1';c.dataset.done='1';
+    first.classList.add('matched');c.classList.add('matched');
+    first=null;matches++;
+    snd(523,.12,'triangle',.06);setTimeout(()=>snd(784,.15,'triangle',.05),110);
+    if(matches===FRUITS.length)win();
+  }else{
+    snd(160,.25,'sawtooth',.05);
+    lock=true;const prev=first;first=null;
+    setTimeout(function(){prev.classList.remove('flipped');c.classList.remove('flipped');lock=false;},800);
+  }
+}
+
+function win(){
+  clearInterval(timerInt);
+  const secs=Math.floor((Date.now()-startTs)/1000);
+  const b=loadBest();
+  const isRec=!b||moves<b.moves;
+  if(isRec)localStorage.setItem('vintage-memory-best',JSON.stringify({moves:moves,time:secs}));
+  document.getElementById('winStats').textContent=moves+' محاولة في '+fmt(secs)+(isRec?' — رقم قياسي جديد! 🏅':'');
+  setTimeout(function(){document.getElementById('winOverlay').classList.remove('hidden');},450);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نونو-كاواي 🌸</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fffdfd;color:#4a4458;
+background-image:
+radial-gradient(circle at 8% 12%,rgba(255,183,214,.25) 0 70px,transparent 90px),
+radial-gradient(circle at 92% 20%,rgba(186,225,255,.25) 0 60px,transparent 85px),
+radial-gradient(circle at 15% 88%,rgba(200,255,214,.28) 0 65px,transparent 90px),
+radial-gradient(circle at 88% 90%,rgba(255,229,180,.28) 0 60px,transparent 85px)}
+.kcard{background:#fff;border:3px solid #ffb7d6;border-radius:1.6rem;
+box-shadow:0 14px 36px rgba(255,150,190,.22)}
+.chipk{background:#fff0f6;border:2px solid #ffc2dd;color:#c25587;border-radius:999px;padding:.26rem .95rem;font-weight:800;font-size:.83rem}
+.btnkw{background:linear-gradient(135deg,#ff9ec7,#b3a5ff);color:#fff;font-weight:900;border-radius:999px;padding:.6rem 2rem;
+box-shadow:0 5px 0 rgba(194,85,135,.5);transition:all .09s}
+.btnkw:hover{filter:brightness(1.06)}
+.btnkw:active{transform:translateY(4px);box-shadow:none}
+#boardWrap{display:grid;gap:2px;margin-inline:auto}
+.ccell{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:900;
+background:#fdfbff;border:1.5px solid #eadff2;border-radius:6px;cursor:pointer;user-select:none;font-size:.95rem;color:#b9aec9}
+.cluec{width:34px;height:auto;min-height:34px;display:flex;flex-direction:column-reverse;align-items:center;justify-content:flex-end;
+gap:1px;font-weight:900;font-size:.72rem;color:#5a5470;background:#fff7fb;border:1.5px solid #ffe3ef;border-radius:6px;padding:2px 0}
+.cluer{height:34px;width:auto;min-width:38px;display:flex;align-items:center;justify-content:center;gap:3px;
+font-weight:900;font-size:.72rem;color:#5a5470;background:#fff7fb;border:1.5px solid #ffe3ef;border-radius:6px;padding:0 4px}
+.corner{background:transparent;border:none;cursor:default}
+.f1{background:#ffb7d6;border-color:#ff9ec7}.f2{background:#ffd6a5;border-color:#ffca91}
+.f3{background:#baffd9;border-color:#93f0bf}.f4{background:#bae1ff;border-color:#93d3ff}
+.f5{background:#e0c3fc;border-color:#cfaeff}
+.spark{position:absolute;animation:tw 1.8s ease-in-out infinite;pointer-events:none;font-size:.9rem}
+@keyframes tw{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:.9;transform:scale(1.15)}}
+.shake{animation:sh .35s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="max-w-xl mx-auto px-4 py-8">
+
+<header class="text-center mb-5">
+<h1 class="text-4xl font-black">نونو-كاواي 🌸</h1>
+<p class="text-sm mt-1 opacity-65">دوس على المربع: <b>تعبئة ← علامة ✕ ← فاضي</b><br>الأرقام = مقاطع المتتاليات في الصف/العمود</p>
+</header>
+
+<div id="startScr" class="kcard p-8 text-center">
+<div class="text-5xl mb-2">✨</div>
+<p class="leading-relaxed mb-2">٣ لوحات كاواي مخفية (٥×٥ ثم ٦×٦ و٧×٧)<br>لوّنها كلها من أدلة الأرقام!</p>
+<p class="text-sm opacity-60 mb-6">مؤقت لكل لوحة · زر «تحقق» بيكشف الغلط ويخصم ١٠ ثوانٍ</p>
+<button onclick="start()" class="btnkw px-12 py-3 text-lg">ابدأ التلوين 🎨</button>
+<p class="mt-5 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#c25587]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipk">لوحة <span id="pzEl" class="font-black">١</span>/٣</span>
+<span class="chipk">⭐ <span id="scoreEl" class="font-black text-[#c25587]">٠</span></span>
+<span class="chipk">⏱ <span id="timeEl" class="font-bold">١:١٥</span></span>
+</div>
+
+<div class="kcard p-4 pb-5 relative overflow-hidden">
+<span class="spark" style="top:8px;left:16px">✨</span>
+<span class="spark" style="bottom:10px;right:18px;animation-delay:.7s">✨</span>
+<span class="spark" style="top:40%;right:-2px;animation-delay:1.2s">💫</span>
+<div id="boardWrap"></div>
+<div class="flex justify-center gap-2 mt-4 flex-wrap">
+<button onclick="verify()" class="btnkw !py-2 !px-6 text-sm">🔍 تحقق</button>
+<button onclick="clearAll()" class="btnkw !py-2 !px-6 text-sm" style="background:#fff;color:#c25587;border:2px solid #ffb7d6">🧹 مسح</button>
+</div>
+</div>
+<div id="msg" class="h-8 mt-3 text-center font-bold text-[#c25587]"></div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='kawaii-nonogram-best';
+const LEVELS=[{n:5,t:75,d:.5},{n:6,t:95,d:.55},{n:7,t:120,d:.6}];
+let pz=0,N=0,sol=[],marks=[],rowClues=[],colClues=[],score=0,
+timer=null,timeLeft=0,best=0,over=true,ac=null,paused=false;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function fmt(s){return AR(Math.floor(s/60))+':'+AR(String(s%60).padStart(2,'0'));}
+function cluesOf(line){
+const out=[];let run=0;
+for(const v of line){
+if(v)run++;
+else if(run){out.push(run);run=0;}
+}
+if(run)out.push(run);
+return out.length?out:[0];
+}
+function placeRec(len,clue,pos,ci,arr,out){
+if(ci===clue.length){
+for(let i=pos;i<len;i++)arr[i]=0;
+out.push([...arr]);
+return;
+}
+const tail=clue.slice(ci+1).reduce((a,b)=>a+b+1,0);
+for(let s=pos;s<=len-clue[ci]-tail;s++){
+for(let i=pos;i<s;i++)arr[i]=0;
+for(let i=s;i<s+clue[ci];i++)arr[i]=1;
+if(s+clue[ci]<len)arr[s+clue[ci]]=0;
+placeRec(len,clue,s+clue[ci]+1,ci+1,arr,out);
+}
+}
+function cands(clue,len){
+if(clue.length===1&&clue[0]===0)return [Array(len).fill(0)];
+const out=[];
+placeRec(len,clue,0,0,Array(len).fill(0),out);
+return out;
+}
+function solvable(solGrid,n){
+const rc=[],cc=[];
+for(let r=0;r<n;r++)rc.push(cands(cluesOf(solGrid[r]),n));
+for(let c=0;c<n;c++)cc.push(cands(cluesOf(solGrid.map(row=>row[c])),n));
+for(let pass=0;pass<30;pass++){
+let changed=false;
+for(let r=0;r<n;r++){
+if(rc[r].length!==1)continue;
+for(let c=0;c<n;c++){
+const v=rc[r][0][c];
+const before=cc[c].length;
+cc[c]=cc[c].filter(cd=>cd[r]===v);
+if(cc[c].length===0)return false;
+if(cc[c].length!==before)changed=true;
+}
+}
+for(let c=0;c<n;c++){
+if(cc[c].length!==1)continue;
+for(let r=0;r<n;r++){
+const v=cc[c][0][r];
+const before=rc[r].length;
+rc[r]=rc[r].filter(cd=>cd[c]===v);
+if(rc[r].length===0)return false;
+if(rc[r].length!==before)changed=true;
+}
+}
+if(!changed)break;
+}
+return rc.every((cs,r)=>cs.length===1&&cs[0].every((v,c)=>v===solGrid[r][c]));
+}
+function genPuzzle(n,density){
+for(let attempt=0;attempt<4000;attempt++){
+const g=Array.from({length:n},()=>Array.from({length:n},()=>Math.random()<density));
+for(let r=0;r<n;r++)if(!g[r].some(v=>v))g[r][Math.floor(Math.random()*n)]=1;
+for(let c=0;c<n;c++)if(!g.some(row=>row[c]))g[Math.floor(Math.random()*n)][c]=1;
+if(solvable(g,n))return g;
+}
+return null;
+}
+function renderBoard(){
+const wrap=$('boardWrap');
+wrap.style.gridTemplateColumns=`auto repeat(${N},34px)`;
+wrap.innerHTML='';
+const corner=document.createElement('div');
+corner.className='corner';
+corner.style.gridColumn='1';corner.style.gridRow='1';
+wrap.appendChild(corner);
+for(let c=0;c<N;c++){
+const cl=document.createElement('div');
+cl.className='cluec';cl.style.gridRow='1';
+cl.textContent='';
+colClues.forEach(k=>{
+const s=document.createElement('span');
+s.textContent=k===0?'·':AR(k);
+cl.appendChild(s);
+});
+wrap.appendChild(cl);
+}
+for(let r=0;r<N;r++){
+const rc=document.createElement('div');
+rc.className='cluer';rc.style.gridRow=`${r+2}`;
+rowClues[r].forEach(k=>{
+const s=document.createElement('span');
+s.textContent=k===0?'·':AR(k);
+rc.appendChild(s);
+});
+wrap.appendChild(rc);
+for(let c=0;c<N;c++){
+const d=document.createElement('div');
+d.className='ccell';d.id=`c${r}-${c}`;
+d.onclick=()=>cycle(r,c);
+wrap.appendChild(d);
+}
+}
+}
+function cycle(r,c){
+if(over)return;
+marks[r][c]=(marks[r][c]+1)%3;
+const d=$(`c${r}-${c}`);
+d.className='ccell';
+d.textContent='';
+if(marks[r][c]===1)d.classList.add('f'+((r+c)%5+1));
+else if(marks[r][c]===2)d.textContent='✕';
+snd(marks[r][c]===1?520:marks[r][c]===2?300:240,.05,'sine',.04);
+checkWin();
+}
+function clearAll(){
+if(over)return;
+marks=marks.map(row=>row.map(()=>0));
+document.querySelectorAll('.ccell').forEach(d=>{d.className='ccell';d.textContent='';});
+$('msg').textContent='';
+snd(280,.08,'sine');
+}
+function verify(){
+if(over)return;
+let wrong=0;
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+const filled=marks[r][c]===1;
+const d=$(`c${r}-${c}`);
+if(filled&&!sol[r][c]){wrong++;d.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:260});}
+}
+if(wrong){
+timeLeft=Math.max(1,timeLeft-10);
+$('timeEl').textContent=fmt(timeLeft);
+$('msg').textContent=`❌ ${AR(wrong)} مربع غلط (−١٠ ثوانٍ)`;
+snd(160,.2,'sawtooth',.05);
+}else{
+$('msg').textContent='💛 مفيش غلطات لحد الآن… كمّل!';
+snd(600,.09,'triangle',.04);
+}
+}
+function checkWin(){
+for(let r=0;r<N;r++)for(let c=0;c<N;c++)
+if((marks[r][c]===1)!==(sol[r][c]===1))return;
+roundDone();
+}
+function roundDone(){
+clearInterval(timer);
+over=true;
+const gain=100*(pz+1)+timeLeft;
+score+=gain;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`🎉 لوحة ${AR(pz+1)} اكتملت! +${AR(gain)}`;
+[620,800,1020].forEach((f,i)=>setTimeout(()=>snd(f,.13,'triangle'),i*110));
+setTimeout(()=>{
+pz++;
+if(pz>=LEVELS.length)return finish();
+startRound();
+},1400);
+}
+function startRound(){
+const L=LEVELS[pz];
+N=L.n;
+sol=genPuzzle(N,L.d)||Array.from({length:N},(_,r)=>Array.from({length:N},(_,c)=>(r+c)%2===0?1:0));
+rowClues=sol.map(cluesOf);
+colClues=sol[0].map((_,c)=>cluesOf(sol.map(row=>row[c])));
+marks=Array.from({length:N},()=>Array(N).fill(0));
+renderBoard();
+$('pzEl').textContent=AR(pz+1);
+timeLeft=L.t;
+$('timeEl').textContent=fmt(timeLeft);
+$('msg').textContent='';
+clearInterval(timer);
+timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=fmt(timeLeft);
+if(timeLeft<=0){
+clearInterval(timer);
+over=true;
+$('msg').textContent='⏰ خلص الوقت — دي كانت الإجابة:';
+revealSol();
+setTimeout(()=>{
+pz++;
+if(pz>=LEVELS.length)return finish();
+startRound();
+},2200);
+}
+},1000);
+over=false;
+}
+function revealSol(){
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+const d=$(`c${r}-${c}`);
+d.className='ccell'+(sol[r][c]?` f${(r+c)%5+1}`:'');
+d.textContent=sol[r][c]?'':'·';
+}
+}
+function finish(){
+over=true;
+clearInterval(timer);
+$('playScr').innerHTML=`
+<div class="kcard p-10 text-center">
+<div class="text-6xl mb-3">🎨</div>
+<h2 class="text-3xl font-black mb-3 text-[#c25587]">كل اللوحات اتلونت!</h2>
+<div class="text-5xl font-black mb-3">${AR(score)}</div>
+<p class="opacity-70 mb-2" id="finMsg"></p>
+<button onclick="location.reload()" class="btnkw px-10 py-2.5 mt-4">جلسة تلوين جديدة ↻</button>
+</div>`;
+const v=+localStorage.getItem(bestKey)||0;
+document.getElementById('finMsg').textContent=
+score>v&&score>0?'🏆 رقم قياسي جديد!':`أفضل نتيجة لك: ${AR(Math.max(v,score))}`;
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score);}catch(e){}
+[650,820,1050].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle'),i*140));
+}
+function start(){
+score=0;pz=0;paused=false;
+$('scoreEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+startRound();
+snd(520,.1,'triangle');
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'&&!over&&!$('startScr').classList.contains('hidden')===false){
+paused=!paused;
+if(paused){clearInterval(timer);$('msg').textContent='⏸ إيقاف مؤقت — اضغط Esc للاستمرار';}
+else{$('msg').textContent='';timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=fmt(timeLeft);
+if(timeLeft<=0){
+clearInterval(timer);
+over=true;
+$('msg').textContent='⏰ خلص الوقت — دي كانت الإجابة:';
+revealSol();
+setTimeout(()=>{
+pz++;
+if(pz>=LEVELS.length)return finish();
+startRound();
+},2200);
+}
+},1000);}
+}
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بينقو رياضي</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#f0f4f8}
+.cell{width:60px;height:60px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:bold;border-radius:10px;cursor:pointer;border:2px solid #cbd5e1;background:white;transition:all 0.15s}
+.cell.marked{background:#3b82f6;color:white;border-color:#3b82f6}
+.cell.correct{background:#22c55e;color:white;border-color:#22c55e}
+.cell.wrong{background:#ef4444;color:white;border-color:#ef4444}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-gray-800">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-blue-700">بينقو رياضي</h1>
+<p class="mb-6 text-lg text-gray-500">علّم الخلايا التي تحقق الشرط الرياضي</p>
+<button onclick="startGame()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-blue-500"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-3 text-lg font-bold"><span id="condDisplay"></span></div>
+<p class="mb-4 text-sm text-gray-500">اضغط على كل رقم يحقق الشرط</p>
+<div id="grid" class="grid grid-cols-5 gap-2 mx-auto mb-4"></div>
+<button onclick="checkGrid()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-xl font-bold">تحقق</button>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-blue-700">أحسنت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let grid=[],marked=[],conditions=[],best=parseInt(localStorage.getItem('math-bingo-best'))||0;
+const conds=[
+{fn:n=>n%2===0,text:'الأرقام الزوجية'},
+{fn:n=>n>15,text:'أكبر من 15'},
+{fn:n=>n%3===0,text:'النقاط المضاعفات لـ 3'},
+{fn:n=>n%5===0,text:'النقاط المضاعفات لـ 5'},
+{fn:n=>n>=10&&n<=20,text:'بين 10 و 20'},
+{fn:n=>n%2!==0,text:'الأرقام الفردية'},
+{fn:n=>n<10,text:'أصغر من 10'},
+{fn:n=>n%4===0,text:'النقاط المضاعفات لـ 4'}
+];
+function $(id){return document.getElementById(id)}
+let actx=null;
+function audioCtx(){return actx=actx||new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(f,t,d){try{let c=audioCtx(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}catch(e){}}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل نتيجة: '+best+' نقطة':'';}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+let nums=[];while(nums.length<25){let n=Math.floor(Math.random()*25)+1;if(!nums.includes(n))nums.push(n);}
+grid=nums;marked=new Array(25).fill(false);
+conditions=shuffle([...conds]).slice(0,5);
+showRound();
+}
+function showRound(){
+if(conditions.length===0){
+let sc=countCorrect();if(sc>best){best=sc;try{localStorage.setItem('math-bingo-best',best);}catch(e){}}
+$('finalStats').textContent='النتيجة: '+sc+' خلية صحيحة';
+$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');return;
+}
+let c=conditions.shift();$('condDisplay').textContent=c.text;
+currentCond=c.fn;
+let g=$('grid');g.innerHTML='';marked=new Array(25).fill(false);
+grid.forEach((n,i)=>{
+let cell=document.createElement('button');cell.className='cell';cell.textContent=n;cell.dataset.idx=i;
+cell.onclick=()=>toggleCell(i,cell);g.appendChild(cell);
+});
+}
+let currentCond=null;
+function toggleCell(i,cell){
+marked[i]=!marked[i];
+cell.classList.toggle('marked');
+if(marked[i])playTone(440+i*10,'sine',0.08);
+}
+function countCorrect(){
+let score=0;
+grid.forEach((n,i)=>{if(marked[i]&&currentCond(n))score++;});
+return score;
+}
+function checkGrid(){
+let correct=0,wrong=0;
+let cells=$('grid').children;
+for(let i=0;i<25;i++){
+if(marked[i]){
+if(currentCond(grid[i])){cells[i].classList.add('correct');correct++;}
+else{cells[i].classList.add('wrong');wrong++;}
+}
+}
+if(correct>0)playTone(660,'sine',0.15);
+if(wrong>0)playTone(200,'sawtooth',0.2);
+setTimeout(()=>showRound(),1200);
+}
+goHome();
+</script>
+</body>
+</html>

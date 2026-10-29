@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ومضة النعناع 🍃</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f2fbf7;color:#17332a}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.35;pointer-events:none}
+.b1{background:#3ecf8e;width:340px;height:340px;top:-100px;right:-80px}
+.b2{background:#7fd8c0;width:300px;height:300px;bottom:-90px;left:-70px}
+.cardm{background:#ffffff;border:1px solid #d5efe2;border-radius:1.6rem;box-shadow:0 16px 44px rgba(23,51,42,.08)}
+.chipmn{background:#e6f7ef;color:#1d7a56;border-radius:999px;padding:.3rem 1rem;font-weight:800;font-size:.85rem}
+#arena{position:relative;height:min(46vh,330px);border-radius:1.2rem;background:#f6fdf9;border:2px dashed #bfe8d5;overflow:hidden}
+.shape{position:absolute}
+.opt{min-width:76px;padding:.65rem 1rem;font-size:1.25rem;font-weight:900;border-radius:1rem;background:#3ecf8e;color:#fff;box-shadow:0 5px 0 #27a86e;transition:all .08s}
+.opt:hover{filter:brightness(1.07)}
+.opt:active{transform:translateY(4px);box-shadow:none}
+.btn-mn{background:#17332a;color:#d9fbe9;font-weight:900;border-radius:999px;transition:all .09s}
+.btn-mn:hover{filter:brightness(1.15)}
+.btn-mn:active{transform:translateY(3px)}
+.qmark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:4rem;font-weight:900;color:#3ecf8e}
+.shake{animation:sh .3s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body class="select-none">
+<div class="fixed inset-0 overflow-hidden pointer-events-none"><div class="blob b1"></div><div class="blob b2"></div></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="cardm px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🍃</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3 text-[#2bb673]">ومضة النعناع</h1>
+<p class="leading-relaxed mb-2">أشكال هتظهر <b>ومضة واحدة بس</b>…<br>عدّها أو عدّ نوع معين منها!</p>
+<p class="text-sm opacity-60 mb-8">١٠ جولات · الومضة بتقصر كل جولة ⏳<br>سرعة الإجابة = نقاط أكبر</p>
+<button onclick="start()" class="btn-mn px-14 py-3.5 text-xl">يلا نعدّ 👀</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#2bb673]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-lg">
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipmn">جولة <span id="roundEl" class="font-black">١</span>/١٠</span>
+<span class="chipmn">⭐ <span id="scoreEl" class="font-black">٠</span></span>
+<span class="chipmn">🔥 كومبو ×<span id="comboEl" class="font-black">١</span></span>
+<span class="chipmn">⏱ <span id="qtimeEl" class="font-black">٨</span></span>
+</div>
+<div class="cardm p-4">
+<div id="promptEl" class="text-center font-black text-xl mb-3 h-8"></div>
+<div id="arena"></div>
+<div id="optsEl" class="hidden flex justify-center gap-3 mt-5 flex-wrap-reverse"></div>
+<div id="msg" class="h-8 mt-3 text-center font-bold"></div>
+</div>
+</div>
+
+<div id="endScr" class="hidden cardm px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🧮</div>
+<h2 class="text-3xl font-black mb-5 text-[#2bb673]">خلص العد!</h2>
+<div id="finalScore" class="text-6xl font-black mb-3 text-[#2bb673]">٠</div>
+<p id="endMsg" class="opacity-75 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-mn px-12 py-3 text-lg">جولة جديدة ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const bestKey='mint-count-best';
+const SHAPES=['circle','square','triangle','star'];
+const NAMES={circle:'دوائر',square:'مربعات',triangle:'مثلثات',star:'نجوم'};
+const COLORS=['#3ecf8e','#59b7e8','#a78bfa','#fb923c','#f472b6'];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let round=0,score=0,combo=1,qTimer=null,ansTimer=null,revealT=0,over=true,ac=null,curAnswer=0;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+function shapeCss(kind,color,size){
+const base=`left:${Math.random()*82+4}%;top:${Math.random()*72+6}%;width:${size}px;height:${size}px;`;
+if(kind==='circle')return base+`background:${color};border-radius:50%`;
+if(kind==='square')return base+`background:${color};border-radius:22%;transform:rotate(${Math.random()*40-20}deg)`;
+if(kind==='triangle')return base+`background:${color};clip-path:polygon(50% 0,100% 100%,0 100%)`;
+return base+`background:${color};clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)`;
+}
+function newRound(){
+clearTimeout(ansTimer);
+if(round>=10)return finish();
+$('roundEl').textContent=AR(round+1);
+$('msg').textContent='';
+$('optsEl').classList.add('hidden');
+const arena=$('arena');
+arena.innerHTML='';
+const target=SHAPES[Math.floor(Math.random()*SHAPES.length)];
+const askType=Math.random()<.55&&round>1;
+const total=Math.min(13,4+round);
+let targetCount=0;
+for(let i=0;i<total;i++){
+const kind=SHAPES[Math.floor(Math.random()*SHAPES.length)];
+if(kind===target)targetCount++;
+const d=document.createElement('div');
+d.className='shape';
+d.style.cssText=shapeCss(kind,COLORS[Math.floor(Math.random()*COLORS.length)],20+Math.random()*14);
+arena.appendChild(d);
+}
+const flashMs=Math.max(430,1250-round*88);
+snd(700,.05,'sine',.04);
+setTimeout(()=>{
+[...arena.children].forEach(c=>c.remove());
+const q=document.createElement('div');
+q.className='qmark';q.textContent='؟';
+arena.appendChild(q);
+$('promptEl').textContent=askType?`كام ${NAMES[target]} شفت؟`:'كام شكل كان في المجموع؟';
+showOpts(askType?targetCount:total);
+revealT=performance.now();
+let qt=8;
+$('qtimeEl').textContent=AR(qt);
+clearInterval(qTimer);
+qTimer=setInterval(()=>{
+qt--;$('qtimeEl').textContent=AR(qt);
+if(qt<=0){clearInterval(qTimer);answer(-1);}
+},1000);
+},flashMs);
+}
+function showOpts(correct){
+curAnswer=correct;
+const opts=new Set([correct]);
+while(opts.size<4){
+let c=correct+(Math.floor(Math.random()*7)-3);
+if(c>=0&&c!==correct)opts.add(c);
+}
+const arr=[...opts].sort(()=>Math.random()-.5);
+const box=$('optsEl');
+box.innerHTML='';
+arr.forEach(v=>{
+const b=document.createElement('button');
+b.className='opt';b.textContent=AR(v);
+b.onclick=()=>answer(v);
+box.appendChild(b);
+});
+box.classList.remove('hidden');
+box.classList.remove('flex');void box.offsetWidth;box.classList.add('flex');
+}
+function answer(v){
+if(over||$('optsEl').classList.contains('hidden'))return;
+clearInterval(qTimer);clearTimeout(ansTimer);
+const panel=$('playScr').querySelector('.cardm');
+const isCorrect=v!==-1&&v===curAnswer;
+if(isCorrect){
+const speedMs=performance.now()-revealT;
+const speedBonus=Math.max(0,Math.round((2500-speedMs)/25));
+const gain=(100+speedBonus)*combo;
+score+=gain;
+combo=Math.min(3,combo+1);
+$('comboEl').textContent=AR(combo);
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`✅ صح! +${AR(gain)}`;
+$('msg').style.color='#2bb673';
+snd(720,.09);setTimeout(()=>snd(960,.11),90);
+}else{
+panel.classList.add('shake');
+setTimeout(()=>panel.classList.remove('shake'),320);
+combo=1;$('comboEl').textContent='١';
+$('msg').textContent=v===-1?'⏰ الوقت خلص!':'❌ غلط…';
+$('msg').style.color='#e05252';
+snd(160,.2,'sawtooth',.05);
+}
+round++;
+ansTimer=setTimeout(newRound,1100);
+}
+function finish(){
+over=true;
+clearInterval(qTimer);clearTimeout(ansTimer);
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+const v=+localStorage.getItem(bestKey)||0;
+let m=score>=1800?'عين صقر وذاكرة فوتوغرافية 🦅':score>=900?'عدّاد متمكن 👌':'الومضة أسرع منك المرة دي 😅';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+[600,800,1050].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.05),i*140));
+}
+function start(){
+round=0;score=0;combo=1;over=false;
+$('scoreEl').textContent='٠';$('comboEl').textContent='١';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+snd(520,.1,'triangle',.05);
+newRound();
+}
+</script>
+</body>
+</html>

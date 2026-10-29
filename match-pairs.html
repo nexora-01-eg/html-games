@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>وصل الزوجين</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-orange-900 min-h-screen flex items-center justify-center font-sans"><div class="bg-white/10 backdrop-blur p-8 rounded-3xl w-full max-w-md text-center text-white">
+<div class="text-3xl font-bold mb-1">🌙 وصل الزوجين</div>
+<div id="bestDisp" class="text-orange-300 text-sm mb-4"></div>
+<div id="startScreen">
+<button onclick="startGame()" class="mt-4 bg-orange-500 hover:bg-orange-400 px-8 py-4 rounded-xl text-xl font-bold transition">ابدأ</button>
+</div>
+<div id="gameScreen" class="hidden">
+<div class="flex justify-between text-sm mb-4"><span>⏱️ <span id="timer">0</span>s</span><span>التقاطات: <span id="moves">0</span></span><span>مطابقات: <span id="matched">0</span>/5</span></div>
+<div id="grid" class="grid grid-cols-4 gap-3 mb-4"></div>
+<div id="msg" class="h-6 text-lg font-bold"></div>
+</div>
+<div id="endScreen" class="hidden">
+<div class="text-4xl font-bold mb-4">🎉 أحسنت!</div>
+<div class="text-xl mb-2">الوقت: <span id="finalTime" class="text-yellow-300"></span>s</div>
+<div class="text-xl mb-2">التقاطات: <span id="finalMoves" class="text-yellow-300"></span></div>
+<div id="newBest" class="text-green-400 font-bold hidden">🏆 أفضل نتيجة!</div>
+<button onclick="startGame()" class="mt-4 bg-orange-500 hover:bg-orange-400 px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div><script>
+const PAIRS=[['🌙','ليل'],['☀️','نهار'],['🍎','شجرة'],['🐟','بحر'],['🐦','سماء']];
+let cards=[],selected=[],matchedCount=0,moves=0,timerVal=0,timerInt=null,best=999,actx=null;try{best=+(localStorage.getItem('match-pairs-best'))||999;}catch(e){}
+function playSound(f,d,t){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();let ctx=actx,o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}catch(e){}}
+function updateBest(){document.getElementById('bestDisp').textContent=best<999?'أفضل نتيجة: '+best+'s':'';}
+updateBest();
+function startGame(){
+matchedCount=0;moves=0;selected=[];timerVal=0;
+clearInterval(timerInt);
+cards=[];
+PAIRS.forEach((p,i)=>{cards.push({id:i*2,emoji:p[0],text:p[1],pair:i});cards.push({id:i*2+1,emoji:p[1],text:p[0],pair:i});});
+cards.sort(()=>Math.random()-0.5);
+renderGrid();
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+document.getElementById('gameScreen').classList.remove('hidden');
+document.getElementById('matched').textContent='0';
+document.getElementById('moves').textContent='0';
+document.getElementById('msg').textContent='';
+timerInt=setInterval(()=>{timerVal++;document.getElementById('timer').textContent=timerVal;},1000);
+}
+function renderGrid(){
+let g=document.getElementById('grid');g.innerHTML='';
+cards.forEach((c,i)=>{
+let d=document.createElement('div');
+d.className='bg-orange-800/60 hover:bg-orange-700/60 w-full aspect-square rounded-xl flex flex-col items-center justify-center cursor-pointer text-2xl font-bold transition-all duration-200 select-none';
+if(c.matched){d.className+=' opacity-40 scale-90 cursor-default';d.innerHTML='<span class="text-2xl">'+c.emoji+'</span><span class="text-xs mt-1">'+c.text+'</span>';}
+else{d.innerHTML=c.revealed?'<span class="text-2xl">'+c.emoji+'</span><span class="text-xs mt-1">'+c.text+'</span>':'❓';
+d.onclick=()=>revealCard(i);}
+g.appendChild(d);
+});
+}
+function revealCard(i){
+if(cards[i].matched||cards[i].revealed||selected.length>=2)return;
+cards[i].revealed=true;selected.push(i);
+playSound(500+i*50,0.1);
+if(selected.length===2){
+moves++;document.getElementById('moves').textContent=moves;
+let a=cards[selected[0]],b=cards[selected[1]];
+if(a.pair===b.pair){
+a.matched=true;b.matched=true;matchedCount++;
+document.getElementById('matched').textContent=matchedCount;
+playSound(800,0.3);
+document.getElementById('msg').innerHTML='<span class="text-green-400">مطابقة!</span>';
+setTimeout(()=>{document.getElementById('msg').textContent='';},800);
+selected=[];
+if(matchedCount===5){clearInterval(timerInt);setTimeout(endGame,600);}
+}else{
+document.getElementById('msg').innerHTML='<span class="text-red-400">لا تتطابق</span>';
+setTimeout(()=>{a.revealed=false;b.revealed=false;selected=[];renderGrid();},600);
+}
+renderGrid();
+}
+}
+function endGame(){
+document.getElementById('gameScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.remove('hidden');
+document.getElementById('finalTime').textContent=timerVal;
+document.getElementById('finalMoves').textContent=moves;
+let score=timerVal+moves;
+let isNew=score<best;
+if(isNew){best=score;try{localStorage.setItem('match-pairs-best',best);}catch(e){}document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+}
+</script></body></html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>امسك الحروف</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+@keyframes fall{from{transform:translateY(-60px)}to{transform:translateY(560px)}}
+@keyframes floaty{0%{transform:translateY(0)}50%{transform:translateY(-14px)}100%{transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(0.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.lev{position:absolute;animation:floaty 5s ease-in-out infinite;opacity:0.15;color:#fff}
+.fall{position:absolute;top:0;font-size:42px;font-weight:bold;color:#fff;text-shadow:0 3px 10px rgba(0,0,0,0.4);animation:fall linear forwards}
+.popped{animation:pop 0.25s ease-out forwards}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-indigo-900 via-purple-800 to-fuchsia-800 text-white overflow-hidden">
+<canvas id="bgCanvas" class="fixed inset-0 -z-10"></canvas>
+
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black tracking-wide">امسك الحروف</h1>
+  <p class="text-xl text-purple-200 max-w-lg leading-relaxed">الحروف تتساقط! امسك الحروف الصحيحة التي تكوّن الكلمة المطلوبة، وتجنّب الحروف الخاطئة.</p>
+  <div class="bg-purple-600/40 rounded-2xl p-5 backdrop-blur">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-purple-200">حد ٣ أخطاء فقط!</p>
+  </div>
+  <button onclick="startGame()" class="bg-fuchsia-500 hover:bg-fuchsia-400 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ اللعب</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen relative flex flex-col items-center p-4">
+  <div class="w-full max-w-3xl flex items-center justify-between bg-purple-700/50 rounded-2xl px-6 py-3 backdrop-blur mt-2">
+    <div class="text-center"><p class="text-xs text-purple-200">النقاط</p><p id="score" class="text-2xl font-black">0</p></div>
+    <div class="text-center"><p class="text-xs text-purple-200">الكلمة</p><p id="target" class="text-2xl font-black tracking-widest"></p></div>
+    <div class="text-center"><p class="text-xs text-purple-200">الأخطاء</p><p id="misses" class="text-2xl font-black text-red-300">0 / 3</p></div>
+  </div>
+  <p id="progress" class="mt-3 text-purple-200 text-sm">حروف ممسوكة:</p>
+  <p id="caught" class="text-2xl font-bold tracking-widest h-9"></p>
+
+  <div id="fallArea" class="relative w-full max-w-3xl h-[60vh] mt-6 border-4 border-dashed border-purple-400/50 rounded-3xl overflow-hidden bg-purple-900/40"></div>
+
+  <button id="resetBtn" onclick="resetGame()" class="hidden mt-5 bg-purple-500 hover:bg-purple-400 font-bold px-8 py-3 rounded-full transition shadow">العب مرة أخرى</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 id="finishTitle" class="text-5xl font-black">انتهت اللعبة</h1>
+  <p id="finishMsg" class="text-xl text-purple-200"></p>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-purple-300">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <button onclick="resetGame()" class="bg-fuchsia-500 hover:bg-fuchsia-400 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+let ctx,bgW,bgH;
+let letters='ابتثجحخدذرزسشصضطظعغفقكلمنهوية';
+let words=['باب','قمر','حلم','كتاب','وردة','نجمة','مسجد','شمس','قلب','بحر'];
+let currentWord,currentIndex,targetChars,falling=[],score,misses,level;
+let grease=[];
+const caughtEl=$('caught'),targetEl=$('target'),scoreEl=$('score'),missEl=$('misses');
+let best=0;try{best=+localStorage.getItem('letter-catch-best')||0;}catch(e){}
+$('startBest').textContent=best;$('finishBest').textContent=best;
+function $(id){return document.getElementById(id)}
+let actx=null;
+function tone(f,dur,type='sine',vol=0.2){
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+  let o=actx.createOscillator(),g=actx.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(actx.destination);
+  g.gain.setValueAtTime(vol,actx.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,actx.currentTime+dur);
+  o.start();o.stop(actx.currentTime+dur);}catch(e){}
+}
+function setupBg(){
+  bgCanvas.width=innerWidth;bgCanvas.height=innerHeight;
+  ctx=bgCanvas.getContext('2d');bgW=innerWidth;bgH=innerHeight;
+  let colors=['#f0abfc','#c084fc','#818cf8','#f472b6'];
+  grease=[];for(let i=0;i<22;i++){grease.push({x:Math.random()*bgW,y:Math.random()*bgH,r:Math.random()*60+20,c:colors[i%colors.length],d:0.3+Math.random()})}
+}
+function levBg(){
+  let div=$('fallArea');
+  for(let i=0;i<4;i++){let s=document.createElement('div');s.className='lev';
+    s.style.left=Math.random()*80+'%';s.style.top=(Math.random()*90)+'%';s.style.fontSize=(Math.random()*30+30)+'px';
+    s.textContent=letters[Math.floor(Math.random()*letters.length)];div.appendChild(s);}
+  setTimeout(()=>{while(div.firstChild){div.firstChild.remove()}},300);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');
+  $('finishScreen').classList.add('hidden');
+  $('playScreen').classList.remove('hidden');
+  $('resetBtn').classList.add('hidden');
+  score=0;level=0;scoreEl.textContent=0;
+  nextWord();
+}
+function nextWord(){
+  level++;
+  if(level>10){finish();return}
+  currentWord=words[(level-1)%words.length];
+  currentIndex=0;targetChars=currentWord.split('');
+  targetEl.textContent=currentWord;caughtEl.textContent='';misses=0;missEl.textContent='0 / 3';
+  levBg();
+  falling=[];startFalling();
+}
+function startFalling(){
+  if($('playScreen').classList.contains('hidden'))return;
+  let area=$('fallArea');
+  let rate=Math.max(900-1200,600);
+  let timer=setInterval(()=>{
+    if($('playScreen').classList.contains('hidden')){clearInterval(timer);return}
+    let span=document.createElement('div');span.className='fall';
+    let wantTarget=(currentIndex<targetChars.length && Math.random()<0.55);
+    let ch=wantTarget?targetChars[currentIndex]:letters[Math.floor(Math.random()*letters.length)];
+    span.textContent=ch;
+    span.style.left=(Math.random()*85)+'%';
+    let dur=(1.6+Math.random()*1.4+(level*0.06));
+    span.style.animationDuration=dur+'s';
+    span.dataset.ch=ch;
+    span.onclick=function(){catchLetter(this)};
+    area.appendChild(span);
+    falling.push({el:span,timeout:setTimeout(()=>{if(span.parentNode){span.remove()};
+      if(span.dataset.caught!=='1'&&span.dataset.valid==='true'){missLetter()}},dur*1000+50)});
+  },rate);
+}
+function catchLetter(span){
+  let ch=span.dataset.ch;
+  if(span.dataset.caught==='1')return;
+  span.dataset.caught='1';
+  if(ch===targetChars[currentIndex]){
+    span.style.animation='none';span.classList.add('popped');span.style.color='#86efac';
+    currentIndex++;score+=10;scoreEl.textContent=score;tone(600+currentIndex*120,0.15,'square',0.15);
+    caughtEl.textContent=currentWord.slice(0,currentIndex);
+    clearTimeout(span.timer);
+    let f=falling.find(x=>x.el===span);if(f)clearTimeout(f.timeout);
+    if(currentIndex===targetChars.length){setTimeout(nextWord,600);}
+  }else{
+    span.style.animation='none';span.classList.add('popped');span.style.color='#fca5a5';
+  }
+}
+function missLetter(){
+  misses++;missEl.textContent=misses+' / 3';score-=5;scoreEl.textContent=Math.max(0,score);
+  tone(200,0.3,'sawtooth',0.15);
+  if(misses>=3){finish();}
+}
+function resetGame(){
+  let area=$('fallArea');
+  falling.forEach(f=>{clearTimeout(f.timeout);if(f.el.parentNode)f.el.remove()});
+  falling=[];
+  while(area.firstChild){area.firstChild.remove()}
+  startGame();
+}
+function finish(){
+  falling.forEach(f=>{clearTimeout(f.timeout);if(f.el.parentNode)f.el.remove()});
+  falling=[];$('fallArea').innerHTML='';
+  if(score>best){best=score;try{localStorage.setItem('letter-catch-best',best);}catch(e){}}
+  $('finalScore').textContent=score;$('finishBest').textContent=best;
+  $('finishTitle').textContent=misses>=3?'خسرت!':'أحسنت!';
+  $('finishMsg').textContent=misses>=3?'تجاوزت حد الأخطاء الثلاثة':'أكملت كل الكلمات بنجاح!';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.add('hidden');
+  tone(400,0.3,'triangle',0.2);setTimeout(()=>tone(600,0.3,'triangle',0.2),150);
+}
+function drawBg(){
+  ctx.clearRect(0,0,bgW,bgH);
+  grease.forEach(g=>{g.y-=g.d;if(g.y<-g.r)g.y=bgH+g.r;
+    ctx.beginPath();ctx.arc(g.x,g.y,g.r,0,Math.PI*2);
+    ctx.globalAlpha=0.25;ctx.fillStyle=g.c;ctx.fill();ctx.globalAlpha=1;});
+  requestAnimationFrame(drawBg);
+}
+setupBg();drawBg();
+</script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ذهن ذهبي ✦</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#160d2b;color:#efe9ff;min-height:100vh}
+.nightbg{position:fixed;inset:0;background:radial-gradient(ellipse at 50% -20%,rgba(245,200,66,.13),transparent 50%),radial-gradient(ellipse at 15% 90%,rgba(124,77,255,.22),transparent 45%),radial-gradient(ellipse at 90% 80%,rgba(80,40,160,.25),transparent 45%)}
+.spark{position:absolute;color:#f5c842;opacity:.5;animation:tw 3s infinite}
+@keyframes tw{0%,100%{opacity:.15}50%{opacity:.75}}
+.panel{background:rgba(30,18,58,.85);border:1px solid rgba(245,200,66,.35);border-radius:1.4rem;box-shadow:0 16px 50px rgba(0,0,0,.45)}
+.gtitle{background:linear-gradient(180deg,#ffe9a3,#f5c842,#c9971f);-webkit-background-clip:text;background-clip:text;color:transparent}
+#stim{font-size:4.4rem;font-weight:900;line-height:1.2;text-shadow:0 0 26px currentColor}
+.cbtn{border-radius:1rem;font-weight:900;color:#fff;padding:.9rem .5rem;border:2px solid rgba(255,255,255,.28);transition:transform .1s,box-shadow .12s}
+.cbtn:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.4)}
+.cbtn:active{transform:scale(.96)}
+.goodring{box-shadow:0 0 0 4px #43aa8b!important}
+.badring{box-shadow:0 0 0 4px #e34b4b!important}
+.shake{animation:sh .3s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+#tfill{transition:width .1s linear;background:linear-gradient(90deg,#f5c842,#e8890c)}
+</style>
+</head>
+<body class="select-none">
+<div class="nightbg"></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="panel px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🧠</div>
+<h1 class="text-4xl md:text-5xl font-black gtitle mb-3">ذهن ذهبي</h1>
+<p class="leading-relaxed mb-2">ستظهر كلمة مكتوبة بلون معيّن…<br><b class="text-[#f5c842]">اختر لون الحِبر</b> الذي كُتبت به، وتجاهل معنى الكلمة نفسها!</p>
+<p class="text-sm opacity-60 mb-8">٣٠ ثانية · كل إجابة صحيحة ترفع الكومبو</p>
+<button onclick="start()" class="px-12 py-3 rounded-full font-black text-slate-900" style="background:linear-gradient(180deg,#ffe9a3,#f0be3d)">ابدأ ✦</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#f5c842]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="flex justify-between items-center mb-4 text-sm font-bold">
+<span class="panel px-4 py-1.5">⭐ <span id="scoreEl" class="text-[#f5c842]">0</span></span>
+<span class="panel px-4 py-1.5">🔥 <span id="comboEl">×0</span></span>
+<span class="panel px-4 py-1.5"><span id="secsEl" class="text-[#f5c842]">30</span>ث</span>
+<button id="pauseBtn" onclick="togglePause()" class="panel px-4 py-1.5 text-xs font-bold hover:opacity-80">إيقاف ⏸</button>
+</div>
+
+<div class="w-full h-2.5 rounded-full bg-white/10 overflow-hidden mb-8"><div id="tfill" class="h-full" style="width:100%"></div></div>
+
+<div id="stimWrap" class="panel py-10 mb-6 text-center transition-shadow duration-150">
+<div class="text-xs opacity-55 mb-3">ما لون حِبر هذه الكلمة؟</div>
+<div id="stim">أحمر</div>
+</div>
+
+<div id="opts" class="grid grid-cols-2 gap-3"></div>
+
+<div id="msg" class="h-8 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden panel px-14 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">👑</div>
+<h2 class="text-3xl font-black gtitle mb-6">انتهى الزمن!</h2>
+<div class="flex gap-10 justify-center mb-4">
+<div><div id="finalScore" class="text-5xl font-black text-[#f5c842]">0</div><div class="text-xs opacity-60 mt-1">النقاط</div></div>
+<div><div id="finalAcc" class="text-5xl font-black text-emerald-300">0%</div><div class="text-xs opacity-60 mt-1">الدقة</div></div>
+</div>
+<p id="endMsg" class="opacity-75 mb-8 mt-3"></p>
+<button onclick="start()" class="px-12 py-3 rounded-full font-black text-slate-900" style="background:linear-gradient(180deg,#ffe9a3,#f0be3d)">مرة ثانية ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const DUR=30,bestKey='midnight-stroop-best';
+const COLORS=[
+{name:'أحمر',hex:'#e34b4b'},
+{name:'أخضر',hex:'#3fa87c'},
+{name:'أزرق',hex:'#4a86e8'},
+{name:'أصفر',hex:'#e8b93c'}
+];
+let score=0,combo=0,rights=0,wrongs=0,tLeft=DUR,timer=null,answer='',over=false,ac=null,paused=false;
+function togglePause(){
+  if(over||$('playScr').classList.contains('hidden'))return;
+  paused=!paused;
+  const p=$('pauseBtn');
+  if(paused){
+    clearInterval(timer);
+    $('playScr').style.opacity='.4';
+    p.textContent='متابعة ▶';
+    $('msg').textContent='⏸ إيقاف مؤقت';
+    snd(400,.08,'square',.04);
+  }else{
+    $('playScr').style.opacity='1';
+    p.textContent='إيقاف ⏸';
+    $('msg').textContent='';
+    snd(500,.1,'triangle',.05);
+    timer=setInterval(()=>{
+      tLeft-=.1;
+      if(paused)return;
+      if(tLeft<=0)return finish();
+      $('secsEl').textContent=Math.ceil(tLeft);
+      $('tfill').style.width=(tLeft/DUR*100)+'%';
+    },100);
+  }
+}
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v||'—';}
+loadBest();
+const rnd=a=>Math.floor(Math.random()*a.length);
+for(const [x,y] of [[8,20],[88,15],[15,75],[92,70],[50,8],[78,45]]){
+const s=document.createElement('span');
+s.className='spark';s.textContent='✦';
+s.style.left=x+'vw';s.style.top=y+'vh';
+s.style.animationDelay=Math.random()*3+'s';
+document.body.appendChild(s);
+}
+function stim(){
+const word=COLORS[rnd(COLORS.length)];
+let ink=COLORS[rnd(COLORS.length)];
+if(Math.random()<.72&&ink.name===word.name)ink=COLORS[(COLORS.indexOf(ink)+1)%COLORS.length];
+const el=$('stim');
+el.textContent=word.name;
+el.style.color=ink.hex;
+answer=ink.name;
+}
+function buildOpts(){
+const box=$('opts');box.innerHTML='';
+[...COLORS].sort(()=>Math.random()-.5).forEach(c=>{
+const b=document.createElement('button');
+b.className='cbtn text-xl';
+b.style.background=c.hex;
+b.textContent=c.name;
+b.onclick=()=>pick(c.name);
+box.appendChild(b);
+});
+}
+function pick(name){
+if(over||paused)return;
+const w=$('stimWrap'),m=$('msg');
+if(name===answer){
+rights++;combo++;
+score+=10+combo*2;
+$('scoreEl').textContent=score;
+$('comboEl').textContent='×'+combo;
+m.textContent=combo>=3?`سلسلة ×${combo} 🔥`:'✓';
+m.style.color='#7fd8a8';
+w.classList.add('goodring');
+snd(700+Math.min(combo*40,500),.09,'triangle',.06);
+}else{
+wrongs++;combo=0;
+$('comboEl').textContent='×0';
+m.textContent='✗ هذا معنى الكلمة مو لونها!';
+m.style.color='#f0a3a3';
+w.classList.add('badring','shake');
+snd(140,.2,'sawtooth',.05);
+setTimeout(()=>$('stimWrap').classList.remove('shake'),320);
+}
+setTimeout(()=>w.classList.remove('goodring','badring'),140);
+stim();
+}
+function start(){
+  score=0;combo=0;rights=0;wrongs=0;tLeft=DUR;over=false;paused=false;
+  $('scoreEl').textContent='0';$('comboEl').textContent='×0';$('secsEl').textContent=DUR;
+  $('msg').textContent='';
+  $('playScr').style.opacity='1';
+  const pb=$('pauseBtn');if(pb)pb.textContent='إيقاف ⏸';
+  $('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+  $('playScr').classList.remove('hidden');
+  buildOpts();
+  stim();
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    if(paused)return;
+    tLeft-=.1;
+    if(tLeft<=0)return finish();
+    $('secsEl').textContent=Math.ceil(tLeft);
+    $('tfill').style.width=(tLeft/DUR*100)+'%';
+  },100);
+  snd(520,.1,'triangle',.05);
+}
+function finish(){
+clearInterval(timer);
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=score;
+const tot=rights+wrongs;
+$('finalAcc').textContent=(tot?Math.round(rights/tot*100):0)+'%';
+const v=+localStorage.getItem(bestKey)||0;
+let m=`${rights} إجابة صحيحة من ${tot}.`;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+v;
+$('endMsg').textContent=m;
+[659,784,1046].forEach((f,i)=>setTimeout(()=>snd(f,.16,'triangle',.05),i*130));
+}
+document.addEventListener('keydown',e=>{
+const i=['1','2','3','4'].indexOf(e.key);
+if(i>-1&&!over&&!paused&&!$('playScr').classList.contains('hidden')){
+const b=$('opts').children[i];
+if(b)b.click();
+}
+});
+</script>
+</body>
+</html>
