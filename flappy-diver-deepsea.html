@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>غوّاص الفقاعات 🐠</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#03202e}
+#stage{background:linear-gradient(180deg,#062e44,#0a4f63 60%,#0d6b72)}
+.bub{position:absolute;bottom:-50px;border-radius:9999px;background:rgba(255,255,255,.16);animation:riseK linear infinite;pointer-events:none}
+@keyframes riseK{to{transform:translateY(-640px)}}
+.pipe{position:absolute;width:64px;height:100%;display:flex;flex-direction:column;justify-content:space-between;will-change:left}
+.pcol{width:100%;background:linear-gradient(90deg,#0c5c46,#14936c,#0c5c46);border:4px solid #06342a;border-radius:12px;box-sizing:border-box}
+#fish{position:absolute;left:70px;font-size:34px;line-height:1;z-index:5;will-change:top}
+#fishIn{display:inline-block}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 text-cyan-50">
+<p class="text-xs tracking-widest text-cyan-300/70 mb-2">// غوّاص الفقاعات — لعبة القفز اللانهائية</p>
+
+<div id="stage" class="relative w-full max-w-md h-[520px] rounded-3xl overflow-hidden border-4 border-cyan-900/60 shadow-2xl select-none cursor-pointer">
+  <div id="pipes" class="absolute inset-0"></div>
+  <div id="fish"><span id="fishIn">🐠</span></div>
+  <div id="hud" class="absolute top-4 inset-x-0 text-center text-5xl font-black text-white/90 drop-shadow-[0_2px_6px_rgba(0,0,0,.6)] z-10 pointer-events-none">0</div>
+
+  <div id="readyOv" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-cyan-950/60 backdrop-blur-[2px] text-center p-6">
+    <div class="text-6xl mb-3">🐠</div>
+    <p class="font-bold text-lg mb-1">اضغط الشاشة أو المسافة لتطفو لأعلى</p>
+    <p class="text-sm opacity-80 mb-5">اعبر بين أعشاب البحر العملاقة… ولا تلمسها!</p>
+    <button id="goBtn" class="bg-cyan-500 hover:bg-cyan-400 text-cyan-950 font-black px-9 py-2.5 rounded-full shadow-lg active:scale-95 transition">اغمرني 🌊</button>
+  </div>
+
+  <div id="deadOv" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center bg-cyan-950/75 backdrop-blur-[2px] text-center p-6">
+    <div id="dIcon" class="text-6xl mb-2">💦</div>
+    <h2 class="text-2xl font-black mb-1">انتهت الرحلة!</h2>
+    <p class="text-5xl font-black my-4 text-cyan-300"><span id="dScore">0</span></p>
+    <p id="dRank" class="text-sm mb-6 opacity-90"></p>
+    <button id="againBtn" class="bg-cyan-500 hover:bg-cyan-400 text-cyan-950 font-black px-9 py-2.5 rounded-full shadow-lg active:scale-95 transition">غطسة جديدة 🔄</button>
+  </div>
+</div>
+<p class="text-[11px] text-cyan-300/60 mt-3">أفضل عمق: <span id="bestFoot">—</span> نقطة</p>
+
+<script>
+const $=function(id){return document.getElementById(id);};
+const stage=$('stage');
+const GRAV=1500,FLAP=-430,SPEED=135,GAP=178,PW=64,SPACING=255,FISH_X=78,FISH_S=36;
+let y=0,vy=0,pipes=[],score=0,alive=false,raf=null,lastT=null,paused=false;
+
+(function bubbles(){
+ for(let i=0;i<8;i++){
+   const b=document.createElement('span');
+   b.className='bub';
+   const s=6+Math.random()*12;
+   b.style.width=s+'px';b.style.height=s+'px';
+   b.style.left=(4+Math.random()*92)+'%';
+   b.style.animationDuration=(6+Math.random()*6)+'s';
+   b.style.animationDelay=(-Math.random()*8)+'s';
+   stage.appendChild(b);
+ }
+})();
+
+function H(){return stage.clientHeight;}
+
+function spawnPipe(x){
+ const gh=H();
+ const gapTop=60+Math.random()*(gh-GAP-160);
+ const el=document.createElement('div');
+ el.className='pipe';
+ el.style.left=x+'px';
+ el.innerHTML='<div class="pcol" style="height:'+gapTop+'px"></div><div class="pcol" style="height:'+(gh-gapTop-GAP)+'px"></div>';
+ $('pipes').appendChild(el);
+ pipes.push({el:el,x:x,gapTop:gapTop,passed:false});
+}
+
+function reset(){
+ y=H()/2-20;vy=-180;score=0;
+ pipes.forEach(function(p){p.el.remove();});
+ pipes=[];
+ const startX=stage.clientWidth+60;
+ spawnPipe(startX);spawnPipe(startX+SPACING);spawnPipe(startX+2*SPACING);
+ $('hud').textContent='0';
+ $('fish').style.top=y+'px';
+}
+
+function flap(){if(alive)vy=FLAP;}
+
+function frame(t){
+ if(lastT==null)lastT=t;
+ if(paused){lastT=t;raf=requestAnimationFrame(frame);return;}
+ const dt=Math.min((t-lastT)/1000,.033);lastT=t;
+ if(alive){
+   vy+=GRAV*dt;
+   y+=vy*dt;
+   pipes.forEach(function(p){
+     p.x-=SPEED*dt;
+     p.el.style.left=p.x+'px';
+     if(!p.passed&&p.x+PW<FISH_X){p.passed=true;score++;$('hud').textContent=score;}
+   });
+   if(pipes.length&&pipes[0].x<-PW-12){
+     const old=pipes.shift();old.el.remove();
+     const last=pipes[pipes.length-1];
+     spawnPipe(Math.max(last.x,stage.clientWidth)+SPACING);
+   }
+   if(y<-12||y>H()-FISH_S)die();
+   else{
+     for(let i=0;i<pipes.length;i++){
+       const p=pipes[i];
+       if(FISH_X+FISH_S>p.x&&FISH_X<p.x+PW){
+         if(y<p.gapTop||y+FISH_S>p.gapTop+GAP){die();break;}
+       }
+     }
+   }
+   $('fish').style.top=y+'px';
+   $('fishIn').style.transform='rotate('+Math.max(-25,Math.min(65,vy/6))+'deg)';
+   raf=requestAnimationFrame(frame);
+ }
+}
+
+function die(){
+ if(!alive)return;
+ alive=false;
+ cancelAnimationFrame(raf);
+ $('fishIn').textContent='💨';
+ setTimeout(function(){$('fishIn').textContent='🐠';},600);
+ showDead();
+}
+
+function showDead(){
+ $('dScore').textContent=score;
+ let best=0;try{best=Number(localStorage.getItem('deep-flappy-best')||0);}catch(e){}
+ let rec='';
+ if(score>best){try{localStorage.setItem('deep-flappy-best',score)}catch(e){}rec=' • رقم قياسي! 🏅';}
+ let r;
+ if(score>=15)r='🐳 أسطورة الأعماق!';
+ else if(score>=8)r='🐢 سبّاح ماهر';
+ else if(score>=3)r='🦐 صغير بيتعلم';
+ else r='🫧 فقاعة انفجرت بسرعة';
+ $('dRank').textContent=r+rec+' • الأفضل: '+Math.max(score,best);
+ $('bestFoot').textContent=Math.max(score,best);
+ $('deadOv').classList.remove('hidden');
+}
+
+function begin(){
+ $('readyOv').classList.add('hidden');
+ $('deadOv').classList.add('hidden');
+ cancelAnimationFrame(raf);
+ reset();
+ alive=true;lastT=null;
+ raf=requestAnimationFrame(frame);
+}
+
+stage.addEventListener('mousedown',function(){flap();});
+stage.addEventListener('touchstart',function(e){e.preventDefault();flap();},{passive:false});
+$('goBtn').addEventListener('click',function(e){e.stopPropagation();begin();});
+$('againBtn').addEventListener('click',function(e){e.stopPropagation();begin();});
+window.addEventListener('keydown',function(e){
+ if(e.code==='Space'||e.code==='ArrowUp'){
+   e.preventDefault();
+   if(!$('readyOv').classList.contains('hidden'))begin();
+   else flap();
+ }
+ if(e.key==='Escape'&&alive)paused=!paused;
+});
+
+(function(){let b;try{b=localStorage.getItem('deep-flappy-best');}catch(e){}if(b)$('bestFoot').textContent=b;})();
+reset();
+</script>
+</body>
+</html>

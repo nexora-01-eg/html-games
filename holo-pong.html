@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOLO·PONG 🌈</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#08080f;color:#eef0ff;
+background-image:radial-gradient(ellipse at 20% 0%,rgba(120,60,255,.22),transparent 55%),
+radial-gradient(ellipse at 85% 100%,rgba(0,220,255,.18),transparent 55%)}
+.holoboard{position:relative;border-radius:1.5rem;padding:3px;
+background:conic-gradient(from var(--a,0deg),#ff5ce1,#5cffe4,#5c8aff,#ffd45c,#ff5ce1);
+animation:hspin 6s linear infinite}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes hspin{to{--a:360deg}}
+.chiph{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);border-radius:999px;
+padding:.28rem 1rem;font-weight:800;font-size:.88rem;backdrop-filter:blur(6px)}
+.btnh{background:linear-gradient(90deg,#ff5ce1,#5c8aff);color:#fff;font-weight:900;border-radius:999px;
+padding:.6rem 2.2rem;box-shadow:0 0 24px rgba(150,110,255,.5);transition:all .09s}
+.btnh:hover{filter:brightness(1.12)}
+.btnh:active{transform:translateY(3px)}
+.overlayh{position:absolute;inset:3px;border-radius:calc(1.5rem - 3px);background:rgba(8,8,15,.86);
+display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:6;text-align:center;padding:1rem;backdrop-filter:blur(4px)}
+canvas{display:block;border-radius:calc(1.5rem - 3px);background:#0b0b18;touch-action:none}
+.shake{animation:sh .3s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-4">
+<h1 class="text-4xl font-black bg-clip-text text-transparent"
+style="background-image:linear-gradient(90deg,#ff5ce1,#5cffe4,#ffd45c)">HOLO·PONG 🌈</h1>
+<p class="text-sm mt-1 opacity-60">أول من يوصل لـ <b>٧ نقاط</b> يكسب · حرّك بالماس أو الأسهم</p>
+</header>
+
+<div class="flex gap-2 justify-center mb-3">
+<span class="chiph">أنت <span id="psEl" class="text-[#5cffe4] font-black">٠</span></span>
+<span class="chiph">CPU <span id="csEl" class="text-[#ff5ce1] font-black">٠</span></span>
+<span class="chiph">🔥 سلسلة <span id="stkEl" class="font-black">٠</span></span>
+<span class="chiph">🏆 أفضل سلسلة <span id="bestEl" class="font-black">—</span></span>
+</div>
+
+<div class="holoboard">
+<canvas id="cv" width="430" height="460"></canvas>
+
+<div id="startOv" class="overlayh">
+<div class="text-5xl mb-2">🌈</div>
+<div class="text-xl font-black mb-1">تحدي الهولوجرام</div>
+<p class="text-sm opacity-70 mb-4 leading-relaxed">الذكاء بيتوقع حركة الكورة…<br>زاوية الارتداد من مكان اللمس على المضرب!</p>
+<button onclick="start()" class="btnh px-10 py-2.5">ابدأ المباراة ▸</button>
+</div>
+
+<div id="endOv" class="overlayh hidden">
+<div class="text-5xl mb-2" id="eIcon">🏆</div>
+<div class="text-xl font-black mb-1" id="eTitle"></div>
+<p class="text-sm opacity-75 mb-4" id="eMsg"></p>
+<button onclick="start()" class="btnh px-8 py-2.5">مباراة جديدة ↻</button>
+</div>
+
+<div id="pauseOv" class="overlayh hidden">
+<div class="text-5xl mb-2">⏸</div>
+<div class="text-xl font-black mb-4">إيقاف مؤقت</div>
+<button onclick="togglePause()" class="btnh px-8 py-2.5">استئناف ▸</button>
+</div>
+</div>
+
+<p class="mt-4 text-xs opacity-40">كل تبديل بيزود سرعة الكورة… ركّز قبل ما تتحول لمذنب ☄️</p>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='holo-pong-streak';
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const W=cv.width,H=cv.height,PW=86,PH=12,AIY=16,MYY=H-PHY();
+function PHY(){return H-28;}
+let px=W/2,ax=W/2,tgt=null,ball=null,trail=[],pScore=0,cScore=0,streak=0,
+serveT=0,rally=0,lastTs=0,raf=null,over=true,keys={},ac=null,paused=false;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestEl').textContent=v?AR(v):'—';}catch(e){$('bestEl').textContent='—';}}
+loadBest();
+function serve(toPlayer){
+rally=0;
+ball={x:W/2,y:H/2,vx:(Math.random()-.5)*160,vy:(toPlayer?1:-1)*(250+Math.random()*60)};
+trail=[];
+}
+function start(){
+pScore=0;cScore=0;over=false;keys={};paused=false;
+$('psEl').textContent='٠';$('csEl').textContent='٠';
+$('startOv').classList.add('hidden');$('endOv').classList.add('hidden');$('pauseOv').classList.add('hidden');
+px=ax=W/2;tgt=null;
+serve(true);
+lastTs=performance.now();
+cancelAnimationFrame(raf);
+raf=requestAnimationFrame(tick);
+snd(600,.12);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+if(paused){cancelAnimationFrame(raf);$('pauseOv').classList.remove('hidden');}
+else{$('pauseOv').classList.add('hidden');lastTs=performance.now();raf=requestAnimationFrame(tick);}
+}
+function tick(ts){
+if(over||paused)return;
+const dt=Math.min(.033,((ts-lastTs)||16)/1000);
+lastTs=ts;
+if(keys.l)px-=480*dt;
+if(keys.r)px+=480*dt;
+if(tgt!==null)px+=(tgt-px)*Math.min(1,dt*13);
+px=Math.max(PW/2,Math.min(W-PW/2,px));
+const err=Math.sin(ts/300)*26;
+const aim=(ball.vy<0&&ball)?ball.x+err:W/2+Math.sin(ts/700)*30;
+ax+=Math.max(-330*dt,Math.min(330*dt,aim-ax));
+ax=Math.max(PW/2,Math.min(W-PW/2,ax));
+ball.x+=ball.vx*dt;
+ball.y+=ball.vy*dt;
+if(ball.x<8){ball.x=8;ball.vx=Math.abs(ball.vx);snd(520,.04);}
+if(ball.x>W-8){ball.x=W-8;ball.vx=-Math.abs(ball.vx);snd(520,.04);}
+if(ball.vy<0&&ball.y<=AIY+PH+9&&ball.y>AIY&&Math.abs(ball.x-ax)<=PW/2+8){
+ball.y=AIY+PH+9;
+const off=(ball.x-ax)/(PW/2);
+const sp=Math.min(640,Math.hypot(ball.vx,ball.vy)+16+rally*2);
+ball.vx=off*sp*.78;
+ball.vy=Math.abs(Math.sqrt(Math.max(sp*sp-(off*sp*.78)**2,(sp*.35)**2)));
+rally++;
+snd(420,.05);
+}
+if(ball.vy>0&&ball.y>=PHY()-PH-9&&ball.y<=PHY()&&Math.abs(ball.x-px)<=PW/2+8){
+ball.y=PHY()-PH-9;
+const off=(ball.x-px)/(PW/2);
+const sp=Math.min(640,Math.hypot(ball.vx,ball.vy)+16+rally*2);
+ball.vx=off*sp*.78;
+ball.vy=-Math.abs(Math.sqrt(Math.max(sp*sp-(off*sp*.78)**2,(sp*.35)**2)));
+rally++;
+snd(340,.05,'square');
+}
+trail.push({x:ball.x,y:ball.y,t:.32});
+trail.forEach(p=>p.t-=dt);
+trail=trail.filter(p=>p.t>0);
+if(trail.length>26)trail.splice(0,trail.length-26);
+renderFrame(ts);
+if(ball.y<-14)return point('cpu');
+if(ball.y>H+14)return point('you');
+raf=requestAnimationFrame(tick);
+}
+function renderFrame(ts){
+cx.clearRect(0,0,W,H);
+const hue=(ts/22)%360;
+cx.strokeStyle='rgba(255,255,255,.09)';
+cx.setLineDash([8,10]);
+cx.beginPath();cx.moveTo(0,H/2);cx.lineTo(W,H/2);cx.stroke();
+cx.setLineDash([]);
+trail.forEach((p,i)=>{
+cx.globalAlpha=p.t/.32*.5;
+cx.fillStyle=`hsl(${(hue+i*9)%360},95%,65%)`;
+cx.beginPath();cx.arc(p.x,p.y,7*(p.t/.32),0,7);cx.fill();
+});
+cx.globalAlpha=1;
+cx.shadowColor=`hsl(${hue%360},95%,62%)`;
+cx.shadowBlur=18;
+cx.fillStyle=`hsl(${hue%360},95%,68%)`;
+cx.beginPath();cx.arc(ball.x,ball.y,8,0,7);cx.fill();
+cx.shadowBlur=0;
+cx.fillStyle=`hsl(${(hue+140)%360},90%,66%)`;
+rr(ax-PW/2,AIY,PW,PH,6);cx.fill();
+cx.fillStyle='#5cffe4';
+rr(px-PW/2,PHY()-PH,PW,PH,6);cx.fill();
+cx.font='900 46px sans-serif';cx.textAlign='center';
+cx.fillStyle='rgba(255,255,255,.07)';
+cx.fillText(AR(cScore),W/2,H/2-34);
+cx.fillText(AR(pScore),W/2,H/2+72);
+}
+function rr(x,y,w,h,r){
+cx.beginPath();
+cx.moveTo(x+r,y);
+cx.arcTo(x+w,y,x+w,y+h,r);
+cx.arcTo(x+w,y+h,x,y+h,r);
+cx.arcTo(x,y+h,x,y,r);
+cx.arcTo(x,y,x+w,y,r);
+cx.closePath();
+}
+function point(w){
+snd(w==='you'?720:180,.2,'triangle',.06);
+document.querySelector('.holoboard').classList.add('shake');
+setTimeout(()=>document.querySelector('.holoboard').classList.remove('shake'),320);
+if(w==='you'){pScore++;$('psEl').textContent=AR(pScore);}else{cScore++;$('csEl').textContent=AR(cScore);}
+if(pScore>=7||cScore>=7)return finish();
+serve(w==='cpu');
+lastTs=performance.now();
+raf=requestAnimationFrame(tick);
+}
+function finish(){
+over=true;
+cancelAnimationFrame(raf);
+const wonF=pScore>cScore;
+if(wonF){streak++;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+if(streak>v){try{localStorage.setItem(bestKey,streak);}catch(e){}}
+loadBest();
+}else streak=0;
+$('stkEl').textContent=AR(streak);
+$('eIcon').textContent=wonF?'🏆':'🤖';
+$('eTitle').textContent=wonF?'كسبت الهولوجرام!':'الآلة كسبت الليلة';
+$('eMsg').innerHTML=`${AR(pScore)} — ${AR(cScore)}${wonF?' 🔥 سلسلتك: '+AR(streak):''}`;
+$('endOv').classList.remove('hidden');
+[wonF?700:300,wonF?900:200].forEach((f,i)=>setTimeout(()=>snd(f,.18),i*160));
+}
+cv.addEventListener('pointermove',e=>{
+const r=cv.getBoundingClientRect();
+tgt=(e.clientX-r.left)*(W/r.width);
+});
+cv.addEventListener('pointerdown',()=>{tgt=null;});
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'&&!over)return togglePause();
+if(e.key==='ArrowLeft'){keys.l=true;tgt=null;}
+if(e.key==='ArrowRight'){keys.r=true;tgt=null;}
+});
+document.addEventListener('keyup',e=>{
+if(e.key==='ArrowLeft')keys.l=false;
+if(e.key==='ArrowRight')keys.r=false;
+});
+window.addEventListener('blur',()=>{keys.l=false;keys.r=false;if(!over&&!paused){paused=true;cancelAnimationFrame(raf);$('pauseOv').classList.remove('hidden');}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&!over&&!paused){paused=true;cancelAnimationFrame(raf);$('pauseOv').classList.remove('hidden');}});
+</script>
+</body>
+</html>

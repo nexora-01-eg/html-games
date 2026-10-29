@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>زخرفة الفلاور باور 🌼</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fbeed3;color:#7f4f24;min-height:100vh}
+.sunburst{position:fixed;top:-160px;left:-160px;width:420px;height:420px;border-radius:50%;background:repeating-conic-gradient(#e85d04 0 12deg,#f2a71b 12deg 24deg);opacity:.22}
+.flower{position:absolute;font-size:1.5rem;animation:bob 3.4s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-9px) rotate(8deg)}}
+.card{background:#fff8ea;border:3px solid #7f4f24;border-radius:1.6rem;box-shadow:7px 7px 0 #c47f17}
+.tile{aspect-ratio:1;border-radius:.8rem;border:3px solid #b5834a;background:#fdf0d5;cursor:pointer;transition:transform .08s,background .15s;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.tile:hover:not(.locked){transform:scale(1.06)}
+.tile.flash{background:#e85d04;border-color:#7f4f24;box-shadow:0 0 16px rgba(232,93,4,.55)}
+.tile.marked{background:#ffca3a;border-color:#7f4f24}
+.tile.right{background:#8ac926!important;border-color:#52796f!important}
+.tile.wrongpick{background:#d1495b!important;color:#fff}
+.btn-groove{background:#d2691e;color:#fff8ea;border-radius:999px;font-weight:900;box-shadow:0 6px 0 #8a4513;transition:all .09s}
+.btn-groove:hover{filter:brightness(1.08)}
+.btn-groove:active{transform:translateY(4px);box-shadow:0 2px 0 #8a4513}
+h1{text-shadow:3px 3px 0 #f2a71b}
+.shake{animation:sh .4s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+</style>
+</head>
+<body class="select-none">
+<div class="sunburst"></div>
+<span class="flower" style="top:10%;right:8%">🌻</span>
+<span class="flower" style="top:24%;left:6%">🌼</span>
+<span class="flower" style="bottom:14%;right:12%;animation-delay:.8s">🌸</span>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="card px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🌼</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3">زخرفة الفلاور باور</h1>
+<p class="leading-relaxed mb-2">نمط أزهار سيومض على الشبكة لثانية…<br>احفظ مكانه ثم اضغط الخلايا نفسها!</p>
+<p class="text-sm opacity-65 mb-8">كل جولة يكبر النمط زهرة إضافية · عندك ٣ قلوب 💛</p>
+<button onclick="start()" class="btn-groove px-14 py-3.5 text-xl">يلا نزرع! 🌻</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#d2691e]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="flex justify-between items-center mb-4 text-sm font-bold px-1 flex-wrap gap-1">
+<span>الجولة <span id="rEl" class="text-[#d2691e]">١</span></span>
+<span id="phaseEl" class="text-base">👀 شوف الزهور</span>
+<span id="heartsEl">💛💛💛</span>
+</div>
+
+<div class="card p-4">
+<div id="gridEl" class="grid gap-2" style="grid-template-columns:repeat(6,minmax(0,1fr))"></div>
+<div class="text-center mt-3 text-sm"><span class="opacity-60">حدد:</span> <b id="cntEl">٠/٣</b></div>
+</div>
+
+<div id="msg" class="h-9 mt-4 text-center font-black text-lg"></div>
+
+<button onclick="checkNow()" id="okBtn" class="btn-groove hidden mx-auto mt-1 px-10 py-2.5">تحقق ✓</button>
+</div>
+
+<div id="endScr" class="hidden card px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🥀</div>
+<h2 class="text-3xl font-black mb-4">ذبلت الأزهار!</h2>
+<div id="finalScore" class="text-6xl font-black text-[#d2691e] mb-3">٠</div>
+<p id="endMsg" class="opacity-75 mb-8"></p>
+<button onclick="start()" class="btn-groove px-12 py-3 text-lg">ازرع من جديد ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const GRID=36,LIVES=3,bestKey='groovy-pattern-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let round=0,lives=LIVES,score=0,pattern=[],marks=new Set(),phase='watch',over=true,tmo=null,ac=null,paused=false,perfects=0;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function togglePause(){
+if(over)return;
+paused=!paused;
+if(paused){clearTimeout(tmo);$('phaseEl').textContent='⏸ إيقاف مؤقت';$('msg').textContent='اضغط Esc للاستمرار';$('msg').style.color='#d2691e';}
+else{if(phase==='watch'){phase='recall';$('phaseEl').textContent='✍️ ارسمها من ذاكرتك';render();snd(380,.12,'triangle',.04);}else{$('phaseEl').textContent='✍️ ارسمها من ذاكرتك';render();}}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!over)togglePause();});
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v?AR(v):'—';}catch(e){$('bestStart').textContent='—';}}
+loadBest();
+const heartsTxt=()=>'💛'.repeat(lives)+'🤍'.repeat(LIVES-lives);
+function buildGrid(){
+const g=$('gridEl');g.innerHTML='';
+for(let i=0;i<GRID;i++){
+const d=document.createElement('button');
+d.className='tile';
+d.onclick=()=>tapTile(i,d);
+g.appendChild(d);
+}
+}
+buildGrid();
+function start(){
+round=0;lives=LIVES;score=0;over=false;perfects=0;paused=false;
+if(tmo)clearTimeout(tmo);
+if(autoCheck){clearTimeout(autoCheck);autoCheck=null;}
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+nextRound();
+}
+function nextRound(){
+clearTimeout(tmo);
+round++;
+$('rEl').textContent=AR(round);
+pattern=[];
+const n=Math.min(3+round-1+Math.floor(round/3),12);
+while(pattern.length<n){
+const k=Math.floor(Math.random()*GRID);
+if(!pattern.includes(k))pattern.push(k);
+}
+marks.clear();
+phase='watch';
+$('phaseEl').textContent='👀 شوف الزهور';
+$('msg').textContent='';
+$('okBtn').classList.add('hidden');
+render();
+snd(500,.16,'sine',.04);
+tmo=setTimeout(()=>{
+phase='recall';
+$('phaseEl').textContent='✍️ ارسمها من ذاكرتك';
+render();
+snd(380,.12,'triangle',.04);
+},1500);
+}
+function render(){
+[...$('gridEl').children].forEach((d,i)=>{
+d.className='tile'+(phase==='watch'&&pattern.includes(i)?' flash':'')+(marks.has(i)?' marked':'');
+if(phase==='watch')d.classList.add('locked');
+d.textContent=(phase==='watch'&&pattern.includes(i))||(marks.has(i))?'🌼':'';
+});
+$('cntEl').textContent=`${AR(marks.size)}/${AR(pattern.length)}`;
+$('okBtn').classList.toggle('hidden',!(phase==='recall'&&marks.size===pattern.length));
+}
+let autoCheck=null;
+function tapTile(i){
+if(over||phase!=='recall'||paused)return;
+if(marks.has(i)){marks.delete(i);if(autoCheck){clearTimeout(autoCheck);autoCheck=null;}snd(300,.06,'square',.03);}
+else{
+if(marks.size>=pattern.length)return;
+marks.add(i);snd(560,.07,'triangle',.05);
+}
+render();
+if(marks.size===pattern.length){if(autoCheck)clearTimeout(autoCheck);autoCheck=setTimeout(checkNow,250);}
+}
+function checkNow(){
+if(over||phase!=='recall'||marks.size!==pattern.length||paused)return;
+if(autoCheck){clearTimeout(autoCheck);autoCheck=null;}
+let right=0;
+[...$('gridEl').children].forEach((d,i)=>{
+const inP=pattern.includes(i),mk=marks.has(i);
+if(inP&&mk){right++;d.classList.add('right');d.textContent='🌼';}
+else if(mk&&!inP){d.classList.add('wrongpick');d.textContent='🥀';}
+else if(inP&&!mk){d.classList.add('flash');d.textContent='🌼';}
+});
+score+=right*20;
+const perfect=right===pattern.length;
+if(perfect){
+perfects++;
+score+=50;
+$('msg').textContent=`زبروجة كاملة! 🌟 +${AR(right*20+50)}`;
+$('msg').style.color='#8ac926';
+[700,900].forEach((f,i)=>setTimeout(()=>snd(f,.12,'triangle',.05),i*100));
+}else{
+lives--;
+$('msg').textContent=`${AR(right)} صح · قلب انكسر 💔`;
+$('msg').style.color='#d1495b';
+snd(150,.3,'sawtooth',.05);
+document.querySelector('#playScr .card').classList.add('shake');
+setTimeout(()=>document.querySelector('#playScr .card').classList.remove('shake'),450);
+}
+score=Math.max(0,score);
+updateHud();
+setTimeout(()=>{
+if(lives<=0)finish();
+else nextRound();
+},perfect?900:1700);
+}
+function updateHud(){
+$('heartsEl').textContent=heartsTxt();
+}
+function finish(){
+over=true;paused=false;
+if(tmo)clearTimeout(tmo);
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m='وصلت للجولة '+AR(round)+' · جولات كاملة: '+AR(perfects)+'.';
+try{if(score>v&&score>0){localStorage.setItem(bestKey,score);m+=' رقم قياسي جديد 🏆';loadBest();}}catch(e){}
+if(v&&score<=v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+[520,400].forEach((f,i)=>setTimeout(()=>snd(f,.2,'triangle',.04),i*150));
+}
+</script>
+</body>
+</html>

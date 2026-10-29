@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حارس الحديقة 🪴</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#eaf3e6;color:#2f4838;min-height:100vh;overflow-x:hidden}
+.leaf{position:absolute;font-size:1.7rem;opacity:.65;animation:sway 4.5s ease-in-out infinite}
+@keyframes sway{50%{transform:rotate(-12deg)}}
+.card{background:#ffffff;border:2px solid #b7cdb0;border-radius:1.6rem;box-shadow:0 10px 30px rgba(58,90,64,.14)}
+.hole{position:relative;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 42%,#4a3728,#2e2118 70%);border:6px solid #8d6b4b;box-shadow:inset 0 8px 14px rgba(0,0,0,.45);cursor:pointer;overflow:hidden}
+.occ{position:absolute;inset:auto 0 6px 0;text-align:center;font-size:2.3rem;line-height:1;transform:translateY(110%);transition:transform .13s ease-out}
+.occ.up{transform:translateY(-8%)}
+.bon{filter:drop-shadow(0 0 8px rgba(255,200,60,.85))}
+.plus{position:absolute;font-weight:900;pointer-events:none;animation:fup .55s ease-out forwards;font-size:1.05rem}
+@keyframes fup{to{transform:translateY(-30px);opacity:0}}
+#tfill{transition:width .1s linear;background:#6a994e}
+.btn-g{background:#588157;color:#fff;border-radius:999px;font-weight:900;box-shadow:0 6px 0 #3a5a40;transition:all .09s}
+.btn-g:hover{filter:brightness(1.09)}
+.btn-g:active{transform:translateY(4px);box-shadow:0 2px 0 #3a5a40}
+.chipg{background:#f1f7ee;border:1.5px solid #b7cdb0;border-radius:999px;padding:.3rem 1rem;font-weight:800;font-size:.85rem}
+</style>
+</head>
+<body class="select-none">
+<span class="leaf" style="top:5%;left:6%">🌿</span>
+<span class="leaf" style="top:12%;right:7%;animation-delay:.7s">🍃</span>
+<span class="leaf" style="bottom:8%;left:9%;animation-delay:1.3s">🪴</span>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="card px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🐹</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3 text-[#3a5a40]">حارس الحديقة</h1>
+<p class="leading-relaxed mb-2">قوارض تتسلل من الأصص…<br><b>اضغطها قبل ما تختفي!</b></p>
+<p class="text-sm opacity-65 mb-8">🐞 الخنفساء الذهبية = <b>٣٠ نقطة</b> وتظهر لحظات معدودة<br>٣٠ ثانية · كل طرقة صح <b>+١٠</b></p>
+<button onclick="start()" class="btn-g px-14 py-3.5 text-xl">احرس الحديقة 🌱</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#588157]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-sm">
+<div class="flex justify-between items-center mb-4 flex-wrap gap-1.5">
+<span class="chipg">⭐ <span id="scoreEl" class="text-[#588157] font-black">٠</span></span>
+<span class="chipg">🔥 <span id="comboEl">×١</span></span>
+<span class="chipg">⏱ <span id="secsEl" class="text-[#3a5a40] font-black">30</span>ث</span>
+</div>
+<div class="w-full h-3 rounded-full bg-white overflow-hidden mb-4 border border-[#b7cdb0]"><div id="tfill" class="h-full" style="width:100%"></div></div>
+<div id="gridEl" class="grid grid-cols-3 gap-3.5"></div>
+<div id="msg" class="h-8 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden card px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🌱</div>
+<h2 class="text-3xl font-black mb-5 text-[#3a5a40]">الحديقة بأمان!</h2>
+<div class="flex gap-8 justify-center mb-4">
+<div><div id="finalScore" class="text-4xl font-black text-[#588157]">٠</div><div class="text-xs opacity-60 mt-1">النقاط</div></div>
+<div><div id="finalHits" class="text-4xl font-black text-emerald-500">٠</div><div class="text-xs opacity-60 mt-1">طرقات</div></div>
+<div><div id="finalMiss" class="text-4xl font-black text-amber-600">٠</div><div class="text-xs opacity-60 mt-1">هربوا</div></div>
+</div>
+<p id="endMsg" class="opacity-70 mb-8"></p>
+<button onclick="start()" class="btn-g px-12 py-3 text-lg">نوبة حراسة ثانية ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const DUR=30,bestKey='botanical-mole-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let score=0,combo=0,hits=0,missed=0,tLeft=DUR,timer=null,spawner=null,over=true,ac=null,paused=false,spawnLeft=0;
+const occ=[];
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.06,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+(function build(){
+const g=$('gridEl');
+for(let i=0;i<9;i++){
+const h=document.createElement('button');
+h.className='hole';
+const o=document.createElement('span');
+o.className='occ';
+h.appendChild(o);
+h.onclick=()=>whack(i);
+g.appendChild(h);
+occ.push({el:o,up:false,timer:null});
+}
+})();
+function popOne(){
+if(over||paused)return;
+const free=occ.map((o,i)=>o.up?-1:i).filter(i=>i>=0);
+if(!free.length)return;
+const i=free[Math.floor(Math.random()*free.length)];
+const bonus=Math.random()<.14;
+const o=occ[i];
+o.up=true;o.kind=bonus?'bonus':'mole';
+o.el.textContent=bonus?'🐞':'🐹';
+o.el.className='occ up'+(bonus?' bon':'');
+o.el.style.fontSize=bonus?'2.1rem':'2.3rem';
+const stay=bonus?650:Math.max(560,1050-tLeft*8);
+o.timer=setTimeout(()=>{
+if(o.up){o.up=false;o.el.classList.remove('up');if(o.kind==='mole')missed++;}
+},stay);
+}
+function whack(i){
+const o=occ[i];
+if(over||!o.up||paused)return;
+o.up=false;clearTimeout(o.timer);
+o.el.classList.remove('up');
+hits++;
+let gain;
+if(o.kind==='bonus'){gain=30;score+=30;$('msg').textContent='🐞 ذهبية! +30';$('msg').style.color='#c98a00';snd(1200,.16,'triangle',.07);setTimeout(()=>snd(1500,.18,'triangle',.06),110);}
+else{
+combo++;
+gain=10+Math.min(combo*2,20);
+score+=gain;
+$('msg').textContent=`✓ +${AR(gain)}${combo>=4?` · كومبو ×${AR(combo)}`:''}`;
+$('msg').style.color='#588157';
+ snd(420,.08,'square',.05);setTimeout(()=>snd(300,.09,'triangle',.04),55);
+ }
+ $('scoreEl').textContent=AR(score);
+ $('comboEl').textContent='×'+AR(Math.max(combo,1));
+const r=o.el.getBoundingClientRect();
+plus(r.left+r.width/2,r.top,gain);
+}
+function plus(x,y,g){
+const p=document.createElement('div');
+p.className='plus';p.textContent='+'+AR(g);
+p.style.left=x+'px';p.style.top=(y-14)+'px';p.style.position='fixed';p.style.color='#588157';
+document.body.appendChild(p);
+setTimeout(()=>p.remove(),550);
+}
+function start(){
+score=0;combo=0;hits=0;missed=0;tLeft=DUR;over=false;paused=false;spawnLeft=0;
+$('scoreEl').textContent='٠';$('comboEl').textContent='×١';$('secsEl').textContent=DUR;
+$('msg').textContent='';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+clearInterval(timer);clearInterval(spawner);
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0)return finish();
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/DUR*100)+'%';
+},100);
+spawner=setInterval(popOne,520);
+popOne();
+snd(500,.1,'triangle',.05);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+if(paused){
+clearInterval(timer);clearInterval(spawner);spawnLeft=0;
+occ.forEach(o=>{if(o.up){o.pausedTimer=o.timer;clearTimeout(o.timer);}});
+$('msg').textContent='⏸ إيقاف مؤقت — اضغط Esc للاستمرار';
+}else{
+occ.forEach(o=>{if(o.pausedTimer){o.up=false;o.el.classList.remove('up');o.pausedTimer=null;}});
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0)return finish();
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/DUR*100)+'%';
+},100);
+spawner=setInterval(popOne,520);
+$('msg').textContent='';
+}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!over)togglePause();});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('endScr').classList.contains('hidden'))start();});
+function finish(){
+clearInterval(timer);clearInterval(spawner);
+over=true;paused=false;
+occ.forEach(o=>{clearTimeout(o.timer);o.up=false;o.el.classList.remove('up');});
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+$('finalHits').textContent=AR(hits);
+$('finalMiss').textContent=AR(missed);
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m=missed<=2?'لا أحد هرب على ساعتك! 🏅':'حراسة مشددة… مع بعض الهدر 👌';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+$('endMsg').textContent=m;
+[620,780].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.05),i*130));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بناء النرد</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+@keyframes roll{0%{transform:rotate(0) scale(0.7)}100%{transform:rotate(360deg) scale(1)}}
+.die{transition:all .2s}
+.die:hover{transform:scale(1.1)}
+.roll{animation:roll 0.4s ease-out}
+.locked{opacity:0.6;box-shadow:inset 0 0 0 4px #f59e0b}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-900 text-white">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black">🎲 بناء النرد</h1>
+  <p class="text-xl text-emerald-200 max-w-lg">لفّ النرد واختر الاحتفاظ به، ثم أعد لفّ الباقي. كوّن مجموعات: أزواج، ثلاثي، مستقيمات، وأكثر!</p>
+  <div class="bg-emerald-800/60 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-emerald-200">٣ رميات في كل دور</p>
+  </div>
+  <button onclick="startGame()" class="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ اللعب</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-4">
+  <div class="w-full max-w-3xl flex items-center justify-between mb-2">
+    <p class="text-lg">النتيجة: <span id="score" class="font-black">0</span></p>
+    <p class="text-lg">الدور: <span id="round" class="font-black">1 / 5</span></p>
+    <p class="text-lg">الرميات: <span id="rolls" class="font-black">0 / 3</span></p>
+  </div>
+  <div id="dice" class="flex justify-center gap-4 flex-wrap"></div>
+  <div class="flex gap-3">
+    <button id="rollBtn" onclick="rollDice()" class="bg-amber-500 hover:bg-amber-400 text-black font-bold px-10 py-4 rounded-full text-lg transition shadow-lg">لفّ النرد</button>
+    <button id="scoreBtn" onclick="scoreRound()" class="hidden bg-emerald-600 hover:bg-emerald-500 font-bold px-10 py-4 rounded-full text-lg transition">سجّل الدور</button>
+  </div>
+  <div id="combos" class="bg-emerald-900/50 rounded-2xl p-4 w-full max-w-3xl">
+    <p class="text-center text-emerald-200 text-sm mb-2">المجموعات الممكنة بنردك الحالي:</p>
+    <div id="comboList" class="text-center text-emerald-100 text-base leading-relaxed px-4"></div>
+  </div>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 class="text-5xl font-black">انتهت الجولات!</h1>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-emerald-200">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <div id="verdict" class="text-3xl"></div>
+  <button onclick="backStart()" class="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let dice=[],locked=[],rolls,round,score,pips=['⚀','⚁','⚂','⚃','⚄','⚅'];
+let best=0;
+try{best=+localStorage.getItem('dice-build-best')||0;}catch(e){}
+$('startBest').textContent=best;$('finishBest').textContent=best;
+function tone(f,dur,type='sine',vol=0.2){
+  let ac=new (window.AudioContext||window.webkitAudioContext)();
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  score=0;round=1;newRound();
+}
+function newRound(){
+  if(round>5){finish();return}
+  $('round').textContent=round+' / 5';
+  $('score').textContent=score;
+  dice=[1,1,1,1,1];locked=[false,false,false,false,false];rolls=0;
+  renderDice();
+  setRollUI();
+}
+function renderDice(){
+  let dq=$('dice');dq.innerHTML='';
+  dice.forEach((v,i)=>{
+    let d=document.createElement('div');
+    d.className='die w-20 h-20 rounded-2xl bg-white text-black flex items-center justify-center text-3xl font-black shadow-xl';
+    if(locked[i])d.classList.add('locked');
+    d.textContent=v;
+    d.onclick=()=>toggleLock(i,d);
+    dq.appendChild(d);
+  });
+}
+function setRollUI(){
+  $('rolls').textContent=rolls+' / 3';
+  let canRoll=rolls<3&&!allLocked();
+  $('rollBtn').disabled=!canRoll;
+  $('rollBtn').style.opacity=canRoll?1:0.4;
+  $('scoreBtn').classList.toggle('hidden',rolls===0);
+  showCombos();
+}
+function allLocked(){return locked.every(Boolean)}
+function toggleLock(i,d){
+  if(rolls===0)return;
+  locked[i]=!locked[i];
+  tone(400+locked[i]*100,0.08,'triangle',0.1);
+  d.classList.toggle('locked',locked[i]);
+}
+function rollDice(){
+  rolls++;
+  tone(200,0.2,'sawtooth',0.12);
+  for(let i=0;i<dice.length;i++){
+    if(!locked[i])dice[i]=Math.floor(Math.random()*6)+1;
+  }
+  let dq=$('dice');dq.querySelectorAll('.die').forEach((d,idx)=>d.classList.add('roll'));
+  setTimeout(()=>{dq.querySelectorAll('.die').forEach((d)=>d.classList.remove('roll'))},420);
+  renderDice();
+  setRollUI();
+}
+function showCombos(){
+  let list=$('comboList');list.innerHTML='';
+  let vals=dice.slice().sort((a,b)=>a-b);
+  let counts={};vals.forEach(v=>counts[v]=(counts[v]||0)+1);
+  let groups=Object.values(counts).sort((a,b)=>b-a);
+  let msgs=[];
+  if(groups[0]>=5)msgs.push('خمسة من نوع واحد! 50 نقطة');
+  if(groups[0]>=4)msgs.push('رباعي: '+ (groups[0]*10)+' نقطة');
+  if(groups[0]>=3&&groups[1]>=2)msgs.push('فول هاوس: 25 نقطة');
+  if(groups[0]>=3)msgs.push('ثلاثي: 15 نقطة');
+  if(groups[0]>=2&&groups[1]>=2)msgs.push('زوجان: 10 نقاط');
+  if(groups[0]>=2)msgs.push('زوج: 5 نقاط');
+  let uniq=[...new Set(vals)];
+  if(uniq.length===5&&uniq[4]-uniq[0]===4)msgs.push('مستقيم كبير: 40 نقطة');
+  if(uniq.length>=4&&uniq[4]-uniq[0]<=4)msgs.push('مستقيم صغير: 30 نقطة');
+  if(msgs.length===0)msgs.push('لا توجد مجموعة واضحة، حاول الرمي مجدداً');
+  msgs.forEach(m=>{let p=document.createElement('p');p.textContent='• '+m;list.appendChild(p)});
+}
+function scoreRound(){
+  var vals=dice.slice().sort((a,b)=>a-b);
+  var counts={};vals.forEach(v=>counts[v]=(counts[v]||0)+1);
+  var groups=Object.values(counts).sort((a,b)=>b-a);
+  var pts=0;
+  if(groups[0]>=5)pts=50;
+  else if(groups[0]>=4)pts=groups[0]*10;
+  else if(groups[0]>=3&&groups[1]>=2)pts=25;
+  else if(groups[0]>=3)pts=15;
+  else if(groups[0]>=2&&groups[1]>=2)pts=10;
+  else if(groups[0]>=2)pts=5;
+  var uniq=[...new Set(vals)];
+  if(uniq.length===5&&uniq[4]-uniq[0]===4)pts=Math.max(pts,40);
+  if(uniq.length>=4&&uniq[4]-uniq[0]<=4&&uniq.length>=4)pts=Math.max(pts,30);
+  if(pts===0)pts=1;
+  score+=pts;$('score').textContent=score;
+  tone(600+pts,0.25,'triangle',0.2);
+  round++;setTimeout(newRound,600);
+}
+function finish(){
+  if(score>best){best=score;try{localStorage.setItem('dice-build-best',best)}catch(e){}}
+  $('finalScore').textContent=score;$('finishBest').textContent=best;
+  $('verdict').textContent=score>=200?'🎉 خبير النرد':score>=120?'🎲 لاعب جيد':'🎯 حاول أكثر';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+}
+function backStart(){
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('finishScreen').classList.remove('flex');$('finishScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

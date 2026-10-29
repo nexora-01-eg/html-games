@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>طابق الإيموجي بالكلمة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+@keyframes pop{0%{transform:scale(0.5);opacity:0}100%{transform:scale(1);opacity:1}}
+.opt{transition:transform .15s, box-shadow .15s}
+.opt:hover{transform:scale(1.06)}
+.correct{background:#34d399!important;transform:scale(1.05)}
+.wrong{background:#f87171!important;transform:scale(0.95)}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 text-white">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black">طابق الإيموجي بالكلمة</h1>
+  <p class="text-lg text-slate-300 max-w-lg">ستظهر لك كلمة عربية وأربعة إيموجي. اختر الإيموجي الصحيح قبل انتهاء الوقت، وكلما أسرعت زادت نقاطك!</p>
+  <div class="bg-slate-700/60 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-slate-300">١٢ جولة في كل لعبة</p>
+  </div>
+  <button onclick="startGame()" class="bg-teal-500 hover:bg-teal-400 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ اللعب</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-6">
+  <div class="w-full max-w-lg flex items-center justify-between bg-slate-700/70 rounded-2xl px-6 py-3">
+    <div><p class="text-xs text-slate-300">الجولة</p><p id="round" class="text-2xl font-black">1 / 12</p></div>
+    <div><p class="text-xs text-slate-300">النقاط</p><p id="score" class="text-2xl font-black">0</p></div>
+    <div><p class="text-xs text-slate-300">الوقت</p><p id="timer" class="text-2xl font-black text-amber-300">5</p></div>
+  </div>
+  <div id="wordCard" class="bg-slate-600/70 rounded-3xl px-12 py-10 text-4xl font-black shadow-xl text-center min-w-[280px]">كلمة</div>
+  <div id="opts" class="grid grid-cols-2 gap-4 max-w-lg w-full"></div>
+  <button id="againBtn" onclick="startGame()" class="hidden bg-teal-500 hover:bg-teal-400 font-bold px-8 py-3 rounded-full transition">الجولة التالية</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 class="text-5xl font-black">انتهت الجولات</h1>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-slate-300">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <div id="resultEmoji" class="text-6xl"></div>
+  <button onclick="backStart()" class="bg-teal-500 hover:bg-teal-400 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let pairs=[
+  {w:'تفاحة',e:'🍎'},{w:'عنب',e:'🍇'},{w:'برتقال',e:'🍊'},{w:'ليمون',e:'🍋'},
+  {w:'شمس',e:'☀️'},{w:'قمر',e:'🌙'},{w:'نجمة',e:'⭐'},{w:'مطر',e:'🌧️'},
+  {w:'أسد',e:'🦁'},{w:'فيل',e:'🐘'},{w:'قطة',e:'🐱'},{w:'كلب',e:'🐶'},
+  {w:'سيارة',e:'🚗'},{w:'طائرة',e:'✈️'},{w:'قطار',e:'🚂'},{w:'دراجة',e:'🚲'},
+  {w:'قلب',e:'❤️'},{w:'قبلة',e:'😘'},{w:'ضحكة',e:'😂'},{w:'دموع',e:'😭'}
+];
+let current,index,score,round,timerVal,timerInt;
+let best=0;
+try{best=+localStorage.getItem('emoji-match-best')||0;}catch(e){}
+$('startBest').textContent=best;$('finishBest').textContent=best;
+function tone(f,dur,type='sine',vol=0.2){
+  let ac=new (window.AudioContext||window.webkitAudioContext)();
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('againBtn').classList.add('hidden');
+  score=0;round=0;$('score').textContent=0;nextRound();
+}
+function nextRound(){
+  round++;
+  if(round>12){finish();return}
+  $('round').textContent=round+' / 12';
+  clearInterval(timerInt);
+  current=pairs[Math.floor(Math.random()*pairs.length)];
+  $('wordCard').textContent=current.w;
+  $('wordCard').style.animation='pop 0.2s ease-out';
+  setTimeout(()=>$('wordCard').style.animation='',250);
+  let wrong=pairs.filter(p=>p.w!==current.w);
+  let shuffled=[current,...wrong.sort(()=>Math.random()-0.5).slice(0,3)].sort(()=>Math.random()-0.5);
+  let opts=$('opts');opts.innerHTML='';
+  shuffled.forEach(em=>{
+    let b=document.createElement('button');
+    b.className='opt bg-slate-600/80 hover:bg-slate-500 rounded-2xl py-8 text-5xl shadow-lg';
+    b.textContent=em.e;b.dataset.e=em.e;
+    b.onclick=()=>pick(b);
+    opts.appendChild(b);
+  });
+  startTimer();
+}
+function startTimer(){
+  timerVal=5;timerInt=setInterval(()=>{
+    timerVal--;$('timer').textContent=timerVal;
+    if(timerVal<=1)tone(300,0.1,'sawtooth',0.08);
+    if(timerVal<=0){timeoutPick();}
+  },1000);
+}
+function pick(b){
+  clearInterval(timerInt);
+  let all=document.querySelectorAll('.opt');all.forEach(x=>x.style.pointerEvents='none');
+  if(b.dataset.e===current.e){
+    b.classList.add('correct');score+=Math.max(10,timerVal*20);
+    $('score').textContent=score;tone(700+round*30,0.2,'square',0.15);
+  }else{
+    b.classList.add('wrong');
+    let correct=[...all].find(x=>x.dataset.e===current.e);
+    if(correct)correct.classList.add('correct');
+    score+=5;tone(180,0.3,'sawtooth',0.15);
+  }
+  $('againBtn').classList.remove('hidden');
+}
+function timeoutPick(){
+  clearInterval(timerInt);
+  let all=document.querySelectorAll('.opt');all.forEach(x=>x.style.pointerEvents='none');
+  let correct=[...all].find(x=>x.dataset.e===current.e);
+  if(correct)correct.classList.add('correct');
+  $('timer').textContent='0';
+  tone(150,0.3,'sine',0.15);
+  $('againBtn').classList.remove('hidden');
+}
+function finish(){
+  if(score>best){best=score;try{localStorage.setItem('emoji-match-best',best)}catch(e){}}
+  $('finalScore').textContent=score;$('finishBest').textContent=best;
+  $('resultEmoji').textContent=score>800?'🏆':score>500?'🌟':'😊';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+}
+function backStart(){
+  $('finishScreen').classList.add('hidden');$('finishScreen').classList.remove('flex');
+  $('startScreen').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

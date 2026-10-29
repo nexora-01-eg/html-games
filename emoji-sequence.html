@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أكمل تسلسل الإيموجي</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:linear-gradient(135deg,#fef3c7,#dbeafe,#fce7f3)}
+.correct{background:#34d399!important;color:#fff}
+.wrong{background:#f87171!important;color:#fff}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-gray-800">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-pink-600">أكمل التسلسل</h1>
+<p class="mb-6 text-lg text-gray-500">اكتشف الإيموجي المفقود</p>
+<button onclick="startGame()" class="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-pink-400"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-3 text-lg font-bold"><span id="roundDisplay">الجولة: 1/8</span> | <span id="scoreDisplay">النقاط: 0</span></div>
+<div id="sequence" class="flex gap-4 justify-center items-center mb-8 text-5xl"></div>
+<p class="mb-4 text-gray-500 text-lg">اختر الإيموجي الصحيح</p>
+<div id="options" class="grid grid-cols-2 gap-4 max-w-sm mx-auto"></div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-pink-600">أحسنت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let round=0,score=0,best=0;
+try{best=parseInt(localStorage.getItem('emoji-seq-best'))||0;}catch(e){}
+const sequences=[
+{pattern:['🍎','🍊','🍇','❓','🍎'],missing:3,answer:'🍊',opts:['🍊','🍇','🍋','🍌']},
+{pattern:['🐶','🐱','🐭','❓','🐷'],missing:3,answer:'🐹',opts:['🐹','🐰','🦊','🐻']},
+{pattern:['🔴','🟠','🟡','❓','🟣'],missing:3,answer:'🟢',opts:['🟢','🔵','🟤','⚫']},
+{pattern:['☀️','⭐','🌙','❓','🌸'],missing:3,answer:'🌍',opts:['🌍','❄️','🔥','💧']},
+{pattern:['1️⃣','2️⃣','3️⃣','❓','5️⃣'],missing:3,answer:'4️⃣',opts:['4️⃣','6️⃣','0️⃣','🔟']},
+{pattern:['⬆️','↗️','➡️','❓','⬇️'],missing:3,answer:'↘️',opts:['↘️','↙️','⬅️','⬆️']},
+{pattern:['🍕','🍔','🌮','❓','🍣'],missing:3,answer:'🍜',opts:['🍜','🍟','🍩','🥐']},
+{pattern:['❄️','🌸','☀️','❓','❄️'],missing:3,answer:'🍂',opts:['🍂','🌧️','⭐','🌈']}
+];
+function $(id){return document.getElementById(id)}
+function audioCtx(){return new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(f,t,d){let c=audioCtx(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل نتيجة: '+best+'/8':'';}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+round=0;score=0;showRound();
+}
+function showRound(){
+if(round>=8){if(score>best){best=score;try{localStorage.setItem('emoji-seq-best',best)}catch(e){};}
+$('finalStats').textContent='النتيجة: '+score+'/8';$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');return;}
+$('roundDisplay').textContent='الجولة: '+(round+1)+'/8';
+$('scoreDisplay').textContent='النقاط: '+score;
+let s=sequences[round];
+let seq=$('sequence');seq.innerHTML='';
+s.pattern.forEach((e,i)=>{
+let sp=document.createElement('span');
+if(i===s.missing){sp.textContent='❓';sp.className='text-5xl';}
+else{sp.textContent=e;sp.className='text-5xl';}
+seq.appendChild(sp);
+});
+let opts=[...s.opts];shuffle(opts);
+let c=$('options');c.innerHTML='';
+opts.forEach(o=>{
+let b=document.createElement('button');
+b.className='bg-white hover:bg-pink-100 text-4xl px-6 py-4 rounded-xl shadow transition font-bold';
+b.textContent=o;b.dataset.v=o;
+b.onclick=()=>pick(o,s.answer);
+c.appendChild(b);
+});
+}
+function pick(chosen,correct){
+let all=document.querySelectorAll('#options button');all.forEach(x=>{x.onclick=null;});
+if(chosen===correct){score++;playTone(880,'sine',0.15);
+let bt=document.querySelector('#options button[data-v="'+chosen+'"]');if(bt)bt.classList.add('correct');}
+else{playTone(200,'sawtooth',0.2);
+let ok=document.querySelector('#options button[data-v="'+correct+'"]');if(ok)ok.classList.add('correct');
+let bw=document.querySelector('#options button[data-v="'+chosen+'"]');if(bw)bw.classList.add('wrong');}
+setTimeout(function(){round++;showRound();},500);
+}
+goHome();
+</script>
+</body>
+</html>

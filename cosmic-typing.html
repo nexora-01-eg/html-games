@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>كاتب المجرة ✍️🚀</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:radial-gradient(ellipse at 50% -10%,#12235200,transparent 60%),linear-gradient(180deg,#0e1a3a,#070d1f);color:#e8ecff;min-height:100vh}
+.stars{position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(#fff 1px,transparent 1.4px);background-size:110px 110px;opacity:.5}
+.stars2{position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(#fbbf24cc 1px,transparent 1.5px);background-size:190px 190px;animation:twinkle 3.5s infinite}
+@keyframes twinkle{0%,100%{opacity:.7}50%{opacity:.25}}
+.planet{position:fixed;font-size:64px;top:9%;left:8%;animation:float 7s ease-in-out infinite;text-shadow:0 0 30px rgba(94,234,212,.4)}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-22px) rotate(6deg)}}
+.rocket{position:fixed;font-size:30px;bottom:12%;right:7%;animation:float 5s ease-in-out infinite reverse}
+.panel{background:rgba(16,28,62,.72);border:1px solid rgba(196,181,253,.28);backdrop-filter:blur(8px);border-radius:1.3rem;box-shadow:0 14px 44px rgba(3,7,20,.55)}
+#target span.ok{color:#5eead4}
+#target span.bad{background:rgba(244,63,94,.45);border-radius:4px;color:#fff}
+#target span.todo{color:rgba(232,236,255,.32)}
+textarea{resize:none}
+textarea:focus{outline:2px solid #5eead4}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+</style>
+</head>
+<body>
+<div class="stars"></div><div class="stars2"></div>
+<div class="planet">🪐</div><div class="rocket">🚀</div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="panel px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-3">✍️</div>
+<h1 class="text-4xl font-black mb-3 bg-gradient-to-l from-teal-300 to-purple-300 bg-clip-text text-transparent">كاتب المجرة</h1>
+<p class="leading-relaxed text-white/75 mb-2">٥ جمل قصيرة بين النجوم…<br>اكتبها بأسرع ما تستطيع وبأقل أخطاء!</p>
+<p class="text-sm text-white/50 mb-8">لا يوجد عدّاد وقت ضاغط — السرعة تُقاس لك فقط 🌙</p>
+<button onclick="start()" class="px-10 py-3 rounded-full font-bold bg-teal-300 text-slate-900 hover:bg-teal-200 transition-colors">انطلق 🚀</button>
+<p class="mt-6 text-sm text-white/50">أفضل سرعة: <span id="bestStart" class="font-bold text-amber-300">—</span> كلمة/د</p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-2xl">
+<div class="flex justify-between items-center mb-4 text-sm flex-wrap gap-2">
+<span class="panel px-4 py-1.5">⭐ <span id="progEl">٠</span>/<span>٥</span></span>
+<span class="panel px-4 py-1.5">السرعة <span id="wpmEl" class="font-bold text-teal-300">—</span></span>
+<span class="panel px-4 py-1.5">أخطاء <span id="errEl" class="font-bold text-rose-300">0</span></span>
+</div>
+
+<div id="target" class="panel px-7 py-6 text-center text-2xl md:text-3xl font-bold leading-loose tracking-wide mb-5"></div>
+
+<textarea id="inp" rows="3" autocomplete="off" spellcheck="false"
+class="w-full panel px-5 py-4 text-xl md:text-2xl bg-[#0a1330]/85 text-center leading-loose"
+placeholder="اكتب هنا…"></textarea>
+
+<div id="msg" class="h-9 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden panel px-14 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🌌</div>
+<h2 class="text-3xl font-black mb-8">وصلت للمجرّة!</h2>
+<div class="flex gap-6 justify-center mb-6">
+<div><div id="finalWpm" class="text-5xl font-black text-teal-300">0</div><div class="text-xs text-white/60 mt-1">كلمة/دقيقة</div></div>
+<div><div id="finalAcc" class="text-5xl font-black text-purple-300">0%</div><div class="text-xs text-white/60 mt-1">الدقة</div></div>
+</div>
+<p id="endMsg" class="text-white/70 mb-8"></p>
+<button onclick="start()" class="px-10 py-3 rounded-full font-bold bg-purple-300 text-slate-900 hover:bg-purple-200 transition-colors">رحلة ثانية ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const SENTENCES=[
+'النجوم تلمع في سماء الليل',
+'الأرض تدور حول الشمس مرة كل عام',
+'القمر أقرب جرم سماوي إلينا',
+'المجرات تبتعد عن بعضها باستمرار',
+'الضوء يسير بسرعة هائلة',
+'رواد الفضاء يطفون داخل المحطة',
+'الكواكب تدور حول نفسها ولحول الشمس',
+'التلسكوب يكشف أسرار الكون الواسع'
+];
+const TOTAL=5,bestKey='cosmic-typing-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let sents=[],si=0,target='',startedAt=0,keystrokes=0,errors=0,wrongNow=false,wpms=[],ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestStart').textContent=v||'—';}
+loadBest();
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function start(){
+sents=shuffle(SENTENCES).slice(0,TOTAL);
+si=0;keystrokes=0;errors=0;wpms=[];
+$('errEl').textContent='0';$('wpmEl').textContent='—';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+loadSentence();
+}
+function loadSentence(){
+target=sents[si];
+$('progEl').textContent=AR(si);
+const el=$('target');
+el.innerHTML=[...target].map(c=>`<span class="todo">${c===' '?'&nbsp;':c}</span>`).join('');
+const ta=$('inp');ta.value='';ta.disabled=false;ta.focus();
+startedAt=0;
+$('msg').textContent='';
+}
+function paint(v){
+const spans=$('target').children;
+let allOk=true;
+[...target].forEach((c,i)=>{
+let cls='todo';
+if(i<v.length){cls=v[i]===c?'ok':'bad';if(cls==='bad')allOk=false;}
+else allOk=false;
+spans[i].className=cls;
+});
+return allOk;
+}
+$('inp').addEventListener('input',()=>{
+const ta=$('inp'),v=ta.value;
+if(!startedAt&&v.length)startedAt=Date.now();
+if(v.length>+(ta.dataset.prev||0)){
+const i=v.length-1;
+keystrokes++;
+if(v[i]!==target[i]){errors++;wrongNow=true;snd(150,.07,'square',.04);}
+else{
+if(wrongNow){snd(300,.06,'triangle',.03);}
+wrongNow=false;
+}
+}
+ta.dataset.prev=v.length;
+$('errEl').textContent=errors;
+const done=paint(v);
+if(done){
+ta.disabled=true;
+const words=target.split(' ').length;
+const mins=Math.max(.001,(Date.now()-startedAt)/60000);
+const wpm=Math.round(words/mins);
+wpms.push(wpm);
+$('wpmEl').textContent=wpm;
+snd(620,.09,'triangle',.05);setTimeout(()=>snd(930,.14,'triangle',.05),90);
+setTimeout(next,900);
+}
+});
+function next(){
+si++;
+if(si>=TOTAL)return finish();
+loadSentence();
+}
+function finish(){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+const avg=wpms.length?Math.round(wpms.reduce((a,b)=>a+b,0)/wpms.length):0;
+const acc=keystrokes?Math.max(0,Math.round(100*(1-errors/keystrokes))):100;
+$('finalWpm').textContent=avg;
+$('finalAcc').textContent=acc+'%';
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m='';
+if(acc>=97)m='دقة مجرّية! 🛸';
+else if(acc>=90)m='إيقاع ممتاز ⭐';
+else m='تدرّب أكثر وستصل للسرعة الضوئية 💫';
+if(avg>v&&avg>0){try{localStorage.setItem(bestKey,avg)}catch(e){};m+=' رقم قياسي جديد 🏆';loadBest();}
+$('endMsg').textContent=m;
+[520,660,784,1046].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.05),i*130));
+}
+document.addEventListener('keydown',()=>{if(!$('playScr').classList.contains('hidden'))$('inp').focus();});
+</script>
+</body>
+</html>

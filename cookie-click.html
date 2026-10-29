@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>كتير كتير!</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none;overflow:hidden}</style></head>
+<body class="bg-amber-900 min-h-screen flex flex-col items-center justify-center font-sans">
+<div id="shop" class="fixed top-2 left-2 bg-amber-800/90 p-3 rounded-xl text-white text-sm space-y-2 z-10">
+<div class="font-bold text-lg">المتجر</div>
+<div id="shopItems"></div>
+</div>
+<div class="text-center">
+<div class="text-4xl text-amber-200 font-bold mb-1" id="score">0 🍪</div>
+<div class="text-amber-300 text-sm mb-4" id="best">الأفضل: 0</div>
+<button id="reset" class="bg-amber-800 text-amber-200 text-xs px-3 py-1 rounded-full mb-2">إعادة تعيين</button>
+<div id="cookie" class="text-9xl cursor-pointer transition-transform active:scale-90 mb-4" style="font-size:10rem">🍪</div>
+<div class="text-amber-200/60 text-xs" id="cps">0 كوكيز/ثانية</div>
+</div>
+<div id="particles" class="fixed inset-0 pointer-events-none"></div>
+<script>
+const K='cookie-click-best';
+let score=0,best=0,cps=0;
+try{best=parseInt(localStorage.getItem(K)||0);}catch(e){}
+let audio;
+try{audio=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
+function play(freq,dur,type='sine'){
+if(!audio)return;
+const o=audio.createOscillator(),g=audio.createGain();
+o.type=type;o.frequency.value=freq;g.gain.value=0.15;
+o.connect(g);g.connect(audio.destination);o.start();
+g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+dur);
+o.stop(audio.currentTime+dur);
+}
+const upgrades=[
+{id:1,name:'نقر يدوي',desc:'+1 لكل نقرة',cost:15,mult:1},
+{id:2,name:'نقر آلي',desc:'+1/ثانية',cost:50,cps:1},
+{id:3,name:'روبوت نقر',desc:'+5/ثانية',cost:200,cps:5},
+{id:4,name:'مصنع كوكيز',desc:'+20/ثانية',cost:1000,cps:20},
+{id:5,name:'كوكبة كوكيز',desc:'+100/ثانية',cost:5000,cps:100}
+];
+let owned=upgrades.map(()=>0);
+function fmt(n){return n>=1e6?(n/1e6).toFixed(1)+'م':n>=1e3?(n/1e3).toFixed(1)+'ك':Math.floor(n);}
+function renderShop(){
+const el=document.getElementById('shopItems');el.innerHTML='';
+upgrades.forEach((u,i)=>{
+const c=u.cost*Math.pow(2,owned[i]);
+const d=document.createElement('button');
+d.className='w-full bg-amber-700 hover:bg-amber-600 px-2 py-1 rounded text-left text-xs flex justify-between';
+d.innerHTML=`<span>${u.name} (${fmt(c)})</span><span>${u.desc}</span>`;
+d.onclick=()=>{if(score>=c){score-=c;owned[i]++;play(600,0.1);renderShop();}};
+el.appendChild(d);
+});
+}
+function addScore(x){
+score+=x;updateDisplay();
+for(let i=0;i<x&&i<5;i++)spawnParticle();
+}
+function spawnParticle(){
+const p=document.createElement('div');
+p.textContent='🍪';p.className='fixed text-2xl transition-all duration-700 pointer-events-none';
+p.style.left=Math.random()*80+10+'%';p.style.top='40%';
+p.style.opacity='1';document.getElementById('particles').appendChild(p);
+requestAnimationFrame(()=>{p.style.top=(10+Math.random()*20)+'%';p.style.opacity='0';});
+setTimeout(()=>p.remove(),700);
+}
+function updateDisplay(){
+document.getElementById('score').textContent=fmt(score)+' 🍪';
+if(score>best){best=score;try{localStorage.setItem(K,best);}catch(e){}}
+document.getElementById('best').textContent='الأفضل: '+fmt(best);
+document.getElementById('cps').textContent=fmt(cps)+' كوكيز/ثانية';
+}
+function reset(){
+score=0;owned=upgrades.map(()=>0);cps=0;renderShop();updateDisplay();
+}
+document.getElementById('reset').addEventListener('click',reset);
+document.getElementById('cookie').addEventListener('click',e=>{
+e.preventDefault();
+const bonus=1+owned[0];
+addScore(bonus);play(400+Math.random()*200,0.08);
+document.getElementById('cookie').style.transform='scale(0.9)';
+setTimeout(()=>document.getElementById('cookie').style.transform='',100);
+});
+setInterval(()=>{
+let total=0;
+upgrades.forEach((u,i)=>{if(u.cps)total+=u.cps*owned[i];});
+cps=total;
+if(cps>0)addScore(cps/10);
+},100);
+document.getElementById('best').textContent='الأفضل: '+fmt(best);
+renderShop();updateDisplay();
+</script>
+</body>
+</html>

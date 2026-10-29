@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>المعركة الأخيرة!</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none}.phase-btn{transition:all 0.2s}</style></head>
+<body class="bg-red-950 min-h-screen flex flex-col items-center justify-center font-sans overflow-hidden">
+<div id="app" class="text-center w-full max-w-md px-4">
+<div class="text-4xl text-red-400 font-bold mb-1" id="title">المعركة الأخيرة!</div>
+<div class="text-yellow-400 text-lg mb-1">النتيجة: <span id="score">0</span></div>
+<div class="text-red-300 text-sm mb-4" id="best">الأفضل: 0</div>
+<div id="phase" class="bg-red-900/40 p-6 rounded-2xl border border-red-700 min-h-[280px] flex flex-col items-center justify-center">
+<div class="text-2xl text-white mb-4" id="pTitle">جاهز؟</div>
+<div id="pContent" class="text-lg text-red-200"></div>
+</div>
+</div>
+<div id="win" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-6xl mb-3">👑</div>
+<div class="text-4xl text-yellow-400 font-bold mb-2">هزمت الزعيم!</div>
+<div class="text-xl text-yellow-300 mb-4" id="fs"></div>
+<button onclick="startGame()" class="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl text-lg">أعد المعركة</button></div></div>
+<script>
+const K='final-boss-best';
+let best=0;
+try{best=parseInt(localStorage.getItem(K)||0);}catch(e){}
+const audio=new(window.AudioContext||window.webkitAudioContext)();
+function play(f,d,t='sine'){try{const o=audio.createOscillator(),g=audio.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+d);o.stop(audio.currentTime+d);}catch(e){}}
+let totalScore,phase,eqIndex,eqCorrect,memSeq,memInput,memPhase,memIdx,reactStart,reactClicks,reactDone,words,wordIdx,wordCurrent;
+const EQUATIONS=[];
+function genEq(){
+const a=Math.floor(Math.random()*20)+1,b=Math.floor(Math.random()*20)+1;
+const ops=['+','-'];const op=ops[Math.floor(Math.random()*2)];
+const ans=op==='+'?a+b:a-b;
+return{q:a+' '+op+' '+b+' = ?',a:ans};
+}
+function startGame(){
+totalScore=0;phase=0;updateScore();
+document.getElementById('win').classList.add('hidden');
+startPhase();
+}
+function updateScore(){
+document.getElementById('score').textContent=totalScore;
+if(totalScore>best){best=totalScore;try{localStorage.setItem(K,best)}catch(e){}}
+document.getElementById('best').textContent='الأفضل: '+best;
+}
+function startPhase(){
+if(phase===0)startMath();else if(phase===1)startMemory();else if(phase===2)startReaction();else if(phase===3)startWord();else{showWin();}
+}
+function startMath(){
+eqIndex=0;eqCorrect=0;
+for(let i=0;i<3;i++)EQUATIONS[i]=genEq();
+showMathEq();
+}
+function showMathEq(){
+if(eqIndex>=3){totalScore+=eqCorrect*30;updateScore();phase=1;setTimeout(startPhase,600);return;}
+const eq=EQUATIONS[eqIndex];
+document.getElementById('pTitle').textContent='⚡ المرحلة 1: حساب سريع ('+(eqIndex+1)+'/3)';
+document.getElementById('pContent').innerHTML=
+'<div class="text-3xl text-white mb-4">'+eq.q+'</div>'+
+'<div class="flex gap-2 flex-wrap justify-center" id="opts"></div>';
+const opts=document.getElementById('opts');
+const answers=[eq.a,eq.a+Math.floor(Math.random()*5)+1,eq.a-Math.floor(Math.random()*5)-1,eq.a+10].sort(()=>Math.random()-0.5);
+answers.forEach(ans=>{
+const b=document.createElement('button');
+b.className='phase-btn bg-red-700 hover:bg-red-600 text-white px-6 py-3 rounded-xl text-xl font-bold';
+b.textContent=ans;
+b.onclick=()=>{
+if(ans===eq.a){eqCorrect++;play(880,0.1);b.className='phase-btn bg-green-600 text-white px-6 py-3 rounded-xl text-xl font-bold';}
+else{play(200,0.2,'sawtooth');b.className='phase-btn bg-red-800 text-white px-6 py-3 rounded-xl text-xl font-bold';}
+setTimeout(()=>{eqIndex++;showMathEq();},500);
+};
+opts.appendChild(b);
+});
+}
+const COLORS4=['#ef4444','#3b82f6','#22c55e','#f59e0b'];
+function startMemory(){
+memSeq=[];for(let i=0;i<4;i++)memSeq.push(Math.floor(Math.random()*4));
+memPhase='show';memIdx=0;memInput=[];
+document.getElementById('pTitle').textContent='🧠 المرحلة 2: تذكر الألوان';
+showMemPhase();
+}
+function showMemPhase(){
+if(memPhase==='show'){
+if(memIdx>=memSeq.length){memPhase='input';memIdx=0;setTimeout(showMemPhase,300);return;}
+document.getElementById('pContent').innerHTML='<div class="flex gap-3 justify-center mb-4" id="mcolor"></div><div class="text-sm text-red-300">تذكّر... '+(memIdx+1)+'/4</div>';
+const mc=document.getElementById('mcolor');
+COLORS4.forEach((c,i)=>{
+const d=document.createElement('div');d.className='w-16 h-16 rounded-xl transition-all';
+d.style.background=memSeq[memIdx]===i?c:c+'33';
+mc.appendChild(d);
+});
+play(300+memSeq[memIdx]*150,0.2);
+setTimeout(()=>{memIdx++;showMemPhase();},1000);
+}else if(memPhase==='input'){
+document.getElementById('pContent').innerHTML='<div class="flex gap-3 justify-center mb-4" id="mcolor"></div><div class="text-sm text-red-300">اختر التسلسل</div>';
+const mc=document.getElementById('mcolor');
+COLORS4.forEach((c,i)=>{
+const d=document.createElement('div');d.className='w-16 h-16 rounded-xl cursor-pointer hover:scale-105 transition-all';
+d.style.background=c;
+d.onclick=()=>{memInput.push(i);play(400,0.08);checkMemInput();};
+mc.appendChild(d);
+});
+}
+}
+function checkMemInput(){
+if(memInput.length===memSeq.length){
+let correct=true;
+for(let i=0;i<memSeq.length;i++)if(memInput[i]!==memSeq[i])correct=false;
+if(correct){totalScore+=40;play(880,0.15);}
+else play(200,0.2,'sawtooth');
+updateScore();phase=2;setTimeout(startPhase,600);
+}
+}
+function startReaction(){
+reactClicks=0;reactDone=false;reactStart=Date.now();
+document.getElementById('pTitle').textContent='⚡ المرحلة 3: اختبار السرعة';
+document.getElementById('pContent').innerHTML=
+'<div class="text-4xl text-white mb-4">اضغط 3 مرات بأسرع وقت!</div>'+
+'<button id="rbtn" class="bg-yellow-500 hover:bg-yellow-400 text-black w-full py-6 rounded-2xl text-2xl font-bold">اضغط هنا!</button>';
+setTimeout(()=>{document.getElementById('rbtn').onclick=()=>{
+reactClicks++;play(600,0.05);
+if(reactClicks>=3){
+const elapsed=Date.now()-reactStart;
+const pts=Math.max(0,Math.floor(50-elapsed/100));
+totalScore+=pts;updateScore();phase=3;setTimeout(startPhase,600);
+}
+};},100);
+}
+const WORD_BANK=['كتاب','قمر','نجم','بحر','وردة','حليب','سماء','شمس','ليل','سلام'];
+function startWord(){
+words=[];for(let i=0;i<2;i++)words.push(WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)]);
+wordIdx=0;showWordPuzzle();
+}
+function showWordPuzzle(){
+if(wordIdx>=words.length){totalScore+=30;updateScore();phase=4;setTimeout(startPhase,600);return;}
+const w=words[wordIdx];const shuffled=w.split('').sort(()=>Math.random()-0.5).join('');
+wordCurrent='';
+document.getElementById('pTitle').textContent='📝 المرحلة 4: رتّب الكلمة ('+(wordIdx+1)+'/2)';
+document.getElementById('pContent').innerHTML=
+'<div class="text-3xl text-white mb-4 tracking-widest">'+shuffled+'</div>'+
+'<div class="text-xl text-yellow-300 mb-3" id="wtyped" dir="rtl"></div>'+
+'<div class="flex flex-wrap gap-2 justify-center mb-3" id="wletters"></div>'+
+'<button onclick="checkWord()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl">تحقق</button>';
+const wl=document.getElementById('wletters');
+shuffled.split('').forEach((ch,i)=>{
+const b=document.createElement('button');
+b.className='phase-btn bg-red-700 hover:bg-red-600 text-white w-12 h-12 rounded-xl text-xl font-bold';
+b.textContent=ch;
+b.onclick=()=>{wordCurrent+=ch;play(400,0.05);document.getElementById('wtyped').textContent=wordCurrent;b.disabled=true;b.className+=' opacity-40';};
+wl.appendChild(b);
+});
+}
+function checkWord(){
+if(wordCurrent===words[wordIdx]){totalScore+=15;play(880,0.1);}
+else play(200,0.2,'sawtooth');
+updateScore();wordIdx++;showWordPuzzle();
+}
+function showWin(){
+if(totalScore>best){best=totalScore;try{localStorage.setItem(K,best)}catch(e){}}
+document.getElementById('fs').textContent='النتيجة النهائية: '+totalScore;
+document.getElementById('win').classList.remove('hidden');play(523,0.1);play(659,0.1);setTimeout(()=>play(784,0.2),150);
+}
+document.getElementById('best').textContent='الأفضل: '+best;
+startGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>زحمة الكرافت 🚗</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#e8ddc8;color:#3d3327;
+background-image:radial-gradient(rgba(61,51,39,.06) 1px,transparent 1.4px);background-size:11px 11px}
+.chipcr{background:#f4ecdc;border:2px solid #3d3327;border-radius:999px;padding:.26rem .95rem;font-weight:800;font-size:.84rem}
+.btncr{background:#e05263;color:#fff;font-weight:900;border-radius:9px;padding:.55rem 1.7rem;
+border:2.5px solid #3d3327;box-shadow:0 5px 0 #3d3327;transition:all .08s}
+.btncr:hover{filter:brightness(1.05)}
+.btncr:active{transform:translateY(4px);box-shadow:0 1px 0 #3d3327}
+#lot{position:relative;margin-inline:auto;background:#efe5cf;
+border:4px solid #3d3327;border-radius:10px;
+background-image:linear-gradient(rgba(61,51,39,.09) 1.5px,transparent 1.5px),linear-gradient(90deg,rgba(61,51,39,.09) 1.5px,transparent 1.5px);
+background-size:12.5% 16.66%,12.5% 16.66%;
+box-shadow:inset 0 0 30px rgba(61,51,39,.15)}
+.exitArrow{position:absolute;font-size:1.5rem;font-weight:900;color:#e05263;animation:pulseA 1.1s ease-in-out infinite}
+@keyframes pulseA{50%{transform:translateX(-5px)}}
+.car{position:absolute;border:3px solid #3d3327;display:flex;align-items:center;justify-content:center;
+font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3);cursor:grab;user-select:none;
+box-shadow:3px 4px 8px rgba(61,51,39,.35);touch-action:none;z-index:3}
+.car.drag{cursor:grabbing;z-index:9;box-shadow:8px 10px 18px rgba(61,51,39,.45)}
+.tape{position:absolute;width:34%;height:12px;background:rgba(255,255,255,.42);transform:rotate(-24deg);
+border-left:2px dashed rgba(255,255,255,.7);border-right:2px dashed rgba(255,255,255,.7);pointer-events:none}
+.winCar{transition:left .5s ease-in !important;}
+</style>
+</head>
+<body class="select-none">
+
+<main class="max-w-lg mx-auto px-4 py-8">
+
+<header class="text-center mb-4">
+<h1 class="text-4xl font-black">زحمة الكرافت 🚗</h1>
+<p class="text-sm mt-1 opacity-70 font-bold">اسحب العربيات بالماوس/الصوبى — فرّغ صف الخروج الأحمر!</p>
+</header>
+
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipcr">مستوى <span id="lvEl" class="font-black text-[#e05263]">١</span>/٥</span>
+<span class="chipcr">تحريكات <span id="mvEl" class="font-black">٠</span></span>
+<span class="chipcr">⭐ <span id="scoreEl" class="font-black text-[#e05263]">٠</span></span>
+<span class="chipcr">🏆 <span id="bestEl" class="font-black">—</span></span>
+</div>
+
+<div class="relative">
+<div id="lot" style="width:min(88vw,372px);height:min(88vw,372px)">
+<div class="exitArrow" style="top:31.5%;right:-30px">➔</div>
+</div>
+</div>
+
+<div id="msg" class="h-8 mt-3 text-center font-bold text-[#e05263]"></div>
+
+<div class="flex justify-center gap-2 mt-2">
+<button onclick="loadLevel()" class="btncr" style="background:#4a90a4">↻ إعادة المستوى</button>
+</div>
+
+<p class="mt-4 text-center text-xs opacity-50">كل عربية بتنزّل على محورها بس… خدّ قبل ما تدوس!</p>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='craft-rushhour-best';
+const N=6;
+const LEVELS=[
+[{i:'X',x:0,y:2,l:2,h:true},{i:'P',x:2,y:2,l:2,h:false},{i:'A',x:4,y:0,l:2,h:true}],
+[{i:'X',x:0,y:2,l:2,h:true},{i:'P',x:2,y:2,l:2,h:false},{i:'Q',x:4,y:1,l:2,h:false},{i:'T',x:3,y:0,l:2,h:true},{i:'H',x:0,y:4,l:2,h:true},{i:'W',x:3,y:5,l:2,h:false}],
+[{i:'X',x:0,y:2,l:2,h:true},{i:'B',x:2,y:1,l:2,h:false},{i:'A',x:3,y:0,l:2,h:true},{i:'C',x:4,y:2,l:2,h:false},{i:'E',x:5,y:0,l:3,h:false},{i:'L',x:0,y:3,l:3,h:false},{i:'M',x:1,y:4,l:2,h:true}],
+[{i:'X',x:0,y:2,l:2,h:true},{i:'P',x:2,y:0,l:3,h:false},{i:'T',x:2,y:4,l:3,h:true},{i:'V',x:0,y:4,l:2,h:false},{i:'Q',x:4,y:1,l:2,h:false},{i:'R',x:5,y:3,l:2,h:false},{i:'S',x:0,y:0,l:2,h:true},{i:'U',x:3,y:5,l:2,h:true}],
+[{i:'X',x:0,y:2,l:2,h:true},{i:'A',x:1,y:1,l:2,h:false},{i:'B',x:2,y:2,l:2,h:false},{i:'C',x:3,y:1,l:2,h:false},{i:'D',x:4,y:0,l:3,h:false},{i:'E',x:3,y:4,l:2,h:true},{i:'F',x:5,y:1,l:2,h:false},{i:'G',x:0,y:5,l:2,h:true},{i:'I',x:0,y:0,l:2,h:false}]
+];
+const COLORS=['#e05263','#4a90a4','#e3b23c','#7cb56b','#9a7bb0','#d97b4f'];
+let lv=0,vehicles=[],moves=0,score=0,best=0,
+over=false,ac=null,winLock=false,dragging=null;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestEl').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+const lot=$('lot');
+function cell(){return lot.clientWidth/N;}
+function loadLevel(){
+vehicles=LEVELS[lv].map((v,idx)=>({...v,_ox:v.x,_oy:v.y,color:v.i==='X'?'#e05263':COLORS[idx%COLORS.length]}));
+moves=0;
+$('lvEl').textContent=AR(lv+1);
+$('mvEl').textContent='٠';
+$('msg').textContent='';
+winLock=false;
+render();
+snd(480,.09,'triangle');
+}
+function render(){
+lot.querySelectorAll('.car').forEach(c=>c.remove());
+const cs=cell();
+vehicles.forEach(v=>{
+const d=document.createElement('div');
+d.className='car';d.id='v'+v.i;
+d.style.background=v.color;
+d.style.borderRadius=v.h?'999px':'14px 14px 22px 22px';
+position(d,v,cs);
+if(v.l>=3&&!v.h)d.innerHTML='<span class="tape"></span>';
+d.insertAdjacentText('beforeend',v.i==='X'?'🚗':(v.l===3?'🚚':'🚙'));
+d.style.fontSize=Math.round(cs*.5)+'px';
+d.addEventListener('pointerdown',e=>{
+if(winLock)return;
+e.preventDefault();
+d.setPointerCapture(e.pointerId);
+d.classList.add('drag');
+dragging={v,start:e.clientX,startCell:v.h?v.x:v.y};
+});
+d.addEventListener('pointermove',e=>{
+if(!dragging||dragging.v!==v)return;
+const delta=(v.h?e.clientX-dragging.start:e.clientY-dragging.start)/cell();
+slideTo(v,Math.round(dragging.startCell+delta));
+});
+d.addEventListener('pointerup',()=>{
+d.classList.remove('drag');
+if(dragging){
+const v=dragging.v,moved=v._moved;
+dragging=null;
+if(moved){
+v._moved=false;
+moves++;
+$('mvEl').textContent=AR(moves);
+snd(340,.06,'sine',.04);
+checkWin();
+}
+}
+});
+lot.appendChild(d);
+});
+}
+function position(d,v,cs){
+const size=v.h?{w:v.l*cs-6,h:cs-6}:{w:cs-6,h:v.l*cs-6};
+d.style.width=size.w+'px';d.style.height=size.h+'px';
+d.style.left=v.x*cs+3+'px';d.style.top=v.y*cs+3+'px';
+d.style.transform=`rotate(${((v.x*7+v.y*13)%2)?-.7:.7}deg)`;
+}
+function occ(v,nx,ny){
+if(nx<0||ny<0)return false;
+const w=v.h?v.l:1,h=v.h?1:v.l;
+if(nx+w>N||ny+h>N)return false;
+return !vehicles.some(o=>o!==v&&nx<o.x+(o.h?o.l:1)&&nx+w>o.x&&ny<o.y+(o.h?1:o.l)&&ny+h>o.y);
+}
+function slideTo(v,target){
+const max=N-(v.h?v.l:1);
+target=Math.max(0,Math.min(max,target));
+let cur=v.h?v.x:v.y;
+while(cur<target){if(occ(v,v.h?cur+1:cur,v.h?cur:cur+1))cur++;else break;}
+while(cur>target){if(occ(v,v.h?cur-1:cur,v.h?cur:cur-1))cur--;else break;}
+if(cur!==(v.h?v.x:v.y)){
+if(v.h)v.x=cur;else v.y=cur;
+v._moved=true;
+position(document.getElementById('v'+v.i),v,cell());
+}
+}
+function checkWin(){
+const X=vehicles.find(v=>v.i==='X');
+if(winLock||X.x!==N-X.l)return;
+winLock=true;
+const d=document.getElementById('vX');
+d.classList.add('winCar');
+d.style.left=(N*cell()+8)+'px';
+d.style.transform='rotate(-3deg)';
+[520,660,880].forEach((f,i)=>setTimeout(()=>snd(f,.14,'triangle'),i*110));
+const gain=Math.max(40,150-moves*10)+ (lv+1)*60;
+score+=gain;
+$('scoreEl').textContent=AR(score);
+setTimeout(()=>{
+lv++;
+if(lv>=LEVELS.length)finish();
+else loadLevel();
+},1000);
+}
+function finish(){
+over=true;
+lot.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.5rem">
+<div style="font-size:3rem">🏁</div>
+<div style="font-size:1.5rem;font-weight:900">الشارع اتفتح!</div>
+<div style="font-size:2rem;font-weight:900;color:#e05263">${AR(score)}</div></div>`;
+$('msg').textContent='';
+const v=best;
+$('msg').textContent=score>v&&score>0?'🏆 رقم قياسي جديد!':`أفضل نتيجة لك: ${AR(Math.max(v,score))}`;
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score)}catch(e){};
+$('bestEl').textContent=AR(Math.max(v,score));
+[650,850].forEach((f,i)=>setTimeout(()=>snd(f,.18,'triangle'),i*150));
+}
+loadLevel();
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سلة الغابة 🧺</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#0b1f14,#071209);color:#d7f5e6}
+.firefly{position:absolute;width:4px;height:4px;border-radius:50%;background:#a7f3d0;box-shadow:0 0 9px #34d399;opacity:.75;animation:fly linear infinite alternate;pointer-events:none}
+@keyframes fly{to{transform:translate(46px,-30px)}}
+.trees{position:absolute;bottom:-4px;left:0;right:0;height:70px;
+background:
+linear-gradient(45deg,transparent 33%,#04150b 33%) 0 0/56px 100%,
+linear-gradient(-45deg,transparent 33%,#04150b 33%) 28px 0/56px 100%;
+background-repeat:repeat-x;opacity:.9;pointer-events:none}
+.cardf{background:rgba(13,36,24,.82);border:1px solid rgba(52,211,153,.35);border-radius:1.5rem;
+box-shadow:0 16px 44px rgba(0,0,0,.45),inset 0 0 30px rgba(52,211,153,.05);backdrop-filter:blur(8px)}
+.chipfo{background:#0e2c1c;border:1px solid rgba(52,211,153,.4);border-radius:999px;padding:.3rem 1rem;font-weight:800;font-size:.85rem;color:#a7f3d0}
+.btn-fo{background:#34d399;color:#04150b;font-weight:900;border-radius:999px;box-shadow:0 6px 0 #0f7a55;transition:all .09s}
+.btn-fo:hover{filter:brightness(1.08)}
+.btn-fo:active{transform:translateY(4px);box-shadow:0 2px 0 #0f7a55}
+.shake{animation:sh .35s}
+@keyframes sh{25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+canvas{touch-action:none;display:block;border-radius:1rem}
+</style>
+</head>
+<body class="select-none overflow-hidden">
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="cardf px-10 py-12 text-center max-w-lg relative overflow-hidden">
+<div class="text-6xl mb-2">🧺</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3 text-[#34d399]">سلة الغابة</h1>
+<p class="leading-relaxed mb-2">حرّك السلة بالماوس أو الأسهم…<br><b>التقط الفاكهة</b> واهرب من الصخور! ☠️</p>
+<p class="text-sm opacity-65 mb-8">٣ قلوب · الكومبو بيزود مع كل التقاط متتالي<br>التفاحة الذهبية ✨ تساوي ٥٠ نقطة!</p>
+<button onclick="start()" class="btn-fo px-14 py-3.5 text-xl">ابدأ الصيد 🌲</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#34d399]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden flex flex-col items-center">
+<div class="flex justify-between items-center mb-3 gap-1.5 flex-wrap justify-center">
+<span class="chipfo">⭐ <span id="scoreEl" class="font-black text-[#34d399]">٠</span></span>
+<span class="chipfo">🔥 ×<span id="comboEl" class="font-black">١</span></span>
+<span id="heartsEl" class="chipfo font-black">❤️❤️❤️</span>
+</div>
+<div id="cvWrap" class="cardf p-2 relative"><canvas id="cv" width="430" height="470"></canvas></div>
+<div id="msg" class="h-8 mt-3 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden cardf px-12 py-12 text-center max-w-md w-full relative overflow-hidden">
+<div class="text-6xl mb-2">🌲</div>
+<h2 class="text-3xl font-black mb-5 text-[#34d399]">خلص الصيد!</h2>
+<div id="finalScore" class="text-6xl font-black mb-3" style="color:#a7f3d0">٠</div>
+<p id="endMsg" class="opacity-80 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-fo px-12 py-3 text-lg">ليل تاني ↻</button>
+</div>
+
+<div class="trees fixed"></div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const bestKey='forest-catch-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const GOOD=['🍎','🍓','🍇','🍊','🍑'];
+const BAD=['🪨','☠️','🌵'];
+let items=[],score=0,combo=1,hearts=3,bx=215,tgtX=215,keys={},usingKeys=false,
+spawnAcc=0,elapsed=0,lastTs=0,raf=null,over=true,ac=null,inv=0,paused=false;
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const W=cv.width,H=cv.height,BY=H-42;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v?AR(v):'—';}catch(e){$('bestStart').textContent='—';}}
+loadBest();
+for(let i=0;i<14;i++){
+const f=document.createElement('span');
+f.className='firefly';
+f.style.left=Math.random()*96+'vw';f.style.top=Math.random()*88+'vh';
+f.style.animationDuration=(2.5+Math.random()*3)+'s';
+f.style.animationDelay=(Math.random()*2)+'s';
+document.body.appendChild(f);
+}
+function spawn(){
+const gold=Math.random()<.07;
+const bad=!gold&&Math.random()<.3;
+items.push({
+x:26+Math.random()*(W-52),y:-20,
+vy:110+Math.random()*60+Math.min(150,elapsed*3.4),
+bad,emoji:gold?'✨':bad?BAD[Math.floor(Math.random()*BAD.length)]:GOOD[Math.floor(Math.random()*GOOD.length)]
+});
+}
+function tick(ts){
+if(over||paused)return;
+const dt=Math.min(.05,((ts-lastTs)||16)/1000);
+lastTs=ts;
+elapsed+=dt;
+if(keys.l){usingKeys=true;bx-=330*dt;}
+if(keys.r){usingKeys=true;bx+=330*dt;}
+if(!usingKeys)bx+=(tgtX-bx)*Math.min(1,dt*11);
+bx=Math.max(30,Math.min(W-30,bx));
+spawnAcc+=dt;
+const gap=Math.max(.42,.95-elapsed*.014);
+if(spawnAcc>=gap){spawnAcc=0;spawn();}
+cx.clearRect(0,0,W,H);
+cx.font='22px serif';cx.textAlign='center';
+for(let i=items.length-1;i>=0;i--){
+const it=items[i];
+it.y+=it.vy*dt;
+cx.fillText(it.emoji,it.x,it.y);
+if(!it.bad&&it.y>BY-6&&it.y<BY+16&&Math.abs(it.x-bx)<40){
+items.splice(i,1);
+combo=Math.min(3,combo+1);
+score+=(it.emoji==='✨'?50:10)*combo;
+$('scoreEl').textContent=AR(score);
+$('comboEl').textContent=AR(combo);
+snd(380+combo*160,.06,'triangle',.05);
+continue;
+}
+if(it.bad&&!inv&&it.y>BY-14&&it.y<BY+20&&Math.abs(it.x-bx)<40){
+items.splice(i,1);
+hearts--;
+combo=1;
+$('comboEl').textContent='١';
+$('heartsEl').textContent='❤️'.repeat(hearts)+'🖤'.repeat(3-hearts);
+document.getElementById('cvWrap').classList.add('shake');
+setTimeout(()=>document.getElementById('cvWrap').classList.remove('shake'),360);
+snd(130,.25,'sawtooth',.07);
+inv=.9;
+if(hearts<=0)return die();
+continue;
+}
+if(it.y>H+22){
+items.splice(i,1);
+if(!it.bad){combo=1;$('comboEl').textContent='١';}
+}
+}
+if(inv>0){inv-=dt;cv.style.opacity=(Math.sin(performance.now()/60)>0)?'1':'.35';}
+else cv.style.opacity='1';
+cx.font='34px serif';
+cx.fillText('🧺',bx,BY+16);
+raf=requestAnimationFrame(tick);
+}
+function die(){
+over=true;paused=false;
+cancelAnimationFrame(raf);
+[500,340].forEach((f,i)=>setTimeout(()=>snd(f,.2,'triangle',.05),i*150));
+$('finalScore').textContent=AR(score);
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m=score>=1200?'حصاد وفير الليلة 🍇':score>=500?'صيد محترم يا صياد 🧺':'الصخور كترت عليك ☠️';
+try{if(score>v&&score>0){localStorage.setItem(bestKey,score);m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);}catch(e){}
+$('endMsg').textContent=m;
+}
+function start(){
+items=[];score=0;combo=1;hearts=3;bx=tgtX=W/2;spawnAcc=0;elapsed=0;lastTs=0;inv=0;paused=false;
+$('scoreEl').textContent='٠';$('comboEl').textContent='١';
+$('heartsEl').textContent='❤️❤️❤️';
+$('msg').textContent='';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+over=false;lastTs=performance.now();
+cancelAnimationFrame(raf);
+raf=requestAnimationFrame(tick);
+snd(520,.1,'triangle',.05);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+$('msg').textContent=paused?'⏸ إيقاف مؤقت — اضغط Esc للاستمرار':'';
+if(!paused){lastTs=performance.now();raf=requestAnimationFrame(tick);}
+}
+cv.addEventListener('pointermove',e=>{
+const r=cv.getBoundingClientRect();
+tgtX=(e.clientX-r.left)*(W/r.width);
+});
+document.addEventListener('keydown',e=>{
+if(e.key==='ArrowLeft'){keys.l=true;usingKeys=true;}
+if(e.key==='ArrowRight'){keys.r=true;usingKeys=true;}
+});
+document.addEventListener('keyup',e=>{
+if(e.key==='ArrowLeft')keys.l=false;
+if(e.key==='ArrowRight')keys.r=false;
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!over)togglePause();});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('endScr').classList.contains('hidden'))start();});
+
+</script>
+</body>
+</html>

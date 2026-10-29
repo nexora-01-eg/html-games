@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>تريفيا الملاعب ⚽</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#08160f;background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 70px,rgba(255,255,255,0) 70px 140px)}
+.pitch-border{border:2px solid rgba(255,255,255,.25)}
+.opt{transition:all .15s}
+.opt:hover:not(:disabled){background:rgba(163,230,53,.15);border-color:#a3e635}
+</style>
+</head>
+<body class="min-h-screen text-lime-50 flex items-center justify-center p-4">
+<main class="pitch-border w-full max-w-lg rounded-3xl bg-white/5 backdrop-blur p-6 md:p-8 relative overflow-hidden">
+  <div class="absolute -top-16 -left-16 w-48 h-48 rounded-full border border-white/15 pointer-events-none"></div>
+  <div class="absolute -bottom-20 -right-20 w-56 h-56 rounded-full border border-white/15 pointer-events-none"></div>
+
+  <header class="relative text-center mb-6">
+    <h1 class="text-3xl font-black italic tracking-tight text-lime-300">⚽ تريفيــا الملاعب</h1>
+    <p class="text-emerald-200/70 text-sm mt-1">١٠ أسئلة سهلة… هل أنت كابتن ولا لاعب احتياطي؟</p>
+  </header>
+
+  <section id="quiz">
+    <div class="flex justify-between text-xs text-emerald-200/80 mb-4">
+      <span>سؤال <b id="qNum">1</b>/<span id="qTotal">10</span></span>
+      <span>النتيجة: <b id="score" class="text-lime-300">0</b></span>
+      <span>الأفضل: <b id="best" class="text-lime-300">0</b></span>
+    </div>
+    <h2 id="question" class="text-xl md:text-2xl font-bold leading-relaxed mb-6 min-h-[3.5rem]"></h2>
+    <div id="opts" class="space-y-3"></div>
+    <div id="fb" class="h-8 mt-4 text-center font-bold"></div>
+  </section>
+
+  <section id="result" class="hidden text-center py-4 relative">
+    <div class="text-6xl mb-3" id="rEmoji">🏆</div>
+    <h2 class="text-2xl font-black mb-2">نتيجتك: <span id="rScore" class="text-lime-300"></span>/10</h2>
+    <p id="rRank" class="text-emerald-100/80 mb-6"></p>
+    <button onclick="startQuiz()" class="bg-lime-400 text-emerald-950 font-black px-8 py-3 rounded-xl hover:bg-lime-300 transition active:scale-95">إعادة المباراة 🔄</button>
+  </section>
+</main>
+
+<script>
+const QS=[
+ {q:'أي منتخب حقق أكبر عدد من كؤوس العالم؟',o:['البرازيل','ألمانيا','إيطاليا','الأرجنتين'],a:'البرازيل'},
+ {q:'من توِّج بكأس العالم 2022 في قطر؟',o:['الأرجنتين','فرنسا','البرازيل','إنجلترا'],a:'الأرجنتين'},
+ {q:'كم عدد لاعبي الفريق داخل الملعب؟',o:['11','10','12','9'],a:'11'},
+ {q:'من كان هداف كأس العالم 2022 برصيد 8 أهداف؟',o:['كيليان مبابي','ليونيل ميسي','أوليفيه جيرو','هاري كين'],a:'كيليان مبابي'},
+ {q:'أي دولة استضافت كأس العالم 2018؟',o:['روسيا','قطر','البرازيل','جنوب أفريقيا'],a:'روسيا'},
+ {q:'من الملقَّب بـ«البرغوث»؟',o:['ليونيل ميسي','كريستيانو رونالدو','نيمار','محمد صلاح'],a:'ليونيل ميسي'},
+ {q:'من فاز بكأس العالم 2014 في البرازيل؟',o:['ألمانيا','الأرجنتين','إسبانيا','فرنسا'],a:'ألمانيا'},
+ {q:'أكثر نادٍ تحقيقاً لدوري أبطال أوروبا؟',o:['ريال مدريد','ميلان','بايرن ميونخ','ليفربول'],a:'ريال مدريد'},
+ {q:'كم مدة الشوط الواحد في المباراة؟',o:['45 دقيقة','40 دقيقة','50 دقيقة','30 دقيقة'],a:'45 دقيقة'},
+ {q:'أول منتخب فاز بكأس العالم عام 1930؟',o:['أوروغواي','البرازيل','إيطاليا','الأرجنتين'],a:'أوروغواي'},
+ {q:'من فاز بالكرة الذهبية 2023؟',o:['ليونيل ميسي','إيرلينغ هالاند','كيليان مبابي','رودري'],a:'ليونيل ميسي'},
+ {q:'على أي ملعب مشهور يلعب فريق ليفربول؟',o:['أنفيلد','أولد ترافورد','الإمارات','سانتياغو برنابيو'],a:'أنفيلد'}
+];
+let order,i,score,locked,correctCount=0,wrongCount=0,ac=null;
+const bestKey='football-trivia-best';
+let best=0;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+document.getElementById('best').textContent=best;
+function snd(f,d,t){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=t||'sine';o.frequency.value=f;v.gain.setValueAtTime(.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+
+function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;}
+
+function startQuiz(){
+ order=shuffle(QS.slice()).slice(0,10);
+ i=0;score=0;locked=false;correctCount=0;wrongCount=0;
+ document.getElementById('result').classList.add('hidden');
+ document.getElementById('quiz').classList.remove('hidden');
+ document.getElementById('qTotal').textContent=order.length;
+ next();
+}
+
+function next(){
+ locked=false;
+ document.getElementById('qNum').textContent=i+1;
+ document.getElementById('score').textContent=score;
+ document.getElementById('fb').textContent='';
+ const item=order[i];
+ document.getElementById('question').textContent=item.q;
+ const box=document.getElementById('opts');box.innerHTML='';
+ shuffle(item.o.slice()).forEach(function(op){
+   const b=document.createElement('button');
+   b.className='opt w-full text-right bg-white/5 border-2 border-white/15 rounded-xl px-4 py-3 font-semibold';
+   b.textContent=op;
+   b.onclick=function(){pick(b,op,item.a);};
+   box.appendChild(b);
+ });
+}
+
+function pick(btn,val,correct){
+ if(locked)return;locked=true;
+ Array.prototype.forEach.call(document.getElementById('opts').children,function(x){x.disabled=true;});
+ const fb=document.getElementById('fb');
+  if(val===correct){
+    score++;correctCount++;
+    btn.className='opt w-full text-right bg-lime-400/90 text-emerald-950 border-2 border-lime-300 rounded-xl px-4 py-3 font-bold';
+    fb.className='h-8 mt-4 text-center font-bold text-lime-300';fb.textContent='✓ إجابة صحيحة!';
+    snd(660,.1,'triangle',.05);setTimeout(()=>snd(880,.12,'triangle',.05),90);
+  }else{
+    wrongCount++;
+    btn.className='opt w-full text-right bg-rose-600/80 border-2 border-rose-400 rounded-xl px-4 py-3 font-bold';
+    fb.className='h-8 mt-4 text-center font-bold text-rose-300';fb.textContent='✗ الصحيح: '+correct;
+    snd(180,.2,'sawtooth',.05);
+  }
+ document.getElementById('score').textContent=score;
+ i++;
+ setTimeout(function(){i<order.length?next():finish();},1300);
+}
+
+ function finish(){
+ document.getElementById('quiz').classList.add('hidden');
+ document.getElementById('result').classList.remove('hidden');
+ document.getElementById('rScore').textContent=score;
+ let rec='';
+ try{if(score>best){best=score;localStorage.setItem(bestKey,best);document.getElementById('best').textContent=best;rec=' 🏆 رقم قياسي!';}}catch(e){}
+ const ranks=[[10,['👑','كابتن المنتخب! عشرة من عشرة، معلوماتك ذهبية']],[7,['🌟','لاعب أساسي بلا نقاش']],[4,['⚽','في التشكيلة… بس تحتاج تدريب أكثر']],[0,['😂','طرد أحمر! تابع أخبار الكرة ورجع لنا']]];
+ const r=ranks.find(function(x){return score>=x[0];})[1];
+ document.getElementById('rEmoji').textContent=r[0];
+ document.getElementById('rRank').textContent=r[1]+' • الدقة: '+(correctCount+wrongCount>0?Math.round(correctCount/(correctCount+wrongCount)*100):0)+'%'+rec;
+ }
+
+startQuiz();
+</script>
+</body>
+</html>

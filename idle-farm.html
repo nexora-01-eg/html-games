@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>المزرعة السعيدة</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none}</style></head>
+<body class="bg-green-800 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-2xl text-green-200 font-bold mb-1" id="coins">🪙 0</div>
+<div class="text-green-300 text-sm mb-2" id="best">الأفضل: 0</div>
+<div class="text-green-400 text-xs mb-4">الحصاد الكلي: <span id="harvestTotal">0</span> · <span id="resetFarm" onclick="resetFarm()" class="underline cursor-pointer hover:text-red-300">إعادة تعيين</span></div>
+<div class="grid grid-cols-3 gap-4 mb-6" id="plots"></div>
+<div class="flex gap-3 mb-4">
+<button onclick="buySeed('tomato')" class="bg-red-500 hover:bg-red-400 text-white px-4 py-2 rounded-xl text-sm">🍅 شتلة (10)</button>
+<button onclick="buySeed('carrot')" class="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded-xl text-sm">🥕 شتلة (25)</button>
+<button onclick="buySeed('corn')" class="bg-yellow-500 hover:bg-yellow-400 text-white px-4 py-2 rounded-xl text-sm">🌽 شتلة (50)</button>
+</div>
+<div class="text-green-300/60 text-xs mb-2">اضغط على الأرض لغرس الشتلات</div>
+<div class="text-green-300 text-sm font-bold" id="farmMsg"></div>
+<script>
+const K='idle-farm-best';
+let coins=0,best=0,totalHarvest=0,saveKey='idle-farm-save',loaded=false;
+try{coins=parseInt(localStorage.getItem('idle-farm-coins')||0);best=parseInt(localStorage.getItem(K)||0);totalHarvest=parseInt(localStorage.getItem('idle-farm-total')||0);}catch(e){}
+let audio=null;
+function play(f,d,t='sine'){try{if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+d);o.stop(audio.currentTime+d);}catch(e){}}
+const SEEDS={tomato:{cost:10,grow:8000,sell:25,emoji:['🌱','🌿','🍅'],color:'red'},carrot:{cost:25,grow:12000,sell:60,emoji:['🌱','🌿','🥕'],color:'orange'},corn:{cost:50,grow:18000,sell:130,emoji:['🌱','🌿','🌽'],color:'yellow'}};
+let selected=null,plots=[];
+for(let i=0;i<6;i++)plots.push({type:null,stage:0,planted:0});
+function saveState(){try{localStorage.setItem('idle-farm-coins',String(coins));localStorage.setItem('idle-farm-total',String(totalHarvest));localStorage.setItem(saveKey,JSON.stringify(plots));}catch(e){}}
+(function(){try{const s=localStorage.getItem(saveKey);if(s){const p=JSON.parse(s);if(p&&p.length===6){plots=p;loaded=true;}}else{saveState();}}catch(e){}}());
+if(!loaded)saveState();
+function fmt(n){return n>=1e6?(n/1e6).toFixed(1)+'م':n>=1e3?(n/1e3).toFixed(1)+'ك':Math.floor(n);}
+function buySeed(type){selected=type;play(500,0.08);document.getElementById('farmMsg').textContent='تم اختيار: '+SEEDS[type].emoji[2];}
+function render(){
+const elCoins=document.getElementById('coins');elCoins.textContent='🪙 '+fmt(coins);
+if(coins>best){best=coins;try{localStorage.setItem(K,best);}catch(e){}}
+document.getElementById('best').textContent='الأفضل: '+fmt(best);
+document.getElementById('harvestTotal').textContent=fmt(totalHarvest);
+const el=document.getElementById('plots');el.innerHTML='';
+plots.forEach((p,i)=>{
+const d=document.createElement('div');
+d.className='w-24 h-24 rounded-xl flex items-center justify-center text-4xl cursor-pointer border-2 transition-all';
+if(!p.type){d.className+=' bg-green-700 border-green-600 hover:bg-green-600';d.textContent='🟫';d.onclick=()=>plant(i);}
+else{
+const s=SEEDS[p.type];
+const elapsed=Date.now()-p.planted;
+const progress=Math.min(1,elapsed/s.grow);
+const stage=progress>=1?2:progress>=0.5?1:0;
+p.stage=stage;
+d.className+=' bg-green-600 border-green-400';
+d.textContent=s.emoji[stage];
+if(stage===2){d.className+=' animate-pulse cursor-pointer';d.onclick=()=>harvest(i);}
+}
+el.appendChild(d);
+});
+}
+function plant(i){
+if(!selected)return;
+const m=document.getElementById('farmMsg');
+if(plots[i].type){m.textContent='هذه الأرض مشغولة!';play(180,0.1,'square');return;}
+const s=SEEDS[selected];
+if(coins<s.cost){m.textContent='ما يكفيش عملات!';play(200,0.1,'square');return;}
+coins-=s.cost;plots[i]={type:selected,stage:0,planted:Date.now()};
+m.textContent='غُرست '+s.emoji[2]+'!';
+selected=null;play(400,0.1);render();saveState();
+}
+function harvest(i){
+const s=SEEDS[plots[i].type];coins+=s.sell;totalHarvest+=s.sell;
+plots[i]={type:null,stage:0,planted:0};
+play(800,0.08);play(1000,0.1);render();saveState();
+}
+function resetFarm(){try{localStorage.removeItem('idle-farm-coins');localStorage.removeItem(K);localStorage.removeItem('idle-farm-total');localStorage.removeItem(saveKey);}catch(e){}coins=0;best=0;totalHarvest=0;plots=[];for(let i=0;i<6;i++)plots.push({type:null,stage:0,planted:0});render();saveState();}
+setInterval(render,500);
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>أعلى أم أقل؟ GAMEBOY 🎮</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#23212e}
+.shell{background:#3b3a4e;border-radius:1.6rem 1.6rem 3rem 1.6rem;box-shadow:0 22px 50px rgba(0,0,0,.5),inset 0 2px 0 rgba(255,255,255,.08)}
+.bezel{background:#575266;border-radius:.9rem .9rem 2.2rem .9rem}
+.screen{background:#9bbc0f;border-radius:.4rem;position:relative;overflow:hidden;box-shadow:inset 0 0 0 3px #7da029}
+.scan::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(15,56,15,.09) 0 2px,transparent 2px 4px)}
+.px{color:#0f380f}
+.cardGB{width:74px;height:104px;border:3px solid #0f380f;background:#8bac0f;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;box-shadow:4px 4px 0 rgba(15,56,15,.25)}
+.btnAB{width:56px;height:56px;border-radius:9999px;background:#c13584}
+.abtn{width:58px;height:58px;border-radius:9999px;background:#b04fa0;color:#2b0f27;font-weight:900;font-size:.8rem;box-shadow:0 5px 0 #6e2b62;transition:all .07s;border:none;cursor:pointer}
+.abtn:active{transform:translateY(4px);box-shadow:0 1px 0 #6e2b62}
+.pill{background:#575266;color:#cfcbe0;font-size:.65rem;padding:.35rem 1.1rem;border-radius:999px;font-weight:700}
+.backcard{background:#8bac0f;border:3px solid #0f380f;border-radius:6px;width:74px;height:104px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#0f380f;opacity:.85}
+@keyframes slideK{from{transform:translateX(-40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.slide{animation:slideK .3s ease-out}
+.popGB{background:#9bbc0f;border:3px solid #0f380f;padding:1rem;text-align:center}
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+<div class="shell w-full max-w-[340px] px-4 pt-5 pb-7">
+
+  <div class="flex justify-between items-center px-1 mb-3">
+    <span class="pill">GAME KID™</span>
+    <span class="text-[10px] text-purple-200/60 font-bold tracking-widest">HIGH-LOW DX</span>  </div>
+
+  <div class="bezel p-3">
+    <div class="screen scan aspect-[10/9] p-3 flex flex-col">
+      <!-- HUD -->
+      <div class="flex justify-between text-[10px] font-bold px mb-1" style="color:#0f380f">
+        <span>سلسلة <span id="streak">0</span></span>
+        <span>الأفضل <span id="best">0</span></span>
+      </div>
+
+      <div class="flex-1 flex flex-col items-center justify-center gap-2 relative">
+        <!-- cards -->
+        <div class="flex items-center gap-4" dir="ltr">
+          <div id="curCard" class="cardGB"><span class="text-2xl font-black" style="color:#0f380f">7</span><span class="text-xl" style="color:#0f380f">♠</span></div>
+          <span class="text-lg font-black" style="color:#0f380f">؟</span>
+          <div id="nextSlot" class="backcard">▚▚</div>
+        </div>
+        <p id="msg" class="text-[11px] font-bold h-4" style="color:#0f380f">الأعلى ولا الأقل من الوروة الجاية؟</p>
+
+        <!-- end popup -->
+        <div id="endPop" class="hidden absolute inset-x-3 top-6 popGB">
+          <p class="text-sm font-black mb-1">نفدت الورق!</p>
+          <p class="text-xs mb-3">سلسلتك: <b id="fStreak">0</b> • الأفضل: <b id="fBest">0</b></p>
+          <button id="againBtn" class="text-[11px] font-black border-b-2 border-[#0f380f]" style="color:#0f380f">▶ العب من جديد</button>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-end mt-1 px-1" dir="ltr">
+        <button id="btnB" class="abtn">▼ LOW</button>
+        <div class="flex flex-col items-center gap-1">
+          <span class="pill">START</span>
+          <span class="w-8 h-1 bg-[#454356] rounded-full"></span>
+        </div>
+        <button id="btnA" class="abtn">▲ HIGH</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-center text-[10px] text-purple-200/50 mt-3 font-semibold">ورقة واحدة تكشف… هل اللي بعدها أعلى أم أقل؟ (متساوي مستبعد)</p>
+</div>
+
+<script>
+const $=function(id){return document.getElementById(id);};
+const SUITS=['♠','♥','♦','♣'];
+const RN=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+let cur=null,streak=0,best=0,busy=false,ac=null;
+try{best=Number(localStorage.getItem('gb-highlow-best')||0);}catch(e){}
+function snd(f,d,t,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=t||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function drawAny(){return {v:ri(0,12),s:SUITS[ri(0,3)]};}
+function drawDiff(v){let c;do{c=drawAny();}while(c.v===v);return c;}
+
+function cardHTML(c){
+ return '<span class="text-2xl font-black" style="color:#0f380f">'+RN[c.v]+'</span><span class="text-xl" style="color:#0f380f">'+c.s+'</span>';
+}
+
+function paint(){
+ $('curCard').innerHTML=cardHTML(cur);
+ $('streak').textContent=streak;
+ $('best').textContent=best;
+ $('msg').textContent='الأعلى ولا الأقل من الوروة الجاية؟';
+ $('endPop').classList.add('hidden');
+ busy=false;
+}
+
+function guess(higher){
+ if(busy)return;
+ if($('endPop').classList.contains('hidden')===false)return;
+ busy=true;
+ const nx=drawDiff(cur.v);
+ const slot=$('nextSlot');
+ slot.className='cardGB slide';
+ slot.innerHTML=cardHTML(nx);
+ const correct=(nx.v>cur.v)===higher;
+  setTimeout(function(){
+    if(correct){
+      streak++;
+      $('msg').textContent='صح! ('+RN[cur.v]+RN[cur.s]+' ← '+RN[nx.v]+nx.s+')';
+      cur=nx;
+      slot.className='backcard';slot.innerHTML='▚▚';
+      snd(streak>=6?880:660,.09,'square',.04);
+      paint();
+    }else{
+      $('msg').textContent='خطأ!';
+      if(streak>best){best=streak;try{localStorage.setItem('gb-highlow-best',streak);}catch(e){}}
+      $('fStreak').textContent=streak;
+      $('fBest').textContent=best;
+      $('endPop').classList.remove('hidden');
+      slot.className='backcard';slot.innerHTML='▚▚';
+      snd(180,.3,'sawtooth',.06);
+    }
+  },600);
+}
+
+$('btnA').addEventListener('click',function(){guess(true);});
+$('btnB').addEventListener('click',function(){guess(false);});
+$('againBtn').addEventListener('click',function(e){
+ e.stopPropagation();
+ streak=0;cur=drawAny();paint();snd(660,.08,'square',.04);
+});
+window.addEventListener('keydown',function(e){
+ if(e.key==='Escape'&&$('endPop').classList.contains('hidden')===false){$('againBtn').click();return;}
+ if(e.code==='ArrowUp')guess(true);
+ if(e.code==='ArrowDown')guess(false);
+});
+
+cur=drawAny();
+paint();
+</script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نمط الواحة 🌴</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f5ead6;color:#2e2418;
+background-image:radial-gradient(ellipse at 80% 90%,rgba(26,122,109,.12) 0,transparent 50%),
+radial-gradient(ellipse at 20% 10%,rgba(166,124,82,.12) 0,transparent 45%)}
+.chipd{background:#ede2d0;border:2px solid #c4b8a4;border-radius:999px;padding:.24rem .85rem;font-weight:700;font-size:.82rem;color:#5e4a33}
+.btnd{background:#1a7a6d;color:#f5ead6;font-weight:900;border-radius:12px;padding:.6rem 2rem;
+border:3px solid #2e2418;box-shadow:0 5px 0 #2e2418;transition:all .08s}
+.btnd:hover{filter:brightness(1.08)}
+.btnd:active{transform:translateY(4px);box-shadow:none}
+.seqCell{width:58px;height:58px;display:flex;align-items:center;justify-content:center;
+border:2.5px solid #a67c52;border-radius:12px;font-size:1.4rem;font-weight:900;color:#2e2418;
+background:#ede2d0;box-shadow:2px 3px 0 rgba(166,124,82,.25)}
+.seqCell.q{border-color:#1a7a6d;border-style:dashed;color:#1a7a6d;background:rgba(26,122,109,.08);
+font-size:1.8rem;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+.optBtn{min-width:72px;padding:.6rem 1rem;border:2.5px solid #a67c52;border-radius:12px;
+font-size:1.3rem;font-weight:900;color:#2e2418;background:#ede2d0;cursor:pointer;
+box-shadow:2px 3px 0 rgba(166,124,82,.3);transition:all .1s}
+.optBtn:hover{border-color:#1a7a6d;background:rgba(26,122,109,.06)}
+.optBtn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(166,124,82,.3)}
+.optBtn.correct{border-color:#1a7a6d;background:rgba(26,122,109,.18);color:#1a7a6d;box-shadow:0 0 14px rgba(26,122,109,.3)}
+.optBtn.wrong{border-color:#c0524f;background:rgba(192,82,79,.1);color:#c0524f}
+</style>
+</head>
+<body class="select-none">
+
+<main class="max-w-lg mx-auto px-4 py-8">
+
+<header class="text-center mb-5">
+<h1 class="text-4xl font-black" style="color:#1a7a6d">🌴 نمط الواحة</h1>
+<p class="text-sm mt-1 opacity-65">اكتشف النمط وكمّل المكان الفاضي</p>
+</header>
+
+<div id="startScr" class="text-center">
+<div class="bg-white/60 border-2 border-[#c4b8a4] rounded-2xl p-8">
+<div class="text-5xl mb-3">🏜</div>
+<p class="leading-relaxed mb-3 font-bold text-[#5e4a33]">١٠ أنماط — اختار الإجابة الصحيحة من ٤ خيارات<br>سرعة الإجابة تزوّد النقاط</p>
+<button onclick="start()" class="btnd px-12 py-2.5 text-lg">افتح بوابة الواحة ▸</button>
+<p class="mt-3 text-xs opacity-55">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#1a7a6d]">—</span></p>
+</div>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex gap-2 flex-wrap justify-center mb-4">
+<span class="chipd">نمط <span id="rzEl" class="font-black text-[#1a7a6d]">١</span>/١٠</span>
+<span class="chipd">⭐ <span id="scoreEl" class="font-black text-[#1a7a6d]">٠</span></span>
+<span class="chipd">🔥 <span id="streakEl" class="font-black">٠</span></span>
+<span class="chipd">⏱ <span id="timeEl" class="font-bold">١٤</span>s</span>
+</div>
+<div class="bg-white/60 border-2 border-[#c4b8a4] rounded-2xl p-6">
+<div class="flex items-center justify-center gap-2 flex-wrap mb-5" id="seqRow"></div>
+<div class="flex gap-2 justify-center flex-wrap" id="optsRow"></div>
+<div id="rzMsg" class="h-7 mt-4 font-bold text-center text-[#5e4a33]"></div>
+</div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='desert-pattern-best';
+let patterns=[],rz=0,score=0,streak=0,timer=null,timeLeft=0,best=0,over=true,ac=null;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function genPattern(){
+const t=Math.floor(Math.random()*4);
+const len=6,pos=Math.floor(Math.random()*len);
+let full=[],answer;
+if(t===0){
+const s=Math.floor(Math.random()*8)+1,d=Math.floor(Math.random()*6)+2;
+full=Array.from({length:len},(_,i)=>s+d*i);
+}else if(t===1){
+const s=Math.floor(Math.random()*3)+2,r=Math.floor(Math.random()*3)+2;
+full=Array.from({length:len},(_,i)=>s*Math.pow(r,i));
+if(full[5]>900)return genPattern();
+}else if(t===2){
+const palettes=[[1,0],[1,1],[1,2],[2,4],[3,1],[5,3],[7,4]];
+const p=palettes[Math.floor(Math.random()*palettes.length)];
+full=Array.from({length:len},(_,i)=>p[i%2]);
+}else{
+const s=Math.floor(Math.random()*6)+2,d1=Math.floor(Math.random()*4)+1,d2=-(Math.floor(Math.random()*3)+1);
+full=Array.from({length:len},(_,i)=>i%2===0?s+d1*((i>>1)+1):s+d2*((i>>1)+1));
+}
+answer=full[pos];
+const wrongs=new Set([answer]);
+while(wrongs.size<4){
+const off=Math.floor(Math.random()*21)-10;
+const w=answer+off;
+if(off!==0&&Number.isFinite(w))wrongs.add(w);
+}
+const opts=[...wrongs].sort(()=>Math.random()-.5);
+return{full,answer,pos,opts};
+}
+function start(){
+patterns=[];for(let i=0;i<10;i++)patterns.push(genPattern());
+rz=0;score=0;streak=0;
+$('scoreEl').textContent='٠';$('streakEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+startRound();
+}
+function startRound(){
+const p=patterns[rz];
+$('rzEl').textContent=AR(rz+1);
+$('rzMsg').textContent='';
+renderSeq(p);renderOpts(p);
+timeLeft=14;
+$('timeEl').textContent=AR(timeLeft);
+clearInterval(timer);over=false;
+timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=AR(timeLeft);
+if(timeLeft<=0){
+clearInterval(timer);over=true;
+$('rzMsg').textContent='⏰ الإجابة: '+AR(p.answer);
+showCorrect(p);snd(170,.2,'sawtooth',.05);
+setTimeout(()=>{rz++;rz>=patterns.length?finish():startRound();},1500);
+}
+},1000);
+}
+function renderSeq(p){
+const row=$('seqRow');row.innerHTML='';
+p.full.forEach((v,i)=>{
+const d=document.createElement('div');
+d.className='seqCell'+(i===p.pos?' q':'');
+d.textContent=i===p.pos?'?':AR(v);
+row.appendChild(d);
+});
+}
+function renderOpts(p){
+const row=$('optsRow');row.innerHTML='';
+p.opts.forEach(o=>{
+const b=document.createElement('button');
+b.className='optBtn';
+b.textContent=AR(o);
+b.onclick=()=>{
+if(over)return;over=true;clearInterval(timer);
+if(o===p.answer){
+b.classList.add('correct');
+const gain=timeLeft*10+50;
+score+=gain;streak++;
+$('scoreEl').textContent=AR(score);
+$('streakEl').textContent=AR(streak);
+$('rzMsg').textContent='✅ أحسنت! +'+AR(gain);
+snd(520,.1,'triangle',.05);snd(700,.12,'triangle',.05);
+}else{
+b.classList.add('wrong');streak=0;$('streakEl').textContent='٠';
+$('rzMsg').textContent='❌ الإجابة: '+AR(p.answer);
+snd(170,.22,'sawtooth',.05);
+showCorrect(p);
+}
+setTimeout(()=>{rz++;rz>=patterns.length?finish():startRound();},1100);
+};
+row.appendChild(b);
+});
+}
+function showCorrect(p){
+const cells=$('seqRow').querySelectorAll('.seqCell');
+cells[p.pos].textContent=AR(p.answer);
+cells[p.pos].classList.remove('q');
+document.querySelectorAll('.optBtn').forEach(b=>{
+if(parseInt(b.textContent.replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]))===p.answer)b.classList.add('correct');
+});
+}
+function finish(){
+over=true;clearInterval(timer);
+$('playScr').innerHTML=`
+<div class="bg-white/60 border-2 border-[#c4b8a4] rounded-2xl p-10 text-center">
+<div class="text-5xl mb-2">🌴</div>
+<h2 class="text-3xl font-black mb-2" style="color:#1a7a6d">عُدّت من الواحة!</h2>
+<div class="text-5xl font-black mb-2" style="color:#1a7a6d">${AR(score)}</div>
+<p class="opacity-70 mb-4" id="finMsg"></p>
+<button onclick="location.reload()" class="btnd px-10 py-2.5">رحلة جديدة ↻</button>
+</div>`;
+const v=best;
+document.getElementById('finMsg').textContent=
+score>v&&score>0?'🏆 رقم قياسي جديد!':`أفضل نتيجة: ${AR(Math.max(v,score))}`;
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score)}catch(e){};
+chord([580,770,980],.13);
+}
+function chord(fs,d){fs.forEach((f,i)=>setTimeout(()=>snd(f,d||.14,'triangle',.05),i*100));}
+</script>
+</body>
+</html>

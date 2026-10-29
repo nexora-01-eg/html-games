@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سودوكو سايبر 🧩</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0d0e14;color:#c8f0ff;
+background-image:radial-gradient(ellipse at 50% 30%,rgba(0,229,255,.06) 0,transparent 60%)}
+.chipcy{background:rgba(0,229,255,.08);border:1.5px solid rgba(0,229,255,.35);border-radius:999px;
+padding:.22rem .85rem;font-weight:700;font-size:.82rem;color:#00e5ff}
+.btncy{background:linear-gradient(180deg,#00c8d4,#007a82);color:#fff;font-weight:900;border-radius:10px;
+padding:.55rem 1.8rem;border:2px solid #00e5ff;box-shadow:0 0 16px rgba(0,229,255,.35);transition:all .08s;
+text-shadow:0 0 8px rgba(0,229,255,.5)}
+.btncy:hover{filter:brightness(1.15)}
+.btncy:active{transform:translateY(3px);box-shadow:none}
+#grid{display:inline-grid;grid-template-columns:repeat(6,1fr);gap:0;border:3px solid #00e5ff;
+box-shadow:0 0 30px rgba(0,229,255,.2)}
+.cell{width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+font-size:1.3rem;font-weight:800;cursor:pointer;border:1.5px solid rgba(0,229,255,.2);
+background:rgba(0,229,255,.03);color:#c8f0ff;user-select:none;transition:background .1s}
+.cell:hover{background:rgba(0,229,255,.1)}
+.cell.sel{background:rgba(0,229,255,.2);color:#00e5ff;box-shadow:inset 0 0 14px rgba(0,229,255,.25)}
+.cell.given{color:#00e5ff;text-shadow:0 0 10px rgba(0,229,255,.45)}
+.cell.wrong{color:#ff2d95;background:rgba(255,45,149,.12)}
+.cell.correct{color:#4ade80;background:rgba(74,222,128,.1)}
+.cell.b3{border-left:3px solid rgba(0,229,255,.6)}
+.cell.b6{border-top:3px solid rgba(0,229,255,.6)}
+#numBar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.numb{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+border:2px solid rgba(0,229,255,.35);border-radius:10px;font-size:1.15rem;font-weight:900;
+color:#00e5ff;background:rgba(0,229,255,.05);cursor:pointer;transition:all .1s}
+.numb:hover{background:rgba(0,229,255,.15);box-shadow:0 0 10px rgba(0,229,255,.3)}
+.numb:active{transform:scale(.92)}
+</style>
+</head>
+<body class="select-none">
+
+<main class="min-h-screen flex flex-col items-center justify-center p-4">
+
+<header class="text-center mb-4">
+<h1 class="text-3xl font-black" style="color:#00e5ff;text-shadow:0 0 18px rgba(0,229,255,.5)">🧩 سودوكو سايبر</h1>
+<p class="text-sm mt-1 opacity-60">شبكة ٦×٦ — كل صف وعمود ومربع فيه ١–٦ بدون تكرار</p>
+</header>
+
+<div id="startScr" class="text-center">
+<div class="border border-[rgba(0,229,255,.3)] rounded-2xl p-8 bg-[rgba(0,229,255,.03)]">
+<div class="text-5xl mb-3">💻</div>
+<p class="leading-relaxed mb-4 opacity-80 font-bold">٥ شبكات ٦×٦ — أسرع وقت = نقاط أكتر<br>اضغط خلية ثم اختار رقم من الشريط</p>
+<button onclick="start()" class="btncy px-12 py-3 text-lg">ابدأ الاختراق ▸</button>
+<p class="mt-3 text-xs opacity-50">أفضل نتيجة: <span id="bestStart" class="font-bold" style="color:#00e5ff">—</span></p>
+</div>
+</div>
+
+<div id="playScr" class="hidden text-center">
+<div class="flex gap-2 flex-wrap justify-center mb-3">
+<span class="chipcy">شبكة <span id="pzEl" class="font-black">١</span>/٥</span>
+<span class="chipcy">⭐ <span id="scoreEl" class="font-black">٠</span></span>
+<span class="chipcy">⏱ <span id="timeEl" class="font-bold">٢:٣٠</span></span>
+<span class="chipcy">🏆 <span id="bestEl" class="font-black">—</span></span>
+</div>
+
+<div class="mb-4 inline-block"><div id="grid"></div></div>
+<div id="numBar" class="mb-3"></div>
+<div class="flex gap-2 justify-center mb-3">
+<button onclick="clearCell()" class="btncy !py-1.5 !px-5 text-sm">🧹 مسح</button>
+<button onclick="checkBoard()" class="btncy !py-1.5 !px-5 text-sm">🔍 تحقق</button>
+<button onclick="revealClue()" class="btncy !py-1.5 !px-5 text-sm">💡 تلميح</button>
+</div>
+<div id="pzMsg" class="h-6 font-bold" style="color:#00e5ff"></div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='cyber-sudoku-best';
+let sol=[],board=[],given=[],pz=0,score=0,timer=null,timeLeft=0,selCell=null,best=0,over=true,ac=null;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function valid(grid,r,c,n){
+for(let i=0;i<6;i++){if(grid[r][i]===n||grid[i][c]===n)return false;}
+const br=Math.floor(r/3)*3,bc=Math.floor(c/2)*2;
+for(let dr=0;dr<3;dr++)for(let dc=0;dc<2;dc++)if(grid[br+dr][bc+dc]===n)return false;
+return true;
+}
+function solve(grid){
+for(let r=0;r<6;r++)for(let c=0;c<6;c++){
+if(!grid[r][c]){
+for(const n of[1,2,3,4,5,6]){
+if(valid(grid,r,c,n)){grid[r][c]=n;if(solve(grid))return true;grid[r][c]=0;}
+}
+return false;
+}
+}return true;
+}
+function genPuzzle(){
+for(let a=0;a<200;a++){
+const g=Array.from({length:6},()=>Array(6).fill(0));
+for(let r=0;r<6;r++)for(let c=0;c<6;c++){
+const nums=[1,2,3,4,5,6].sort(()=>Math.random()-.5);
+for(const n of nums)if(valid(g,r,c,n)){g[r][c]=n;break;}
+}
+const solved=g.map(r=>[...r]);
+if(!solve(solved))continue;
+const order=[...Array(36).keys()].sort(()=>Math.random()-.5);
+const mask=Array.from({length:6},()=>Array(6).fill(false));
+let blanks=0;
+for(const idx of order){
+if(blanks>=15)break;
+mask[Math.floor(idx/6)][idx%6]=true;blanks++;
+}
+return{sol:solved,mask};
+}
+return{sol:[[1,2,3,4,5,6],[3,4,5,6,1,2],[5,6,1,2,3,4],[2,1,4,3,6,5],[4,3,6,5,2,1],[6,5,2,1,4,3]],
+mask:Array.from({length:6},()=>[false,false,true,true,true,true])};
+}
+function start(){
+pz=0;score=0;
+$('scoreEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+nextPuzzle();
+}
+function nextPuzzle(){
+const p=genPuzzle();
+sol=p.sol;
+board=sol.map((r,rw)=>r.map((v,c)=>p.mask[rw][c]?0:v));
+given=p.mask.map(r=>r.map(v=>!v));
+renderGrid();renderNumBar();
+$('pzEl').textContent=AR(pz+1);
+timeLeft=150;
+$('timeEl').textContent=fmt(timeLeft);
+$('pzMsg').textContent='';selCell=null;
+clearInterval(timer);over=false;
+timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=fmt(timeLeft);
+if(timeLeft<=0){clearInterval(timer);over=true;$('pzMsg').textContent='⏰ خلص الوقت!';
+revealAll();setTimeout(()=>{pz++;pz>=5?finish():nextPuzzle();},2200);}
+},1000);
+}
+function fmt(s){return AR(Math.floor(s/60))+':'+AR(String(s%60).padStart(2,'0'));}
+function renderGrid(){
+const g=$('grid');g.innerHTML='';
+for(let r=0;r<6;r++)for(let c=0;c<6;c++){
+const d=document.createElement('div');
+d.className='cell'+(given[r][c]?' given':'')+(c>0&&c%2===0?' b3':'')+(r>0&&r%3===0?' b6':'');
+d.textContent=board[r][c]?AR(board[r][c]):'';
+d.onclick=()=>{if(over||given[r][c])return;selCell={r,c};
+document.querySelectorAll('.cell').forEach(x=>x.classList.remove('sel'));
+d.classList.add('sel');};
+if(selCell&&selCell.r===r&&selCell.c===c)d.classList.add('sel');
+g.appendChild(d);
+}
+}
+function renderNumBar(){
+const bar=$('numBar');bar.innerHTML='';
+for(let n=1;n<=6;n++){
+const b=document.createElement('button');
+b.className='numb';b.textContent=AR(n);
+b.onclick=()=>{
+if(over||!selCell)return;
+board[selCell.r][selCell.c]=n;
+snd(500+n*50,.05,'sine',.04);
+renderGrid();
+const filled=board.every(r=>r.every(v=>v!==0));
+if(filled)checkComplete();
+};
+bar.appendChild(b);
+}
+}
+function clearCell(){
+if(over||!selCell||given[selCell.r][selCell.c])return;
+board[selCell.r][selCell.c]=0;
+renderGrid();snd(300,.05,'sine');
+}
+function checkBoard(){
+if(over)return;
+let wrong=0;
+document.querySelectorAll('.cell').forEach((d,i)=>{
+const r=Math.floor(i/6),c=i%6;
+if(given[r][c]||!board[r][c])return;
+d.classList.remove('wrong','correct');
+if(board[r][c]!==sol[r][c]){d.classList.add('wrong');wrong++;}
+else d.classList.add('correct');
+});
+if(wrong)$('pzMsg').textContent='❌ '+AR(wrong)+' أخطاء';
+else $('pzMsg').textContent='💛 مفيش أخطاء!';
+snd(wrong?180:520,.1,wrong?'sawtooth':'triangle',.05);
+}
+function checkComplete(){
+for(let r=0;r<6;r++)for(let c=0;c<6;c++)if(board[r][c]!==sol[r][c])return;
+clearInterval(timer);over=true;
+const gain=timeLeft*8+50;
+score+=gain;$('scoreEl').textContent=AR(score);
+$('pzMsg').textContent='🎉 اتكسر الشبكة! +'+AR(gain);
+[620,800,1040].forEach((f,i)=>setTimeout(()=>snd(f,.12,'triangle',.05),i*90));
+revealAll();
+setTimeout(()=>{pz++;pz>=5?finish():nextPuzzle();},1600);
+}
+function revealClue(){
+if(over)return;
+for(let a=0;a<36;a++){
+const r=Math.floor(Math.random()*6),c=Math.floor(Math.random()*6);
+if(!given[r][c]&&board[r][c]!==sol[r][c]){
+board[r][c]=sol[r][c];given[r][c]=true;
+renderGrid();snd(440,.07,'sine',.04);
+$('pzMsg').textContent='💡 انكشف خلية!';
+return;
+}
+}
+}
+function revealAll(){
+for(let r=0;r<6;r++)for(let c=0;c<6;c++){board[r][c]=sol[r][c];given[r][c]=true;}
+renderGrid();
+}
+function finish(){
+over=true;clearInterval(timer);
+$('playScr').innerHTML=`
+<div class="border border-[rgba(0,229,255,.3)] rounded-2xl p-10 bg-[rgba(0,229,255,.03)] text-center">
+<div class="text-5xl mb-2">💻</div>
+<h2 class="text-3xl font-black mb-2" style="color:#00e5ff">الشبكة اتكسرت!</h2>
+<div class="text-5xl font-black mb-2" style="color:#00e5ff;text-shadow:0 0 14px rgba(0,229,255,.5)">${AR(score)}</div>
+<p class="opacity-70 mb-4" id="finMsg"></p>
+<button onclick="location.reload()" class="btncy px-10 py-2.5">اختراق جديد ↻</button>
+</div>`;
+const v=best;
+document.getElementById('finMsg').textContent=
+score>v&&score>0?'🏆 رقم قياسي جديد!':`أفضل نتيجة: ${AR(Math.max(v,score))}`;
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score)}catch(e){};
+chord([580,780,1040],.14);
+}
+function chord(fs,d){fs.forEach((f,i)=>setTimeout(()=>snd(f,d||.15,'triangle',.05),i*100));}
+</script>
+</body>
+</html>

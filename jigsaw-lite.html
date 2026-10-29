@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لغز البازل</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#f0e6ff}
+.tile{width:80px;height:80px;position:absolute;cursor:grab;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:bold;border-radius:8px;user-select:none;border:2px solid rgba(0,0,0,0.15)}
+.tile.dragging{z-index:100;opacity:0.8;cursor:grabbing}
+</style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-gray-800">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-purple-700">لغز البازل</h1>
+<p class="mb-6 text-lg">رتّب القطع لتشكل الصورة</p>
+<button onclick="startGame()" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-purple-500"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-3 flex gap-6 justify-center text-lg font-bold">
+<span id="movesDisplay">الحركات: 0</span>
+<span id="timerDisplay">الوقت: 0</span>
+</div>
+<div id="board" class="relative mx-auto" style="width:320px;height:320px;border:3px solid #9333ea;border-radius:12px;background:white"></div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-purple-700">أحسنت!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-400 hover:bg-gray-500 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let tiles=[],moves=0,timer=0,timerI=null,best=999,ac=null,paused=false;
+try{best=parseInt(localStorage.getItem('jigsaw-lite-best'))||999;}catch(e){}
+let emptyIdx=15;
+const colors=['#c7d2fe','#fbcfe8','#a7f3d0','#fde68a','#fecaca','#d9f99d','#bfdbfe','#e9d5ff','#fed7aa','#ccfbf1','#fca5a5','#86efac','#fcd34d','#93c5fd','#c4b5fd','#f9a8d4'];
+function $(id){return document.getElementById(id)}
+function playTone(freq,type,dur){
+try{if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();
+let o=ac.createOscillator(),g=ac.createGain();
+o.type=type;o.frequency.value=freq;g.gain.value=0.15;
+o.connect(g);g.connect(ac.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur);
+o.stop(ac.currentTime+dur);}catch(e){}
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+function isSolvable(seq){
+let inv=0;
+for(let i=0;i<seq.length;i++)for(let j=i+1;j<seq.length;j++)if(seq[i]&&seq[j]&&seq[i]>seq[j])inv++;
+const blankRow=Math.floor(seq.indexOf(0)/4);
+return (inv+blankRow)%2===0;
+}
+function solvableShuffle(){
+let s;
+do{s=Array.from({length:16},(_,i)=>i);shuffle(s);}while(!isSolvable(s));
+return s;
+}
+function isSolved(){for(let i=0;i<16;i++)if(tiles[i]!==i)return false;return true}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');if(timerI)clearInterval(timerI);$('best1').textContent=best<999?'أفضل نتيجة: '+best+' حركة':'لا توجد نتائج بعد';}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+moves=0;timer=0;emptyIdx=15;paused=false;
+if(timerI)clearInterval(timerI);
+$('movesDisplay').textContent='الحركات: 0';
+$('timerDisplay').textContent='الوقت: 0';
+timerI=setInterval(()=>{if(!paused)timer++;$('timerDisplay').textContent='الوقت: '+timer},1000);
+tiles=Array.from({length:16},(_,i)=>i);
+tiles=solvableShuffle();
+renderBoard();
+}
+function renderBoard(){
+let b=$('board');b.innerHTML='';
+tiles.forEach((val,idx)=>{
+let t=document.createElement('div');
+t.className='tile';t.style.background=colors[val];t.style.color='#4c1d95';
+t.textContent=val+1;t.dataset.idx=idx;
+let row=Math.floor(idx/4),col=idx%4;
+t.style.left=col*80+'px';t.style.top=row*80+'px';
+t.addEventListener('mousedown',onDown);
+t.addEventListener('touchstart',onTouchStart,{passive:false});
+b.appendChild(t);
+});
+}
+function findEmpty(){return tiles.indexOf(15)}
+function onDown(e){
+let idx=+e.target.dataset.idx,empty=findEmpty();
+let row=Math.floor(idx/4),col=idx%4,eRow=Math.floor(empty/4),eCol=empty%4;
+if((row===eRow&&Math.abs(col-eCol)===1)||(col===eCol&&Math.abs(row-eRow)===1)){
+[tiles[idx],tiles[empty]]=[tiles[empty],tiles[idx]];
+moves++;$('movesDisplay').textContent='الحركات: '+moves;
+playTone(440+idx*20,'sine',0.1);
+renderBoard();
+if(isSolved()){clearInterval(timerI);
+let score=moves;
+ if(score<best){best=score;try{localStorage.setItem('jigsaw-lite-best',best);}catch(e){}}
+$('finalStats').textContent='الحركات: '+moves+' | الوقت: '+timer+' ثانية';
+$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');
+playTone(880,'sine',0.3);
+}
+}
+}
+function onTouchStart(e){e.preventDefault();onDown(e);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('playScreen').classList.contains('hidden')){paused=!paused;$('timerDisplay').textContent=paused?'الوقت: ⏸':$('timerDisplay').textContent;}});
+goHome();
+</script>
+</body>
+</html>

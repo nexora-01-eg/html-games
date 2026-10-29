@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ارسم النقط 🖊</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f2e8d5;color:#3d3327;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#8a5a2a}
+.sub{font-size:.75rem;color:rgba(61,51,39,.55);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:2px solid #c4a87a;border-radius:999px;color:#8a5a2a}
+.btn{font-family:inherit;background:#8a5a2a;color:#f2e8d5;border:none;padding:.55rem 1.5rem;font-weight:900;font-size:.85rem;border-radius:999px;cursor:pointer;box-shadow:0 4px 0 #5a3a14;transition:all .08s}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:translateY(3px);box-shadow:none}
+canvas{border:3px solid #c4a87a;border-radius:12px;background:#fff9f0;cursor:crosshair;touch-action:none}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.5rem;color:#8a5a2a}
+</style>
+</head>
+<body>
+<h1>🖊 ارسم النقط</h1>
+<p class="sub">صلّ النقط المرقمة بالترتيب — تطلع صورة!</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">٨ أشكال — صلّ النقط من ١ لـ ٨ بالترتيب<br>اضغط غلط = نقص محاولة</p>
+<button onclick="start()" class="btn">ابدأ الرسم 🖊</button>
+<p style="font-size:.7rem;opacity:.5;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>شكل <b id="pzEl">١</b>/٨</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>❤️ <b id="livesEl">٣</b></span>
+</div>
+<canvas id="cv" width="360" height="360"></canvas>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='craft-dots-best';
+const cv=$('cv'),cx=cv.getContext('2d');
+let pz=0,score=0,lives=3,best=0,ac=null,over=true,dots=[],nextDot=0;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+const SHAPES=[
+[{x:180,y:60},{x:260,y:120},{x:260,y:240},{x:180,y:300},{x:100,y:240},{x:100,y:120},{x:180,y:60},{x:180,y:180}],
+[{x:180,y:50},{x:300,y:180},{x:180,y:310},{x:60,y:180},{x:180,y:50},{x:180,y:180},{x:60,y:50},{x:300,y:50}],
+[{x:80,y:80},{x:280,y:80},{x:280,y:280},{x:80,y:280},{x:80,y:80},{x:180,y:80},{x:180,y:280},{x:80,y:180}],
+[{x:180,y:50},{x:310,y:180},{x:250,y:310},{x:110,y:310},{x:50,y:180},{x:180,y:50},{x:180,y:310},{x:50,y:50}],
+[{x:80,y:300},{x:80,y:60},{x:280,y:60},{x:280,y:300},{x:180,y:180},{x:80,y:60},{x:280,y:300},{x:180,y:60}],
+[{x:180,y:50},{x:220,y:140},{x:310,y:140},{x:240,y:200},{x:260,y:300},{x:180,y:240},{x:100,y:300},{x:120,y:200}],
+[{x:180,y:50},{x:310,y:120},{x:270,y:280},{x:90,y:280},{x:50,y:120},{x:180,y:50},{x:180,y:160},{x:180,y:280}],
+[{x:60,y:180},{x:120,y:60},{x:240,y:60},{x:300,y:180},{x:240,y:300},{x:120,y:300},{x:60,y:180},{x:180,y:180}]
+];
+function start(){pz=0;score=0;lives=3;over=false;$('scoreEl').textContent='٠';$('livesEl').textContent='٣';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');nextShape();}
+function nextShape(){
+if(pz>=SHAPES.length||lives<=0){finish();return;}
+$('pzEl').textContent=AR(pz+1);$('rzMsg').textContent='';
+dots=SHAPES[pz].map((d,i)=>({...d,i}));
+nextDot=0;
+drawAll();
+cv.onclick=e=>{if(over)return;const r=cv.getBoundingClientRect();const x=(e.clientX-r.left)*(cv.width/r.width);const y=(e.clientY-r.top)*(cv.height/r.height);checkClick(x,y);};
+}
+function drawAll(){
+cx.clearRect(0,0,cv.width,cv.height);
+dots.forEach((d,i)=>{
+if(i<nextDot){
+if(i>0){cx.strokeStyle='rgba(138,90,42,.4)';cx.lineWidth=2;cx.setLineDash([]);cx.beginPath();cx.moveTo(dots[i-1].x,dots[i-1].y);cx.lineTo(d.x,d.y);cx.stroke();}
+cx.fillStyle='#8a5a2a';cx.beginPath();cx.arc(d.x,d.y,8,0,7);cx.fill();
+}else{
+cx.strokeStyle='rgba(138,90,42,.25)';cx.lineWidth=1.5;cx.setLineDash([4,4]);
+cx.beginPath();cx.arc(d.x,d.y,14,0,7);cx.stroke();cx.setLineDash([]);
+cx.fillStyle='rgba(138,90,42,.5)';cx.font='bold 11px monospace';cx.textAlign='center';cx.textBaseline='middle';
+cx.fillText(AR(i+1),d.x,d.y);
+}
+});
+}
+function checkClick(x,y){
+const target=dots[nextDot];
+const dist=Math.hypot(x-target.x,y-target.y);
+if(dist<22){
+nextDot++;snd(500+nextDot*50,.07,'sine',.035);drawAll();
+if(nextDot>=dots.length){
+score+=100;lives++;$('scoreEl').textContent=AR(score);$('livesEl').textContent=AR(lives);
+$('rzMsg').textContent='🎉 شكل جميل! +١٠٠';
+snd(660,.12,'triangle',.05);
+pz++;nextShape();
+}
+}else{
+lives--;$('livesEl').textContent=AR(lives);
+$('rzMsg').textContent='❌ غلط! نقطة '+AR(nextDot+1);
+snd(180,.14,'sawtooth',.04);drawAll();
+if(lives<=0){finish();}
+}
+}
+function finish(){
+over=true;cv.onclick=null;
+$('playScr').innerHTML=`
+<div style="text-align:center;border:3px solid #c4a87a;border-radius:16px;padding:2rem;max-width:320px;background:#fff9f0">
+<p style="font-size:2rem">🖊</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#8a5a2a">انتهى الرسم!</h2>
+<p style="font-size:2rem;font-weight:900;color:#8a5a2a">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+$('finMsg').textContent=score>best&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(best,score));
+if(score>best&&score>0)try{localStorage.setItem(bestKey,score)}catch(e){};
+}
+</script>
+</body>
+</html>

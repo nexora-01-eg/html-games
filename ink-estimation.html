@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>قدّر العدد 🎋</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f5f0e8;color:#2d3a2d;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;
+background-image:radial-gradient(circle at 70% 80%,rgba(80,120,80,.08) 0,transparent 50%)}
+h1{font-size:1.8rem;font-weight:900;color:#3a5a3a}
+.sub{font-size:.75rem;color:rgba(45,58,45,.5);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:2px solid #a8c4a8;border-radius:999px;color:#3a5a3a}
+.btn{font-family:inherit;background:#3a5a3a;color:#f5f0e8;border:none;padding:.55rem 1.5rem;font-weight:900;border-radius:999px;cursor:pointer;box-shadow:0 4px 0 #1a2a1a;transition:all .08s}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:translateY(3px);box-shadow:none}
+.obj{margin:1.5rem 0;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:300px;min-height:60px}
+.obj span{font-size:1.4rem}
+.slider{width:min(80vw,300px);margin:1rem 0;accent-color:#3a5a3a}
+.val{font-size:2rem;font-weight:900;color:#3a5a3a;margin:.3rem 0}
+.range{display:flex;justify-content:space-between;width:min(80vw,300px);font-size:.7rem;opacity:.5}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;color:#3a5a3a}
+</style>
+</head>
+<body>
+<h1>🎋 قدّر العدد</h1>
+<p class="sub">قدّر عدد الأشياء بسرعة</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">أشياء بتظهر لحظة — قدّر عددها بالتقريب<br>كلما قربت من الإجابة زادت النقاط</p>
+<button onclick="start()" class="btn">ابدأ التقدير 🎋</button>
+<p style="font-size:.7rem;opacity:.5;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/١٠</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>🔥 <b id="streakEl">٠</b></span>
+</div>
+<div class="obj" id="objArea"></div>
+<div class="val" id="valEl">١٥</div>
+<input type="range" class="slider" id="slider" min="1" max="40" value="15">
+<div class="range"><span>١</span><span>٤٠</span></div>
+<button class="btn" onclick="submit()" style="margin-top:.8rem">✓ قدّرت</button>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const bestKey='ink-estimation-best';
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let rz=0,score=0,streak=0,best=0,ac=null,over=true,perfects=0,goods=0,misses=0,timeouts=[];
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+const ITEMS=['🍎','🍊','🍋','🌸','⭐','🍀','🔴','💎','🪙','🎯'];
+$('bestStart').textContent=best?AR(best):'—';
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+$('slider').oninput=()=>{$('valEl').textContent=AR($('slider').value);};
+function start(){rz=0;score=0;streak=0;perfects=0;goods=0;misses=0;timeouts.forEach(t=>clearTimeout(t));timeouts=[];$('scoreEl').textContent='٠';$('streakEl').textContent='٠';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');nextRound();}
+function nextRound(){
+rz++;$('rzEl').textContent=AR(rz);$('rzMsg').textContent='';over=true;
+const count=3+Math.floor(Math.random()*Math.min(38,8+rz*3));
+const item=ITEMS[Math.floor(Math.random()*ITEMS.length)];
+const area=$('objArea');area.innerHTML='';
+for(let i=0;i<count;i++){const s=document.createElement('span');s.textContent=item;s.style.opacity='0';area.appendChild(s);}
+area.querySelectorAll('span').forEach((s,i)=>{
+timeouts.push(setTimeout(()=>s.style.opacity='1',i*15));
+});
+const showTime=Math.max(600,1400-rz*60);
+timeouts.push(setTimeout(()=>{
+area.querySelectorAll('span').forEach(s=>s.style.opacity='0');
+timeouts.push(setTimeout(()=>{area.innerHTML='<span style="opacity:.4;font-size:1rem">اختفيت! قدّر العدد</span>';over=false;},200));
+},showTime));
+$('slider').value=15;$('valEl').textContent='١٥';
+window._correctCount=count;
+}
+function submit(){
+if(over)return;over=true;
+const guess=+$('slider').value;
+const correct=window._correctCount;
+const diff=Math.abs(guess-correct);
+let gain;
+if(diff===0){gain=100;streak++;perfects++;$('rzMsg').textContent='🎯 مثالي! +١٠٠';}
+else if(diff<=2){gain=70;streak++;goods++;$('rzMsg').textContent='✅ قريب جداً! ('+AR(correct)+') +'+AR(gain);}
+else if(diff<=5){gain=40;streak=Math.max(0,streak-1);$('rzMsg').textContent='💛 قربت ('+AR(correct)+') +'+AR(gain);}
+else{gain=10;streak=0;misses++;$('rzMsg').textContent='❌ العدد '+AR(correct)+' (تقديرك: '+AR(guess)+') +'+AR(gain);}
+score+=gain+streak*5;$('scoreEl').textContent=AR(score);$('streakEl').textContent=AR(streak);
+snd(diff<=2?660:220,.1,diff<=2?'triangle':'sawtooth',.04);
+rz>=10?finish():timeouts.push(setTimeout(nextRound,1200));
+}
+function backToStart(){
+    $('startScr').classList.remove('hidden');
+    $('playScr').classList.add('hidden');
+    $('playScr').innerHTML='<div class="hud">\n<span>جولة <b id="rzEl">١</b>/١٠</span>\n<span>⭐ <b id="scoreEl">٠</b></span>\n<span>🔥 <b id="streakEl">٠</b></span>\n</div>\n<div class="obj" id="objArea"></div>\n<div class="val" id="valEl">١٥</div>\n<input type="range" class="slider" id="slider" min="1" max="40" value="15">\n<div class="range"><span>١</span><span>٤٠</span></div>\n<button class="btn" onclick="submit()" style="margin-top:.8rem">✓ قدّرت</button>\n<div class="msg" id="rzMsg"></div>';
+    $('slider').oninput=()=>{$('valEl').textContent=AR($('slider').value);};
+
+}
+function finish(){
+over=true;
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid #a8c4a8;border-radius:16px;padding:2rem;max-width:320px;background:rgba(255,255,255,.4)">
+<p style="font-size:2rem">🎋</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#3a5a3a">انتهى التقدير!</h2>
+<p style="font-size:2rem;font-weight:900;color:#3a5a3a">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.7;margin:.3rem">مثالي ${AR(perfects)} · قريب ${AR(goods)} · بعيد ${AR(misses)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button onclick="backToStart()" class="btn">القائمة ↻</button>
+</div>`;
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}}
+}
+</script>
+</body>
+</html>

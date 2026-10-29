@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تجنب المطر</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:linear-gradient(180deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);overflow:hidden}
+#game{display:block;margin:0 auto}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center" style="font-family:sans-serif">
+<div class="flex gap-6 py-2 text-gray-300 font-bold text-lg z-10">
+<div>النقاط: <span id="score">0</span></div>
+<div>الأرواح: <span id="lives">❤️❤️❤️</span></div>
+<div>الأفضل: <span id="best">0</span></div>
+</div>
+<canvas id="game" width="400" height="550"></canvas>
+<div id="over" class="hidden fixed inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
+<div class="bg-gray-800 rounded-xl p-8 text-center border border-gray-600">
+<h2 class="text-2xl font-bold mb-3 text-red-400" id="overTitle">انتهت اللعبة!</h2>
+<p class="text-lg mb-1 text-gray-300">النتيجة: <span id="finalScore" class="font-bold text-white">0</span></p>
+<p class="text-lg mb-4 text-gray-300">الأفضل: <span id="finalBest" class="font-bold text-yellow-400">0</span></p>
+<button id="restart" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-lg">جديد</button>
+</div>
+</div>
+<script>
+const C=document.getElementById('game'),X=C.getContext('2d');
+const audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+function playTone(f,d,t='sine'){const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.1,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}
+const W=400,H=550;
+let playerX,lives,score,drops,gameOver,speed,spawnTimer,elapsed,invincible,paused=false;
+function init(){
+playerX=W/2;lives=3;score=0;drops=[];gameOver=false;speed=3;spawnTimer=0;elapsed=0;invincible=0;paused=false;
+document.getElementById('over').classList.add('hidden');
+document.getElementById('lives').textContent='❤️❤️❤️';
+document.getElementById('score').textContent=0;
+let bs='0';try{bs=localStorage.getItem('dodge-rain-best')||'0';}catch(e){}
+document.getElementById('best').textContent=bs;
+lastTime=performance.now();loop();
+}
+let lastTime=0;
+function loop(ts=performance.now()){
+if(gameOver)return;
+requestAnimationFrame(loop);
+if(paused){lastTime=ts;return;}
+const dt=(ts-lastTime)/16.67;lastTime=ts;
+elapsed+=dt/60;score=Math.floor(elapsed);
+document.getElementById('score').textContent=score;
+speed=3+elapsed*0.15;
+spawnTimer+=dt;
+if(spawnTimer>35-speed*2){
+spawnTimer=0;
+const type=Math.random();
+if(type<0.6)drops.push({x:Math.random()*(W-20)+10,y:-20,vy:speed+Math.random()*2,type:'rain',size:10});
+else if(type<0.85)drops.push({x:Math.random()*(W-20)+10,y:-20,vy:speed+Math.random()*1.5,type:'gold',size:12});
+else drops.push({x:Math.random()*(W-20)+10,y:-20,vy:speed+Math.random()*2,type:'red',size:12});
+}
+if(invincible>0)invincible-=dt;
+drops.forEach(d=>{d.y+=d.vy*dt});
+drops=drops.filter(d=>{
+if(d.y>H+20)return false;
+const px=playerX,py=H-50;
+const dist=Math.sqrt((d.x-px)**2+(d.y-py)**2);
+if(dist<28){
+if(d.type==='rain'&&invincible<=0){lives--;invincible=60;playTone(200,.3,'sawtooth');
+document.getElementById('lives').textContent='❤️'.repeat(Math.max(0,lives));
+if(lives<=0){endGame();return false}}
+else if(d.type==='gold'){score+=50;playTone(880,.12);document.getElementById('score').textContent=score;return false}
+else if(d.type==='red'&&invincible<=0){lives--;invincible=60;playTone(180,.4,'sawtooth');
+document.getElementById('lives').textContent='❤️'.repeat(Math.max(0,lives));
+if(lives<=0){endGame();return false}}
+return false;
+}
+return true;
+});
+X.clearRect(0,0,W,H);
+for(let i=0;i<15;i++){X.beginPath();X.arc((i*37+elapsed*20)%W,(i*53+elapsed*100)%(H-60)+30,1,0,Math.PI*2);X.fillStyle='rgba(255,255,255,.15)';X.fill()}
+drops.forEach(d=>{
+X.beginPath();if(d.type==='rain'){X.fillStyle='rgba(100,180,255,.7)';X.arc(d.x,d.y,d.size,0,Math.PI*2);X.fill();
+X.beginPath();X.moveTo(d.x,d.y-d.size);X.lineTo(d.x-3,d.y+d.size*.5);X.lineTo(d.x+3,d.y+d.size*.5);X.fillStyle='rgba(100,180,255,.5)';X.fill();
+}else if(d.type==='gold'){X.fillStyle='#FFD700';X.beginPath();X.arc(d.x,d.y,d.size,0,Math.PI*2);X.fill();X.strokeStyle='#FFA500';X.lineWidth=2;X.stroke();
+X.fillStyle='#FFF';X.font='bold 14px sans-serif';X.textAlign='center';X.textBaseline='middle';X.fillText('$',d.x,d.y);
+}else{X.fillStyle='#EF4444';X.beginPath();X.arc(d.x,d.y,d.size,0,Math.PI*2);X.fill();X.strokeStyle='#B91C1C';X.lineWidth=2;X.stroke();
+X.fillStyle='#FFF';X.font='bold 16px sans-serif';X.textAlign='center';X.textBaseline='middle';X.fillText('✕',d.x,d.y)}
+});
+if(invincible>0&&Math.floor(invincible/4)%2===0){X.globalAlpha=.4}
+X.font='36px sans-serif';X.textAlign='center';X.textBaseline='middle';X.fillText('🚗',playerX,H-45);
+X.globalAlpha=1;
+X.fillStyle='rgba(255,255,255,.08)';X.fillRect(0,H-10,W,10);
+}
+function endGame(){gameOver=true;document.getElementById('over').classList.remove('hidden');document.getElementById('finalScore').textContent=score;let b2=0;try{b2=parseInt(localStorage.getItem('dodge-rain-best'))||0;}catch(e){}if(score>b2){try{localStorage.setItem('dodge-rain-best',score)}catch(e){};document.getElementById('finalBest').textContent=score}else{document.getElementById('finalBest').textContent=b2};playTone(150,.5,'sawtooth')}
+document.addEventListener('mousemove',e=>{const r=C.getBoundingClientRect();playerX=Math.max(20,Math.min(W-20,e.clientX-r.left))});
+document.addEventListener('touchmove',e=>{e.preventDefault();const r=C.getBoundingClientRect();playerX=Math.max(20,Math.min(W-20,e.touches[0].clientX-r.left))},{passive:false});
+document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')playerX=Math.max(20,playerX-20);if(e.key==='ArrowRight')playerX=Math.min(W-20,playerX+20);if(e.key==='Escape'&&!gameOver)paused=!paused;});
+document.getElementById('restart').addEventListener('click',init);
+init();
+</script>
+</body>
+</html>

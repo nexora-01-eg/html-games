@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>برج هانوي السبعينات 🌴</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f3ead5}
+.stripes{height:14px;background:repeating-linear-gradient(-55deg,#e0a458 0 26px,#c96f3b 26px 52px,#7a8b3f 52px 78px,#a44a3f 78px 104px)}
+.colzone{cursor:pointer}
+.disk{height:17px;border-radius:9999px;border:2px solid rgba(91,70,54,.45);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12);transition:all .15s}
+.rod{width:9px;background:#8b6f47;border-radius:6px 6px 0 0}
+.base{height:10px;background:#8b6f47;border-radius:6px;box-shadow:0 3px 0 #6d5638}
+.selring{outline:3px dashed #c96f3b;outline-offset:2px}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 px-3 text-[#5b4636]">
+<div class="stripes w-full max-w-md rounded-full mb-5"></div>
+<h1 class="text-3xl md:text-4xl font-black mb-1">🌴 برج هانوي</h1>
+<p class="text-sm opacity-75 mb-4">انقل البرج كله للعمود الأخير… قرص أكبر لا يجلس أبداً فوق أصغر!</p>
+
+<div class="w-full max-w-md bg-[#fffaf0] border-4 border-[#8b6f47] rounded-2xl p-4 shadow-[6px_6px_0_#8b6f47]">
+  <div class="flex justify-between text-xs font-bold mb-3">
+    <span>المستوى <span id="lvl" class="text-[#c96f3b]">1</span> • أقراص <span id="nDisks">3</span></span>
+    <span>نقلات <span id="moves">0</span> / الأمثل <span id="par">7</span></span>
+  </div>
+
+  <div class="text-center mb-2">
+    <button onclick="undoMove()" class="bg-[#c96f3b] hover:bg-[#b45f30] text-white font-black px-5 py-1.5 rounded-lg shadow-[3px_3px_0_#8b6f47] active:translate-x-[1px] active:translate-y-[1px] transition text-xs">↩ تراجع</button>
+  </div>
+
+  <div id="board" dir="ltr" class="grid grid-cols-3 gap-2"></div>
+
+  <p id="fb" class="h-6 mt-2 text-center text-sm font-bold text-[#a44a3f]"></p>
+</div>
+
+<div id="levelOv" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-[#fffaf0] border-4 border-[#8b6f47] rounded-2xl p-7 text-center max-w-xs w-full shadow-[8px_8px_0_#8b6f47]">
+    <div id="ovIcon" class="text-5xl mb-2">🎉</div>
+    <h2 class="text-2xl font-black mb-1">برج مكتمل!</h2>
+    <p id="ovStars" class="text-3xl tracking-widest my-2 text-[#e0a458]">★★★</p>
+    <p id="ovStats" class="text-sm mb-5"></p>
+    <button id="nextBtn" class="bg-[#c96f3b] hover:bg-[#b45f30] text-white font-black px-8 py-2 rounded-xl shadow-[4px_4px_0_#8b6f47] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition">المستوى التالي ▶</button>
+  </div>
+</div>
+
+<p class="text-[11px] opacity-60 mt-4">اضغط عموداً لالتقاط قرصه العلوي، ثم عموداً آخر لوضعه.</p>
+<div class="stripes w-full max-w-md rounded-full mt-5"></div>
+
+<script>
+const $=function(id){return document.getElementById(id);};
+const LEVELS=[3,4,5,6];
+const DISK_COLORS=['#e0a458','#c96f3b','#7a8b3f','#a44a3f','#8b6f47','#5b8a8a'];
+let Li=0,N=3,rods=[[],[],[]],sel=null,moves=0,totalStars=0,between=false,finished=false,bestStars=0,undoHist=[],ac=null;
+try{bestStars=+localStorage.getItem('hanoi-best')||0;}catch(e){}
+function snd(f,d,t,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=t||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+
+function par(n){return Math.pow(2,n)-1;}
+
+function diskWidth(sz){return Math.min(34+sz*16,150);}
+
+function render(){
+ const b=$('board');b.innerHTML='';
+ for(let ci=0;ci<3;ci++){
+   const zone=document.createElement('div');
+   zone.className='colzone relative flex flex-col items-center justify-end pb-1';
+   zone.style.minHeight='205px';
+
+   const rod=document.createElement('div');
+   rod.className='rod absolute bottom-2 left-1/2 -translate-x-1/2';
+   rod.style.height='165px';
+   zone.appendChild(rod);
+
+   const base=document.createElement('div');
+   base.className='base absolute bottom-0 left-1/2 -translate-x-1/2';
+   base.style.width='88%';
+   zone.appendChild(base);
+
+   const stack=document.createElement('div');
+   stack.className='relative z-10 flex flex-col-reverse items-center gap-[3px] pb-2';
+   rods[ci].forEach(function(sz,k){
+     const d=document.createElement('div');
+     d.className='disk';
+     d.style.width=diskWidth(sz)+'px';
+     d.style.background=DISK_COLORS[sz-1];
+     if(sel===ci&&k===rods[ci].length-1)d.classList.add('selring');
+     stack.appendChild(d);
+   });
+   zone.appendChild(stack);
+   zone.onclick=function(){colClick(ci);};
+   b.appendChild(zone);
+ }
+}
+
+function loadLevel(){
+ N=LEVELS[Li];
+ rods=[[],[],[]];
+ for(let s=N;s>=1;s--)rods[0].push(s);
+  sel=null;moves=0;between=false;undoHist=[];
+ $('lvl').textContent=Li+1;
+ $('nDisks').textContent=N;
+ $('par').textContent=par(N);
+ $('moves').textContent='0';
+ $('fb').textContent='';
+ render();
+}
+
+function colClick(ci){
+ if(between)return;
+ const fb=$('fb');
+if(sel===null){
+    if(rods[ci].length===0){fb.textContent='هذا العمود فاضي!';snd(200,.1,'square',.04);return;}
+    sel=ci;fb.textContent='';snd(360,.06);render();return;
+  }
+  if(sel===ci){sel=null;render();return;}
+  const from=rods[sel],to=rods[ci];
+   if(to.length===0||to[to.length-1]>from[from.length-1]){
+     undoHist.push({from:sel,to:ci,d:from[from.length-1]});
+     to.push(from.pop());
+     moves++;sel=null;
+     $('moves').textContent=moves;
+     fb.textContent='';
+     snd(300+from.length*40,.05,'triangle',.04);
+     render();
+     if(rods[2].length===N)levelDone();
+   }else{
+     fb.textContent='✗ ممنوع! قرص أكبر فوق أصغر';
+     snd(170,.12,'square',.05);
+   }
+}
+
+function undoMove(){
+ if(between)return;
+ if(!undoHist.length)return;
+ const u=undoHist.pop();
+ rods[u.from].push(rods[u.to].pop());
+ moves=Math.max(0,moves-1);
+ if(sel!==null){sel=null;}
+ $('moves').textContent=moves;
+ $('fb').textContent='↩ تراجع آخر نقلة';
+ render();
+}
+
+function levelDone(){
+ between=true;
+ const p=par(N);
+ let stars=1;
+ if(moves===p)stars=3;
+ else if(moves<=p+2)stars=2;
+ totalStars+=stars;
+ [523,659,784].forEach(function(f,i){setTimeout(function(){snd(f,.14,'triangle',.05);},i*120);});
+ $('ovIcon').textContent=stars===3?'🌟':'🎉';
+ $('ovStars').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
+ $('ovStats').textContent=N+' أقراص في '+moves+' نقلة (الأمثل '+p+')';
+ setTimeout(function(){$('levelOv').classList.remove('hidden');},450);
+}
+
+$('nextBtn').addEventListener('click',function(){
+ $('levelOv').classList.add('hidden');
+ if(finished){
+   if(totalStars>bestStars){bestStars=totalStars;try{localStorage.setItem('hanoi-best',bestStars);}catch(e){}}
+   finished=false;Li=0;totalStars=0;
+   loadLevel();return;
+ }
+ if(Li>=LEVELS.length-1){
+   finished=true;between=true;
+   if(totalStars>bestStars){bestStars=totalStars;try{localStorage.setItem('hanoi-best',bestStars);}catch(e){}}
+   $('ovIcon').textContent='🏆';
+   $('ovStars').textContent='★'.repeat(totalStars)+'☆'.repeat(12-totalStars);
+   $('ovStats').textContent='مجموعك عبر المستويات الأربعة: '+totalStars+' من ١٢ نجمة! · أفضل سجل: '+bestStars+' من ١٢';
+   $('nextBtn').textContent='من البداية 🔄';
+   $('levelOv').classList.remove('hidden');
+ }else{
+   Li++;
+   loadLevel();
+ }
+});
+document.addEventListener('keydown',function(e){if(e.key==='r'||e.key==='R'){$('levelOv').classList.add('hidden');finished=false;Li=0;totalStars=0;undoHist=[];loadLevel();}if(e.key==='u'||e.key==='U')undoMove();});
+
+loadLevel();
+</script>
+</body>
+</html>

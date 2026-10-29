@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شيفرة الجليد ❄</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#eef8fe,#d9edfa);color:#1e3a52;min-height:100vh}
+.flake{position:absolute;color:#9ed2ef;user-select:none;animation:fall linear infinite;top:-6vh}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
+.card{background:rgba(255,255,255,.82);backdrop-filter:blur(6px);border-radius:1.4rem;border:1px solid rgba(158,210,239,.55);box-shadow:0 14px 38px rgba(78,140,190,.18)}
+.socket{width:44px;height:44px;border-radius:50%;border:3px dashed #a5cfec;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s}
+.socket.sel{border-style:solid;border-color:#4ea8de;box-shadow:0 0 0 3px rgba(78,168,222,.25)}
+.socket.filled{border-style:solid}
+.pal{width:46px;height:46px;border-radius:50%;cursor:pointer;border:3px solid rgba(255,255,255,.85);box-shadow:0 4px 12px rgba(30,58,82,.25);transition:transform .1s}
+.pal:hover{transform:scale(1.12)}
+.row-peg{width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.9)}
+.fb-star{font-size:.95rem}
+.btn-ice{background:#4ea8de;color:#fff;border-radius:999px;font-weight:900;transition:all .12s}
+.btn-ice:hover:not(:disabled){background:#2f8fc9;transform:translateY(-2px)}
+.btn-ice:disabled{opacity:.4;cursor:not-allowed}
+.shake{animation:sh .4s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
+
+<div id="startScr" class="card px-10 py-12 text-center max-w-lg relative z-10">
+<div class="text-6xl mb-2">🧊</div>
+<h1 class="text-4xl font-black text-[#2f8fc9] mb-3">شيفرة الجليد</h1>
+<p class="leading-relaxed mb-2">الجبل يخفي شيفرة من <b>٤ ألوان</b> — كلها مختلفة!<br>عندك <b>١٠ محاولات</b> لتكسيرها.</p>
+<p class="text-sm opacity-70 mb-8">بعد كل تخمين ستحصل على تلميح:<br><span class="fb-star">⭐</span> لون في مكانه الصح · <span class="fb-star">❄</span> لون موجود بمكان غلط</p>
+<button onclick="start()" class="btn-ice px-12 py-3 text-lg">ابدأ التكسير ❄</button>
+<p class="mt-6 text-sm opacity-60">أطول سلسلة انتصارات: <span id="bestStart" class="font-bold text-[#2f8fc9]">٠</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md relative z-10">
+<div class="flex justify-between items-center mb-4 text-sm font-bold px-1">
+<span>المحاولة <span id="attEl" class="text-[#2f8fc9]">١</span>/<span>١٠</span></span>
+<span>سلسلة الانتصار <span id="streakEl" class="text-[#2f8fc9]">٠</span></span>
+</div>
+
+<div class="card p-4 mb-4 flex flex-col gap-2 max-h-[46vh] overflow-y-auto" id="history"></div>
+
+<div class="card p-5">
+<div id="socketsEl" class="flex justify-center gap-3 mb-5"></div>
+<div class="flex justify-center gap-3 mb-5" id="palette"></div>
+<div class="flex gap-3">
+<button id="clearBtn" onclick="clearSel()" class="flex-1 py-2.5 rounded-full border-2 border-[#a5cfec] font-bold text-[#4a86ad] hover:bg-[#eef7fd] transition">تفريغ</button>
+<button id="submitBtn" onclick="submit()" disabled class="btn-ice flex-[2] py-2.5">خمّن! ⛄</button>
+</div>
+<div id="msg" class="h-8 mt-4 text-center font-bold"></div>
+</div>
+</div>
+
+<div id="endScr" class="hidden card px-12 py-12 text-center max-w-md w-full relative z-10">
+<div id="endIcon" class="text-6xl mb-2">🏆</div>
+<h2 id="endTitle" class="text-3xl font-black text-[#2f8fc9] mb-4">كسرت الشيفرة!</h2>
+<div id="codeReveal" class="flex justify-center gap-2 mb-4"></div>
+<p id="endMsg" class="opacity-75 mb-8"></p>
+<button onclick="start()" class="btn-ice px-12 py-3 text-lg">شيفرة جديدة ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const SLOTS=4,MAXATT=10,bestKey='frost-mastermind-streak';
+const PAL=[
+{name:'',hex:'#ff70a6'},
+{name:'',hex:'#ffd166'},
+{name:'',hex:'#2ec4b6'},
+{name:'',hex:'#4361ee'},
+{name:'',hex:'#9b5de5'}
+];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let code=[],guess=[],selIdx=0,attempt=1,streak=0,over=false,ac=null,wins=0,total=0;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+try{wins=+localStorage.getItem('frost-wins')||0;total=+localStorage.getItem('frost-total')||0;}catch(e){}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=AR(v);}catch(e){$('bestStart').textContent='٠';}}
+loadBest();
+for(let i=0;i<16;i++){
+const f=document.createElement('span');
+f.className='flake';f.textContent='❄';
+f.style.left=Math.random()*100+'vw';
+f.style.fontSize=(10+Math.random()*18)+'px';
+f.style.animationDuration=(7+Math.random()*9)+'s';
+f.style.animationDelay=(Math.random()*8)+'s';
+document.body.appendChild(f);
+}
+function start(){
+code=[];
+while(code.length<SLOTS){
+const c=Math.floor(Math.random()*PAL.length);
+if(!code.includes(c))code.push(c);
+}
+guess=[];selIdx=0;attempt=1;over=false;
+$('streakEl').textContent=AR(streak);
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+$('history').innerHTML='';
+$('msg').textContent='';
+buildSockets();
+updateAtt();
+snd(620,.09,'triangle',.05);
+}
+function buildSockets(){
+const el=$('socketsEl');el.innerHTML='';
+for(let i=0;i<SLOTS;i++){
+const s=document.createElement('button');
+s.className='socket'+(i===selIdx?' sel':'')+(guess[i]!==undefined?' filled':'');
+if(guess[i]!==undefined)s.style.background=PAL[guess[i]].hex;
+s.onclick=()=>{selIdx=i;buildSockets();};
+el.appendChild(s);
+}
+const pal=$('palette');pal.innerHTML='';
+PAL.forEach((c,i)=>{
+const b=document.createElement('button');
+b.className='pal';
+b.style.background=c.hex;
+b.title='لون '+(i+1);
+b.onclick=()=>setColor(i);
+pal.appendChild(b);
+});
+}
+function setColor(i){
+if(over)return;
+guess[selIdx]=i;
+const nxt=[...Array(SLOTS).keys()].find(k=>guess[k]===undefined);
+selIdx=nxt===undefined?selIdx:nxt;
+snd(520+guess.filter(x=>x!==undefined).length*70,.07,'triangle',.05);
+buildSockets();
+$('submitBtn').disabled=!guess.every(x=>x!==undefined);
+}
+function clearSel(){
+if(over)return;
+guess=[];selIdx=0;
+$('submitBtn').disabled=true;
+buildSockets();
+snd(300,.08,'square',.03);
+}
+function updateAtt(){$('attEl').textContent=AR(attempt);}
+document.addEventListener('keydown',e=>{
+if(over||$('endScr').classList.contains('hidden')===false||$('startScr').classList.contains('hidden')===false)return;
+if(e.key>='1'&&e.key<='5')setColor(+e.key-1);
+else if(e.key==='Backspace'||e.key==='Delete')clearSel();
+else if(e.key==='Enter'&&!$('submitBtn').disabled)submit();
+else if(e.key==='Escape')start();
+});
+function evaluate(g){
+let exact=0,partial=0;
+const cc=[...code],gg=[...g];
+for(let i=0;i<SLOTS;i++)if(gg[i]===cc[i]){exact++;gg[i]=cc[i]=-1;}
+for(let i=0;i<SLOTS;i++){
+if(gg[i]<0)continue;
+const j=cc.indexOf(gg[i]);
+if(j>-1){partial++;cc[j]=-1;}
+}
+return{exact,partial};
+}
+function addHistory(g,fb){
+const row=document.createElement('div');
+row.className='flex items-center justify-between bg-white/70 rounded-xl px-3 py-2';
+const pegs=document.createElement('div');
+pegs.className='flex gap-1.5';
+g.forEach(i=>{
+const p=document.createElement('span');
+p.className='row-peg';p.style.background=PAL[i].hex;
+pegs.appendChild(p);
+});
+const fbEl=document.createElement('div');
+fbEl.className='text-left leading-none';
+fbEl.innerHTML='<span class="fb-star">'+'⭐'.repeat(fb.exact)+'</span><span class="fb-star opacity-80">'+'❄'.repeat(fb.partial)+'</span>';
+row.appendChild(pegs);row.appendChild(fbEl);
+$('history').appendChild(row);
+$('history').scrollTop=0;
+}
+function submit(){
+if(over||guess.some(x=>x===undefined))return;
+const fb=evaluate(guess);
+addHistory(guess,fb);
+if(fb.exact===SLOTS)return win();
+attempt++;
+if(attempt>MAXATT)return lose();
+guess=[];selIdx=0;
+$('submitBtn').disabled=true;
+updateAtt();
+buildSockets();
+$('msg').textContent=`⭐ ${AR(fb.exact)} · ❄ ${AR(fb.partial)} — جرّب شيئًا آخر`;
+$('msg').style.color='#4a86ad';
+snd(fb.exact>0?700:420,.1,'triangle',.04);
+}
+function win(){
+over=true;streak++;wins++;total++;
+try{localStorage.setItem(bestKey,streak);localStorage.setItem('frost-wins',wins);localStorage.setItem('frost-total',total);}catch(e){}
+showEnd(true);
+}
+function lose(){
+over=true;streak=0;total++;
+try{localStorage.setItem('frost-wins',wins);localStorage.setItem('frost-total',total);}catch(e){}
+showEnd(false);
+}
+function showEnd(won){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('endIcon').textContent=won?'🏆':'🥶';
+$('endTitle').textContent=won?'كسرت الشيفرة!':'الجبل صمد…';
+const rv=$('codeReveal');rv.innerHTML='';
+code.forEach(i=>{
+const p=document.createElement('span');
+p.className='row-peg';p.style.width='40px';p.style.height='40px';p.style.background=PAL[i].hex;
+rv.appendChild(p);
+});
+const left=MAXATT-attempt;
+let m=won?`كسرتها في المحاولة ${AR(attempt)} من ${AR(MAXATT)} · مكافأة ${AR(left*50)} نقطة 🌟`:'كانت الشيفرة أعلاه — سلسلة الانتصار انطفأت.';
+m+=' · فوز '+AR(wins)+' من '+AR(total);
+$('endMsg').textContent=m;
+won?[659,784,1046].forEach((f,i)=>setTimeout(()=>snd(f,.16,'triangle',.05),i*130))
+:[220,170].forEach((f,i)=>setTimeout(()=>snd(f,.3,'sawtooth',.05),i*160));
+loadBest();$('streakEl').textContent=AR(streak);
+}
+</script>
+</body>
+</html>

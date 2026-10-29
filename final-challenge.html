@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>التحدي الأخير!</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-black via-gray-900 to-yellow-900 min-h-screen flex items-center justify-center text-white">
+<div id="app" class="w-full max-w-md p-6">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-black mb-4">🏆 التحدي الأخير!</h1>
+<p class="text-yellow-200 mb-6">٥ مراحل ملحمية لاختبار ذكائك وسرعتك وذاكرتك!</p>
+<button id="startBtn" class="px-8 py-4 bg-yellow-500 hover:bg-yellow-400 text-black rounded-2xl text-xl font-bold shadow-lg">ابدأ التحدي</button>
+<div class="mt-6 text-sm text-yellow-200">الأفضل: <span id="bestDisplay">٠</span></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="flex justify-between items-center mb-4 text-sm">
+<span class="font-bold text-yellow-300">المرحلة: <span id="phase">١</span>/٥</span>
+<span>النقاط: <span id="score">٠</span></span>
+</div>
+<div id="phaseTitle" class="text-2xl font-black mb-4"></div>
+<div id="phaseArea" class="bg-white/5 rounded-2xl p-5 min-h-56 flex flex-col items-center justify-center"></div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-black mb-4">أنجزت التحدي! 🏆</h2>
+<p class="text-xl mb-4">النقاط الإجمالية: <span id="finalScore">٠</span></p>
+<p id="isNewBest" class="text-yellow-300 text-sm mb-6">🎖️ رقم قياسي جديد!</p>
+<div class="text-yellow-200 mb-6">الأفضل: <span id="finalBest">٠</span></div>
+<button id="restartBtn" class="px-8 py-4 bg-yellow-500 hover:bg-yellow-400 text-black rounded-2xl text-xl font-bold">العب مجدداً</button>
+</div>
+</div>
+<script>
+let ctx,best,phase,score,phaseQueue,timerId;
+const COLORS=['#ef4444','#3b82f6','#22c55e','#f59e0b','#8b5cf6'];
+function init(){try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}best=0;try{best=parseInt(localStorage.getItem('final-chall-best')||'0')||0;}catch(e){}document.getElementById('bestDisplay').textContent=best;}
+function tone(f,x,d){let o=ctx.createOscillator(),g=ctx.createGain();o.type=f;o.frequency.value=x;o.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.13,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.start();o.stop(ctx.currentTime+d);}
+function setScreen(s){document.getElementById('startScreen').classList.toggle('hidden',s!=='start');document.getElementById('playScreen').classList.toggle('hidden',s!=='play');document.getElementById('finishScreen').classList.toggle('hidden',s!=='finish');}
+function toAr(n){return n.toLocaleString('ar-EG');}
+function setPhaseTitle(t){document.getElementById('phaseTitle').textContent=t;document.getElementById('phase').textContent=toAr(phase);document.getElementById('score').textContent=toAr(score);}
+function phase1(){setPhaseTitle('المسرح ١: حساب سريع');let a=4,b=Math.floor(Math.random()*8)+3,op=Math.random()<0.5?'+':'×';let ans=(op==='+')?a+b:a*b;let area=document.getElementById('phaseArea');area.innerHTML='';let q=document.createElement('div');q.className='text-5xl font-black mb-4'+(op==='×'?'':'') ;q.dataset=op;q.textContent='= '+a+' '+op+' '+b+' ؟';area.appendChild(q);let btns=[];btns.push(ans,ans+((Math.random()<0.5)?1:2),ans-((Math.random()<0.5)?1:2));btns=btns.sort(()=>Math.random()-0.5);for(let i=0;i<3;i++){let b2=document.createElement('button');b2.className='px-6 py-2 mx-1 bg-yellow-600 hover:bg-yellow-500 rounded-xl text-xl font-bold';b2.textContent=toAr(btns[i]);b2.onclick=function(){if(btns[i]===ans){score+=100;tone('square',800,0.1);goNextPhase();}else{tone('sawtooth',200,0.2);b2.disabled=true;b2.style.opacity='0.5';}};area.appendChild(b2);}}
+function phase2(){setPhaseTitle('المسرح ٢: تسلسل الألوان');let seq=[];for(let i=0;i<5;i++)seq.push(Math.floor(Math.random()*5));let area=document.getElementById('phaseArea');area.innerHTML='';let info=document.createElement('div');info.className='text-sm text-yellow-200 mb-3';info.textContent='تذكّر التسلسل..';area.appendChild(info);let show=0;function flashNow(){area.innerHTML='';info.textContent='';if(show>=seq.length){info.textContent='كرّر التسلسل الآن!';makeButtons();return;}let d=document.createElement('div');d.className='w-24 h-24 rounded-full mb-3';d.style.background=COLORS[seq[show]];area.appendChild(d);tone('sine',400+seq[show]*100,0.2);show++;setTimeout(flashNow,600);}function makeButtons(){for(let i=0;i<5;i++){let b=document.createElement('button');b.className='w-12 h-12 mx-1 rounded-full';b.style.background=COLORS[i];b.onclick=function(){let next=seq[0];if(i===next){seq.shift();tone('sine',500+i*60,0.1);if(seq.length===0){score+=200;tone('square',800,0.1);goNextPhase();}}else{tone('sawtooth',150,0.2);b.style.opacity='0.4';}};area.appendChild(b);}}flashNow();}
+function phase3(){setPhaseTitle('المسرح ٣: سرعة الاستجابة');let area=document.getElementById('phaseArea');area.innerHTML='';let info=document.createElement('div');info.className='text-sm text-yellow-200 mb-3';info.textContent='انقر على الزر ٣ مرات في أسرع وقت!';area.appendChild(info);let btn=document.createElement('button');btn.className='px-8 py-4 bg-green-600 hover:bg-green-500 rounded-2xl text-2xl font-black';btn.textContent='اضغط!';let clicks=0;btn.onclick=function(){if(!btn.parentNode)return;clicks++;tone('sine',700,0.08);if(clicks>=3){score+=200;goNextPhase();}};area.appendChild(btn);}
+function phase4(){setPhaseTitle('المسرح ٤: فك الكلمات');let words=[['بيت','بتي'],['شمس','مشس'],['قمر','مرق'],['نهر','هرن']];let w=words[Math.floor(Math.random()*words.length)];let area=document.getElementById('phaseArea');area.innerHTML='';let q=document.createElement('div');q.className='text-5xl font-black mb-4 tracking-widest';q.textContent=w[1];area.appendChild(q);let hint=document.createElement('div');hint.className='text-sm text-yellow-200 mb-2';hint.textContent='ما الكلمة الصحيحة؟';area.appendChild(hint);let inp=document.createElement('input');inp.type='text';inp.className='w-40 text-center py-3 rounded-xl bg-white/10 text-xl font-bold outline-none focus:ring-2 ring-yellow-400 mb-3';inp.placeholder='اكتب الكلمة...';area.appendChild(inp);let submit=document.createElement('button');submit.className='px-6 py-2 bg-yellow-600 hover:bg-yellow-500 rounded-xl font-bold';submit.textContent='تحقق';submit.onclick=function(){let guess=inp.value.trim();if(guess===w[0]){score+=300;tone('square',800,0.1);goNextPhase();}else{tone('sawtooth',200,0.2);hint.textContent='❌ الجواب: '+w[0];submit.disabled=true;}};area.appendChild(submit);inp.focus();}
+function phase5(){setPhaseTitle('المسرح ٥: ذاكرة النمط');let pattern=[];for(let pi=0;pi<4;pi++)pattern.push(Math.random()<0.5);let area=document.getElementById('phaseArea');area.innerHTML='';let info=document.createElement('div');info.className='text-sm text-yellow-200 mb-3';info.textContent='تذكّر النمط (٤ خلايا)..';area.appendChild(info);let grid=document.createElement('div');grid.className='grid grid-cols-2 gap-2 w-40 mx-auto';let cells=[];for(let pi=0;pi<4;pi++){let c=document.createElement('div');c.className='aspect-square rounded-xl bg-white/10 border border-white/30';c.textContent=pattern[pi]?'●':'○';c.style.fontSize='2rem';grid.appendChild(c);cells.push(c);}area.appendChild(grid);setTimeout(memorize,2000);function memorize(){
+let done=0;for(let pi=0;pi<4;pi++){cells[pi].textContent='';cells[pi].style.background='';cells[pi].dataset.clicked='0';addClick(pi);}info.textContent='كرّر النمط: انقر الخلايا المضيئة';function addClick(pi){cells[pi].onclick=function(){if(cells[pi].dataset.clicked==='1'){cells[pi].dataset.clicked='0';cells[pi].style.background='';done--;return;}cells[pi].dataset.clicked='1';cells[pi].style.background='rgba(255,255,255,0.4)';done++;tone('sine',500,0.06);let all=true;for(let j=0;j<4;j++){if((cells[j].dataset.clicked==='1')!==(pattern[j])){all=false;}}if(all&&done===patternCount()){score+=400;tone('square',800,0.1);goNextPhase();}};}function patternCount(){let n=0;for(let j=0;j<4;j++)if(pattern[j])n++;return n;}}}
+function goNextPhase(){clearTimeout(timerId);phase++;if(phase>5){finish();return;}timerId=setTimeout(runPhase,600);}
+function runPhase(){if(phase===1)phase1();else if(phase===2)phase2();else if(phase===3)phase3();else if(phase===4)phase4();else if(phase===5)phase5();}
+document.getElementById('startBtn').onclick=function(){if(!ctx)init();phase=1;score=0;tone('sine',500,0.15);setScreen('play');runPhase();};
+function finish(){setScreen('finish');document.getElementById('finalScore').textContent=toAr(score);let nb=false;if(score>best){best=score;try{localStorage.setItem('final-chall-best',String(best))}catch(e){}nb=true;}document.getElementById('isNewBest').classList.toggle('hidden',!nb);document.getElementById('finalBest').textContent=toAr(best);tone('triangle',900,0.2);setTimeout(()=>tone('triangle',1200,0.2),150);}
+document.getElementById('restartBtn').onclick=function(){setScreen('start');init();};
+init();
+</script>
+</body>
+</html>

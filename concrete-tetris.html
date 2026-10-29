@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>طوب الخرسانة 🧱</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#a6a29a;color:#17150f;
+background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 2px,transparent 2px 7px)}
+.slab{background:#b9b5ad;border:3px solid #17150f;box-shadow:6px 6px 0 rgba(23,21,15,.45);border-radius:2px}
+.chipk{background:#c9c5bc;border:2.5px solid #17150f;padding:.25rem .95rem;font-weight:900;font-size:.85rem}
+.btnk{background:#c9c5bc;border:3px solid #17150f;font-weight:900;border-radius:2px;
+box-shadow:0 5px 0 #17150f;font-size:1.15rem;padding:.45rem .95rem;transition:all .07s;color:#17150f}
+.btnk:active{transform:translateY(4px);box-shadow:0 1px 0 #17150f}
+.btnk.warn{background:#ffd200}
+canvas{display:block;background:#8f8b83;touch-action:none}
+.overlayk{position:absolute;inset:0;background:rgba(143,139,131,.94);display:flex;flex-direction:column;
+align-items:center;justify-content:center;z-index:5;text-align:center;padding:1rem}
+.hazline{height:14px;background:repeating-linear-gradient(45deg,#ffd200 0 18px,#17150f 18px 36px)}
+</style>
+</head>
+<body class="select-none">
+<div class="hazline"></div>
+
+<main class="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
+
+<header class="text-center">
+<h1 class="text-4xl font-black tracking-tight">طوب الخرسانة 🧱</h1>
+<p class="text-sm mt-1 opacity-70 font-bold">◄ ► حركة · ▲ تدوير · ▼ نزول · مسافة هبوط صاروكي</p>
+</header>
+
+<div class="flex gap-2 flex-wrap justify-center">
+<span class="chipk">⭐ <span id="scoreEl">٠</span></span>
+<span class="chipk">خطوط <span id="linesEl">٠</span></span>
+<span class="chipk">مستوى <span id="lvlEl" class="bg-[#ffd200] px-1">١</span></span>
+<span class="chipk">🏆 <span id="bestEl">—</span></span>
+</div>
+
+<div class="flex items-start gap-4">
+<div class="slab p-2 relative">
+<canvas id="cv" width="260" height="416"></canvas>
+<div id="overOv" class="overlayk hidden">
+<div class="text-xl font-black mb-2 bg-[#ffd200] px-3 py-1 border-[3px] border-[#17150f]">انهيار إنشائي!</div>
+<p class="text-sm font-bold mb-4 opacity-80">النقاط: <span id="finEl" class="text-lg">٠</span></p>
+<button onclick="start()" class="btnk warn !text-base px-8 py-2.5">↻ يبني تاني</button>
+</div>
+</div>
+
+<div class="flex flex-col gap-3">
+<div class="slab p-3 text-center">
+<div class="text-xs font-black mb-2 opacity-70">القطعة الجاية</div>
+<canvas id="nextCv" width="96" height="64"></canvas>
+</div>
+<button onclick="start()" class="btnk warn text-base">↻ جديد</button>
+</div>
+</div>
+
+<div class="grid grid-cols-5 gap-2 sm:hidden w-full max-w-xs mt-1">
+<button class="btnk" onclick="shift(-1)">◀</button>
+<button class="btnk" onclick="rotatePiece()">⟳</button>
+<button class="btnk" onclick="shift(1)">▶</button>
+<button class="btnk" onclick="softDrop()">▼</button>
+<button class="btnk warn" onclick="hardDrop()">⤓</button>
+</div>
+
+</main>
+<div class="hazline fixed bottom-0 inset-x-0"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='concrete-tetris-best';
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const nc=document.getElementById('nextCv'),nx=nc.getContext('2d');
+const CS=26,COLS=10,ROWS=16;
+const SHAPES={
+I:[[1,1,1,1]],
+O:[[1,1],[1,1]],
+T:[[1,1,1],[0,1,0]],
+S:[[0,1,1],[1,1,0]],
+Z:[[1,1,0],[0,1,1]],
+J:[[1,0,0],[1,1,1]],
+L:[[0,0,1],[1,1,1]]
+};
+const GRAYS=['#6e6a62','#7d7971','#8c8880','#9b978e','#aaa69d'];
+let board,piece,nextP,score,lines,lvl,best=0,paused=false,
+dropAcc=0,lastTs=0,raf=null,over=true,ac=null,playing=false;
+try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestEl').textContent=best?AR(best):'—';
+function snd(f,d,type){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=type||'square';o.frequency.value=f;g.gain.setValueAtTime(.04,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+function randPiece(){
+const keys=Object.keys(SHAPES);
+const k=keys[Math.floor(Math.random()*keys.length)];
+return {m:SHAPES[k].map(r=>[...r]),x:Math.floor((COLS-SHAPES[k][0].length)/2),y:0};
+}
+function collide(m,px,py){
+for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++){
+if(!m[r][c])continue;
+const X=px+c,Y=py+r;
+if(X<0||X>=COLS||Y>=ROWS)return true;
+if(Y>=0&&board[Y][X])return true;
+}
+return false;
+}
+function merge(){
+piece.m.forEach((row,r)=>row.forEach((v,c)=>{
+if(v&&piece.y+r>=0)board[piece.y+r][piece.x+c]=GRAYS[(lines)%GRAYS.length];
+}));
+}
+function rotateMat(m){
+const h=m.length,w=m[0].length;
+const out=Array.from({length:w},()=>Array(h).fill(0));
+for(let r=0;r<h;r++)for(let c=0;c<w;c++)out[c][h-1-r]=m[r][c];
+return out;
+}
+function rotatePiece(){
+if(over)return;
+const rm=rotateMat(piece.m);
+for(const kick of [0,-1,1,-2,2]){
+if(!collide(rm,piece.x+kick,piece.y)){
+piece.m=rm;piece.x+=kick;
+snd(360,.05);
+draw();
+return;
+}
+}
+}
+function shift(d){
+if(over)return;
+if(!collide(piece.m,piece.x+d,piece.y)){piece.x+=d;snd(300,.03,'sine');draw();}
+}
+function softDrop(){
+if(over)return;
+if(!collide(piece.m,piece.x,piece.y+1)){piece.y++;score+=1;$('scoreEl').textContent=AR(score);dropAcc=0;}
+else lock();
+draw();
+}
+function hardDrop(){
+if(over)return;
+while(!collide(piece.m,piece.x,piece.y+1)){piece.y++;score+=2;}
+$('scoreEl').textContent=AR(score);
+lock();draw();
+}
+function lock(){
+merge();
+snd(180,.07,'triangle');
+clearLines();
+spawn();
+}
+function clearLines(){
+let cleared=0;
+outer:
+for(let r=ROWS-1;r>=0;r--){
+if(board[r].every(v=>v)){
+board.splice(r,1);
+board.unshift(Array(COLS).fill(0));
+cleared++;r++;
+}
+}
+if(cleared){
+const table=[0,100,300,500,800];
+score+=table[cleared]*lvl;
+lines+=cleared;
+const newLvl=Math.floor(lines/8)+1;
+if(newLvl>lvl){lvl=newLvl;snd(700,.15);}
+else snd(520,.1,'triangle');
+$('scoreEl').textContent=AR(score);
+$('linesEl').textContent=AR(lines);
+$('lvlEl').textContent=AR(lvl);
+}
+}
+function spawn(){
+piece=nextP||randPiece();
+nextP=randPiece();
+drawNext();
+if(collide(piece.m,piece.x,piece.y))gameOver();
+}
+function gameOver(){
+over=true;
+cancelAnimationFrame(raf);
+$('finEl').textContent=AR(score);
+$('overOv').classList.remove('hidden');
+if(score>best&&score>0){best=score;try{localStorage.setItem(bestKey,best)}catch(e){};$('bestEl').textContent=AR(best);}
+snd(160,.3,'sawtooth');setTimeout(()=>snd(110,.35),180);
+}
+function togglePause(){
+if(over||!playing)return;
+paused=!paused;
+if(paused){cancelAnimationFrame(raf);}else{lastTs=performance.now();raf=requestAnimationFrame(tick);}
+}
+function start(){
+board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+score=0;lines=0;lvl=1;nextP=null;over=false;paused=false;playing=true;dropAcc=0;
+$('scoreEl').textContent='٠';$('linesEl').textContent='٠';$('lvlEl').textContent='١';
+$('overOv').classList.add('hidden');
+spawn();
+lastTs=performance.now();
+cancelAnimationFrame(raf);
+raf=requestAnimationFrame(tick);
+}
+function tick(ts){
+if(over||paused)return;
+const dt=Math.min(.06,ts-lastTs);
+lastTs=ts;
+dropAcc+=dt;
+const interval=Math.max(120,650-(lvl-1)*65);
+if(dropAcc>=interval){
+dropAcc=0;
+if(!collide(piece.m,piece.x,piece.y+1))piece.y++;
+else lock();
+if(over)return;
+}
+draw();
+raf=requestAnimationFrame(tick);
+}
+function drawBlock(ctx2,x,y,color){
+ctx2.fillStyle=color;
+ctx2.fillRect(x,y,CS,CS);
+ctx2.strokeStyle='#17150f';
+ctx2.lineWidth=2.5;
+ctx2.strokeRect(x+1,y+1,CS-2,CS-2);
+ctx2.fillStyle='rgba(255,255,255,.22)';
+ctx2.fillRect(x+3,y+3,CS-6,5);
+ctx2.fillStyle='rgba(0,0,0,.28)';
+ctx2.fillRect(x+3,y+CS-8,CS-6,5);
+}
+function draw(){
+cx.fillStyle='#8f8b83';
+cx.fillRect(0,0,cv.width,cv.height);
+cx.strokeStyle='rgba(23,21,15,.12)';
+for(let c=1;c<COLS;c++){cx.beginPath();cx.moveTo(c*CS,0);cx.lineTo(c*CS,cv.height);cx.stroke();}
+for(let r=1;r<ROWS;r++){cx.beginPath();cx.moveTo(0,r*CS);cx.lineTo(cv.width,r*CS);cx.stroke();}
+for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+if(board[r][c])drawBlock(cx,c*CS,r*CS,board[r][c]);
+if(piece){
+piece.m.forEach((row,r)=>row.forEach((v,c)=>{
+if(v&&piece.y+r>=0)drawBlock(cx,(piece.x+c)*CS,(piece.y+r)*CS,'#55514a');
+}));
+}
+}
+function drawNext(){
+nx.clearRect(0,0,nc.width,nc.height);
+if(!nextP)return;
+const m=nextP.m,ox=(nc.width-m[0].length*20)/2,oy=(nc.height-m.length*20)/2;
+m.forEach((row,r)=>row.forEach((v,c)=>{
+if(v){
+nx.fillStyle='#55514a';
+nx.fillRect(ox+c*20,oy+r*20,20,20);
+nx.strokeStyle='#17150f';nx.lineWidth=2;
+nx.strokeRect(ox+c*20+1,oy+r*20+1,18,18);
+nx.fillStyle='rgba(255,255,255,.2)';
+nx.fillRect(ox+c*20+3,oy+r*20+3,14,3);
+}
+}));
+}
+document.addEventListener('keydown',e=>{
+if(e.key==='Escape'||e.key==='p'||e.key==='P'){togglePause();return;}
+if(over||paused)return;
+if(e.key==='ArrowLeft'){e.preventDefault();shift(-1);}
+else if(e.key==='ArrowRight'){e.preventDefault();shift(1);}
+else if(e.key==='ArrowUp'){e.preventDefault();rotatePiece();}
+else if(e.key==='ArrowDown'){e.preventDefault();softDrop();}
+else if(e.code==='Space'){e.preventDefault();hardDrop();}
+});
+</script>
+</body>
+</html>

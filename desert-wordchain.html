@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>قافلة الحروف 🐪</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f4e6c8;color:#6b4423;min-height:100vh;overflow-x:hidden}
+.dunes{position:fixed;left:0;right:0;bottom:0;height:34vh;pointer-events:none}
+.sun{position:fixed;top:-70px;left:-70px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,#ffd28a,#ffb347);opacity:.75;filter:blur(2px)}
+.camel{position:fixed;font-size:2.6rem;bottom:9vh;animation:walk 38s linear infinite;opacity:.85}
+@keyframes walk{from{transform:translateX(-15vw)}to{transform:translateX(110vw)}}
+.card{background:#fdf6e7;border:3px solid #b98a4a;border-radius:1.6rem;box-shadow:0 12px 34px rgba(107,68,35,.18)}
+.medal{width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 30%,#ffe1ad,#d99a3d);border:4px solid #8a5a24;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;color:#6b4423;box-shadow:inset 0 -4px 8px rgba(107,68,35,.3)}
+.chipw{background:#fff;border:2px solid #cf9e55;border-radius:999px;padding:.25rem .85rem;font-weight:800;font-size:.95rem;animation:wpop .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes wpop{0%{transform:scale(.4)}70%{transform:scale(1.1)}100%{transform:scale(1)}}
+input:focus{outline:none;border-color:#d99a3d!important}
+#tfill{transition:width .1s linear;background:linear-gradient(90deg,#e0a83f,#c0392b)}
+.shake{animation:sh .4s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+.btn-d{background:#c47f3d;color:#fff;border-radius:999px;font-weight:900;box-shadow:0 6px 0 #8f5722;transition:all .09s}
+.btn-d:hover{filter:brightness(1.08)}
+.btn-d:active{transform:translateY(4px);box-shadow:0 2px 0 #8f5722}
+</style>
+</head>
+<body class="select-none">
+<div class="sun"></div>
+<div class="dunes" style="background:radial-gradient(ellipse 60% 100% at 20% 105%,#dcc08a 60%,transparent 61%),radial-gradient(ellipse 55% 90% at 65% 108%,#e6cf9d 60%,transparent 61%),radial-gradient(ellipse 50% 80% at 95% 106%,#d4af72 60%,transparent 61%)"></div>
+<span class="camel">🐪</span>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="card px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🐪</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3">قافلة الحروف</h1>
+<p class="leading-relaxed mb-2">كل كلمة لازم تبدأ بـ<b>آخر حرف</b> من الكلمة اللي قبلها!<br><b>٨ ثواني</b> للكلمة · <b>٣ قلوب</b> · ممنوع تكرار كلمة</p>
+<p class="text-sm opacity-60 mb-8">الكلمة الأطول = نقاط أكثر، والسلسلة المتصلة تضاعف 🏜️</p>
+<button onclick="start()" class="btn-d px-14 py-3.5 text-xl">انطلق مع القافلة 🐫</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#c47f3d]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="flex justify-between items-center mb-4 px-1 text-sm font-bold">
+<span>⛓ <span id="chainEl" class="text-[#c47f3d]">٠</span></span>
+<span id="heartsEl">❤️❤️❤️</span>
+<span>⭐ <span id="scoreEl" class="text-[#c47f3d]">٠</span></span>
+</div>
+
+<div class="card p-6">
+<div class="flex items-center justify-between mb-4">
+<div class="medal" id="needEl">؟</div>
+<div class="text-right">
+<div class="text-xs opacity-55 mb-1">ابدأ كلمتك بحرف</div>
+<div class="text-sm font-bold">الوقت المتبقي: <span id="secsEl" class="text-[#c0392b] font-black">٨</span>ث</div>
+</div>
+</div>
+
+<div class="h-3 w-full rounded-full bg-[#ecd9ae] overflow-hidden mb-5"><div id="tfill" class="h-full" style="width:100%"></div></div>
+
+<input id="inp" autocomplete="off" placeholder="اكتب كلمتك…"
+class="w-full text-center text-2xl font-black rounded-full border-4 border-[#e3c48d] py-2.5 transition-colors">
+
+<div id="msg" class="h-8 mt-3 text-center font-bold text-sm"></div>
+</div>
+
+<div id="chainBox" class="flex flex-wrap gap-2 justify-center mt-5 min-h-[2.4rem] max-w-md"></div>
+</div>
+
+<div id="endScr" class="hidden card px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🏜️</div>
+<h2 class="text-3xl font-black mb-4">توقفت القافلة!</h2>
+<div id="finalScore" class="text-6xl font-black text-[#c47f3d] mb-2">٠</div>
+<p id="endMsg" class="opacity-75 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-d px-12 py-3 text-lg">رحلة جديدة ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const WORDTIME=8,LIVES=3,bestKey='desert-chain-best';
+const SEEDS=['شمس','نخلة','قافلة','رمل','واحة','بحر'];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const norm=s=>s.replace(/[\u064B-\u0652\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/ؤ/g,'و').replace(/ئ/g,'ي').trim();
+let need='',used=new Set(),chainLen=0,score=0,combo=0,lives=LIVES,tLeft=WORDTIME,timer=null,over=true,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){};$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+function drawHearts(){$('heartsEl').textContent='❤️'.repeat(lives)+'🤍'.repeat(LIVES-lives);}
+function start(){
+lives=LIVES;score=0;combo=0;chainLen=0;used=new Set();over=false;
+$('scoreEl').textContent='٠';$('chainEl').textContent='٠';
+drawHearts();
+$('inp').disabled=false;
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+$('chainBox').innerHTML='';
+const first=SEEDS[Math.floor(Math.random()*SEEDS.length)];
+accept(first,true);
+}
+function setNeed(w){
+need=norm(w).slice(-1);
+$('needEl').textContent=need;
+}
+function accept(w,seed){
+used.add(norm(w));
+if(!seed){
+chainLen++;combo++;
+const gain=Math.round(w.length*5*(1+.25*Math.min(combo-1,8)));
+score+=gain;
+$('scoreEl').textContent=AR(score);
+$('chainEl').textContent=AR(chainLen);
+$('msg').textContent=`✓ +${AR(gain)} نقطة${combo>1?` · سلسلة ×${AR(combo)}`:''}`;
+snd(600+Math.min(combo*45,400),.09,'triangle',.06);
+}
+setNeed(w);
+const chip=document.createElement('span');
+chip.className='chipw';chip.textContent=w;
+$('chainBox').appendChild(chip);
+$('inp').value='';
+resetTimer();
+setTimeout(()=>$('inp').focus(),40);
+}
+function resetTimer(){
+tLeft=WORDTIME;
+clearInterval(timer);
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0)return timeout();
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/WORDTIME*100)+'%';
+},100);
+}
+function penalty(txt){
+lives--;combo=0;
+drawHearts();
+$('msg').textContent=txt;
+document.querySelector('#playScr .card').classList.add('shake');
+setTimeout(()=>document.querySelector('#playScr .card').classList.remove('shake'),420);
+snd(140,.3,'sawtooth',.06);
+if(lives<=0){finish();}
+else resetTimer();
+}
+function timeout(){penalty('⏱ خلص الوقت! −قلب');}
+$('inp').addEventListener('keydown',e=>{
+if(e.key!=='Enter'||over)return;
+const raw=$('inp').value.trim();
+if(!raw)return;
+const w=norm(raw);
+if(!/^[\u0621-\u064A]{2,}$/.test(w)){
+$('msg').textContent='⚠️ حروف عربية فقط!';
+return;
+}
+if(w[0]!==need){
+$('msg').textContent=`لازم تبدأ بحرف "${need}"!`;
+snd(180,.15,'square',.04);
+return;
+}
+if(used.has(w)){
+$('msg').textContent='🔁 مستهلكة من قبل!';
+penalty('🔁 كلمة مكررة! −قلب');
+return;
+}
+accept(raw.replace(/[\u064B-\u0652\u0640]/g,''));
+});
+function finish(){
+clearInterval(timer);
+over=true;
+$('inp').disabled=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+let m=`بنيت سلسلة من ${AR(chainLen)} كلمة.`;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){};m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+[300,240].forEach((f,i)=>setTimeout(()=>snd(f,.25,'triangle',.04),i*160));
+}
+</script>
+</body>
+</html>

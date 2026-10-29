@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTT-DMG 🎮</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Consolas','Courier New',monospace;background:#1a1d24;color:#e8e6df}
+.shell{background:#cfccc3;border-radius:1.4rem 1.4rem 3.5rem 1.4rem;padding:1.4rem;
+box-shadow:inset 0 2px 0 rgba(255,255,255,.55),inset 0 -6px 14px rgba(0,0,0,.22),0 20px 50px rgba(0,0,0,.5)}
+.bezel{background:#3d4449;border-radius:.7rem .7rem 2.2rem .7rem;padding:1.1rem 1.1rem 2rem}
+.lcd{background:#c4cfa1;border-radius:.35rem;box-shadow:inset 0 0 18px rgba(15,56,15,.28);position:relative;overflow:hidden}
+.lcd::after{content:'';position:absolute;inset:0;pointer-events:none;
+background:repeating-linear-gradient(0deg,rgba(15,56,15,.055) 0 2px,transparent 2px 4px)}
+.cell{width:86px;height:86px;font-size:3rem;font-weight:900;line-height:86px;text-align:center;
+color:#0f380f;cursor:pointer;user-select:none;border:2px solid rgba(15,56,15,.45)}
+.cell:hover:not(.taken){background:rgba(15,56,15,.09)}
+.cell.taken{cursor:default}
+.win-cell{background:#8bac0f!important;color:#c4cfa1!important}
+.dpadbtn{background:#5b6069;color:#e8e6df;border-radius:.5rem;padding:.3rem 1rem;font-weight:800;font-size:.8rem;
+border-bottom:3px solid #3a3e46}
+.dpadbtn.on{background:#8bac0f;color:#0f380f;border-color:#52700a}
+.chipgb{background:#5b6069;color:#e8e6df;border-radius:.4rem;padding:.25rem .85rem;font-size:.78rem;font-weight:800}
+.blink{animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:.2}}
+</style>
+</head>
+<body class="select-none min-h-screen flex flex-col items-center justify-center p-4">
+
+<div class="shell w-full max-w-sm">
+
+<div class="flex justify-between items-center mb-3 px-1">
+<span class="text-xs font-black tracking-[.3em] text-[#5b6069]">TTT·83</span>
+<span class="text-[10px] opacity-50">DOT MATRIX WITH STEREO SOUND</span>
+</div>
+
+<div class="bezel">
+<div class="lcd p-3">
+
+<div class="text-center mb-2 text-[#0f380f]">
+<div class="text-lg font-black" id="statusEl">دورك أنت ✕</div>
+<div class="text-[11px] mt-.5 opacity-70" id="subEl">اختر المستوى تحت</div>
+</div>
+
+<div id="boardEl" class="grid grid-cols-3 gap-0 mx-auto w-fit border-2 border-[#0f380f]/60"></div>
+
+<div class="mt-3 flex justify-center gap-1.5 flex-wrap" id="levelsEl"></div>
+
+</div>
+<div class="text-center text-[#8bac0f] font-black text-xs mt-[-1.4rem] mb-2">◂◂ GAME BOY ▸▸</div>
+</div>
+
+<div class="flex justify-between items-center mt-4 px-2">
+<span class="chipgb">فوز <span id="wEl" class="text-white">٠</span></span>
+<span class="chipgb">تعادل <span id="dEl" class="text-white">٠</span></span>
+<span class="chipgb">خسارة <span id="lEl" class="text-white">٠</span></span>
+<span class="chipgb">🔥 سلسلة <span id="sEl" class="text-white">٠</span></span>
+</div>
+
+<button onclick="newRound()" class="dpadbtn w-full mt-3 !py-2.5 text-base" id="resetBtn">↻ جولة جديدة</button>
+
+<p class="text-center text-[11px] opacity-45 mt-3">أفضل سلسلة فوز: <span id="bestEl">—</span></p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='gameboy-ttt-best';
+let board,turn='X',alive=false,level=0,wins=0,draws=0,losses=0,streak=0,roundId=0,ac=null;
+const LVL=[['سهل',.62],['متوسط',.34],['مستحيل',0]];
+try{wins=+localStorage.getItem('gameboy-ttt-wins')||0;draws=+localStorage.getItem('gameboy-ttt-draws')||0;losses=+localStorage.getItem('gameboy-ttt-losses')||0;}catch(e){}
+function snd(f,d){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.04,ac.currentTime);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestEl').textContent=v?AR(v)+' متتالية':'—';}catch(e){$('bestEl').textContent='—';}}
+loadBest();
+function renderLevels(){
+const box=$('levelsEl');box.innerHTML='';
+LVL.forEach(([name],i)=>{
+const b=document.createElement('button');
+b.className='dpadbtn'+(i===level?' on':'');
+b.textContent=name;
+b.onclick=()=>{level=i;renderLevels();if(!alive)newRound();snd(600+i*120,.06);};
+box.appendChild(b);
+});
+}
+const boardEl=$('boardEl');
+for(let i=0;i<9;i++){
+const c=document.createElement('div');
+c.className='cell';
+c.onclick=()=>humanMove(i);
+boardEl.appendChild(c);
+}
+function drawBoard(){
+[...boardEl.children].forEach((c,i)=>{
+c.textContent=board[i]==='X'?'✕':board[i]==='O'?'◯':'';
+c.classList.toggle('taken',!!board[i]);
+});
+}
+function newRound(){
+board=Array(9).fill('');
+alive=true;turn=Math.random()<.5?'X':'O';
+roundId++;
+const rid=roundId;
+$('statusEl').textContent=turn==='X'?'دورك أنت ✕':'الجهاز بيبدأ ◯';
+$('subEl').textContent=`المستوى: ${LVL[level][0]}`;
+[...boardEl.children].forEach(c=>c.classList.remove('win-cell'));
+drawBoard();
+if(turn==='O')setTimeout(()=>{if(rid===roundId)aiTurn();},500);
+}
+function humanMove(i){
+if(!alive||board[i]||turn!=='X')return;
+place(i,'X');
+}
+function place(i,p){
+board[i]=p;
+snd(p==='X'?520:340,.07);
+drawBoard();
+const wc=winner(board);
+if(wc){
+endRound(wc);
+return true;
+}
+turn=p==='X'?'O':'X';
+$('statusEl').textContent=turn==='X'?'دورك أنت ✕':'الجهاز بيفكر… ◯';
+return false;
+}
+function winner(b){
+const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+for(const [a,c,d] of L)if(b[a]&&b[a]===b[c]&&b[a]===b[d])return {p:b[a],line:[a,c,d]};
+return b.every(v=>v)?{p:'-',line:[]}:null;
+}
+function aiTurn(){
+if(!alive)return;
+const rid=roundId;
+let i;
+if(Math.random()<LVL[level][1]){
+const opts=board.map((v,j)=>v?null:j).filter(v=>v!==null);
+i=opts[Math.floor(Math.random()*opts.length)];
+}else{
+i=minimax(board,'O').idx;
+}
+if(i===undefined||i<0)i=board.findIndex(v=>!v);
+setTimeout(()=>{if(rid===roundId)place(i,'O');},350);
+}
+function minimax(b,player){
+const w=winner(b);
+if(w){
+if(w.p==='O')return{score:10};
+if(w.p==='X')return{score:-10};
+return{score:0};
+}
+const moves=[];
+b.forEach((v,j)=>{
+if(v)return;
+b[j]=player;
+const r=minimax(b,player==='O'?'X':'O');
+moves.push({idx:j,score:r.score});
+b[j]='';
+});
+if(player==='O'){
+let best=moves[0];
+moves.forEach(m=>{if(m.score>best.score)best=m;});
+return best;
+}else{
+let best=moves[0];
+moves.forEach(m=>{if(m.score<best.score)best=m;});
+return best;
+}
+}
+function endRound(w){
+alive=false;
+if(w.line.length)w.line.forEach(j=>$('boardEl').children[j].classList.add('win-cell'));
+if(w.p==='X'){
+wins++;streak++;
+$('statusEl').textContent='🏆 كسبت أنت!';
+[660,880,1100].forEach((f,i)=>setTimeout(()=>snd(f,.12),i*110));
+}else if(w.p==='O'){
+losses++;streak=0;
+$('statusEl').textContent='💀 الجهاز كسبك';
+[300,200].forEach((f,i)=>setTimeout(()=>snd(f,.16),i*140));
+}else{
+draws++;streak=0;
+$('statusEl').textContent='🤝 تعادل محترم';
+snd(440,.2);
+}
+$('wEl').textContent=AR(wins);
+$('dEl').textContent=AR(draws);
+$('lEl').textContent=AR(losses);
+$('sEl').textContent=AR(streak);
+try{localStorage.setItem('gameboy-ttt-wins',String(wins));localStorage.setItem('gameboy-ttt-draws',String(draws));localStorage.setItem('gameboy-ttt-losses',String(losses));}catch(e){}
+let v=0;try{v=+localStorage.getItem(bestKey)||0;}catch(e){}
+ if(streak>v&&streak>0){try{localStorage.setItem(bestKey,streak);}catch(e){}loadBest();}
+ $('subEl').textContent='دوس ↻ للجولة الجاية';
+}
+document.addEventListener('keydown',e=>{
+ if(e.key==='r'||e.key==='R'){newRound();return;}
+ if(alive&&turn==='X'&&['1','2','3','4','5','6','7','8','9'].includes(e.key)){
+   const i='123456789'.indexOf(e.key);
+   if(i>=0)humanMove(i);
+ }
+});
+renderLevels();
+newRound();
+</script>
+</body>
+</html>

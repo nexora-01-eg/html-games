@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دوران المكعب</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+@keyframes spinY{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+.opt{border:3px solid transparent;transition:all .2s}
+.opt:hover{border-color:#60a5fa;transform:scale(1.03)}
+.opt.correct{border-color:#34d399;background:rgba(52,211,153,0.2)}
+.opt.wrong{border-color:#f87171;background:rgba(248,113,113,0.2)}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-950 text-white">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black">🧊 دوران المكعب</h1>
+  <p class="text-xl text-indigo-200 max-w-lg">يظهر لك مكعب وأسهمه تدل على لونه. تنبّأ كيف سيبدو المكعب بعد الدوران المطلوب واختر الإجابة الصحيحة!</p>
+  <div class="bg-indigo-800/50 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-indigo-200">٨ جولات من التحدي</p>
+  </div>
+  <button onclick="startGame()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ التحدي</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-4">
+  <div class="w-full max-w-2xl flex items-center justify-between">
+    <p class="text-lg">الجولة: <span id="round" class="font-black">1 / 8</span></p>
+    <p class="text-lg">النتيجة: <span id="score" class="font-black">0</span></p>
+  </div>
+  <canvas id="cube" width="240" height="240" class="rounded-2xl bg-slate-900 shadow-xl"></canvas>
+  <p id="instruction" class="text-xl font-bold text-indigo-200 text-center">أدر المكعب يمنة</p>
+  <div id="options" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl w-full"></div>
+  <button id="nextBtn" onclick="nextRound()" class="hidden bg-blue-600 hover:bg-blue-500 font-bold px-10 py-3 rounded-full transition">الجولة التالية</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 class="text-5xl font-black">انتهى التحدي!</h1>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-indigo-200">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <div id="verdict" class="text-3xl"></div>
+  <button onclick="backStart()" class="bg-blue-600 hover:bg-blue-500 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let cubeColors={
+  top:'#60a5fa',bottom:'#fbbf24',left:'#34d399',
+  right:'#f87171',front:'#a78bfa',back:'#a3e635'
+};
+let faces=['front','right','back','left','top','bottom'];
+let orderMap={
+  top:['back','right','front','left'],
+  bottom:['front','right','back','left'],
+  right:['front','back','top','bottom'],
+  left:['back','front','bottom','top']
+};
+let rotationName={top:'أدر للأعلى',bottom:'أدر للأسفل',right:'أدر لليمين',left:'أدر لليسار'};
+let round,score,turn,result,correctArr,all=[];
+let best=0;
+try{best=+localStorage.getItem('cube-rot-best')||0;}catch(e){}
+$('startBest').textContent=best;$('finishBest').textContent=best;
+function tone(f,dur,type='sine',vol=0.2){
+  let ac=new (window.AudioContext||window.webkitAudioContext)();
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  score=0;round=0;nextRound();
+}
+function nextRound(){
+  round++;
+  if(round>8){finish();return}
+  $('round').textContent=round+' / 8';
+  $('nextBtn').classList.add('hidden');
+  turn=faces[Math.floor(Math.random()*6)];
+  $('instruction').textContent=rotationName[turn]||rotationName[turn]+' المكعب';
+  let seq=['front','right','back','left'];
+  let idx=seq.indexOf('front');
+  let rotated=[];
+  let order=(turn==='top'||turn==='bottom')?['front','right','back','left']:['front','back','top','bottom'];
+  rotated=rotateArr(faces,turn);
+  result=[];
+  result.push(cubeColors['front']);
+  if(turn==='top'||turn==='bottom'){
+    let seq2=['front','right','back','left'];
+    let off=(turn==='top')?1:3;
+    result.push(cubeColors[seq2[(0+off)%4]]);result.push(cubeColors[seq2[(0+off+2)%4]]);
+  }else{
+    result.push(cubeColors['top']);result.push(cubeColors['bottom']);
+  }
+  result.push(cubeColors[['front'].includes('')?'front':(turn==='right'||turn==='left'?'front':'front')]);
+  correctArr=result;
+  let visible=[cubeColors.front];
+  if(turn==='right'){visible=[cubeColors.front,cubeColors.right]}
+  if(turn==='left'){visible=[cubeColors.front,cubeColors.left]}
+  if(turn==='bottom'){visible=[cubeColors.front,cubeColors.bottom]}
+  if(turn==='top'){visible=[cubeColors.front,cubeColors.top]}
+  drawCube(visible);
+  setTimeout(()=>drawCube(visible),200);
+  makeOptions();
+}
+function rotateArr(arr,axis){
+  let base=['front','right','back','left'];
+  if(axis==='front'||axis==='back')return base;
+  if(axis==='top'||axis==='bottom'){
+    let off=axis==='top'?1:3;
+    let seq=['front','right','back','left'];
+    let r=[];
+    for(let i=0;i<4;i++)r.push(seq[(i+((axis==='top')?1:3))%4]);
+    return r;
+  }
+  return base;
+}
+function drawCube(frontFaces){
+  let c=$('cube'),ctx=c.getContext('2d');
+  ctx.clearRect(0,0,240,240);
+  let cx=120,cy=120,s=60;
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.globalAlpha=0.5;ctx.strokeStyle='#fff';
+  ctx.fillStyle=frontFaces[0]||cubeColors.front;
+  ctx.fillRect(-s/2,-s/2,s,s);ctx.strokeRect(-s/2,-s/2,s,s);
+  if(frontFaces[1]){
+    ctx.fillStyle=frontFaces[1];
+    ctx.beginPath();ctx.moveTo(s/2,-s/2);ctx.lineTo(s/2+s/3,-s/2-s/3);ctx.lineTo(s/2+s/3,s/2-s/3);ctx.lineTo(s/2,s/2);ctx.closePath();ctx.fill();ctx.stroke();
+  }
+  ctx.fillStyle=frontFaces[2]||cubeColors.top;
+  ctx.beginPath();ctx.moveTo(-s/2,-s/2);ctx.lineTo(0,-s/2-s/3);ctx.lineTo(s/2,-s/2);ctx.lineTo(s/2,-s/2-s/6);ctx.lineTo(0,-s/2-s/3*1.5);ctx.lineTo(-s/2,-s/2-s/6);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle='#fff';
+  ctx.fillText(frontFaces[0]===cubeColors.front?'أ':'',cx,cy+4);
+}
+function makeOptions(){
+  let box=$('options');box.innerHTML='';
+  let target=correctArr.join(',');
+  let decoys=[];let guard=0;
+  while(decoys.length<3&&guard<40){
+    guard++;
+    let cand=[cubeColors[faces[Math.floor(Math.random()*6)]],cubeColors[faces[Math.floor(Math.random()*6)]],cubeColors[faces[Math.floor(Math.random()*6)]]];
+    let key=cand.join(',');
+    if(key!==target&&!decoys.includes(key))decoys.push(key);
+  }
+  all=[target,...decoys].map(k=>({colors:k.split(',')})).sort(()=>Math.random()-0.5);
+  all.forEach((op,i)=>{
+    let b=document.createElement('button');
+    b.className='opt bg-slate-800/80 rounded-2xl p-3 aspect-square';
+    let mini=document.createElement('canvas');
+    mini.width=90;mini.height=90;mini.className='mx-auto';
+    drawMini(mini,op.colors);
+    b.appendChild(mini);
+    b.dataset.idx=i;
+    b.onclick=()=>choose(b);
+    box.appendChild(b);
+  });
+}
+function drawMini(can,colors){
+  let ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,90,90);
+  ctx.fillStyle=colors[0]||'#888';ctx.fillRect(15,15,40,40);
+  ctx.fillStyle=colors[1]||'#888';ctx.fillRect(55,15,20,20);
+  ctx.fillStyle=colors[2]||'#888';ctx.beginPath();ctx.moveTo(15,15);ctx.lineTo(35,5);ctx.lineTo(55,15);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#fff';ctx.strokeRect(15,15,40,40);
+}
+function choose(b){
+  let opts=document.querySelectorAll('.opt');
+  opts.forEach(o=>{o.style.pointerEvents='none'});
+  let idx=b.dataset.idx;
+  let picked=(all[idx]&&all[idx].colors)?all[idx].colors.join(','):'';
+  if(picked===correctArr.join(',')){b.classList.add('correct');score+=100;tone(700,0.3,'triangle',0.2)}
+  else{b.classList.add('wrong');tone(180,0.3,'sawtooth',0.15)}
+  $('score').textContent=score;
+  $('nextBtn').classList.remove('hidden');
+}
+function finish(){
+  if(score>best){best=score;try{localStorage.setItem('cube-rot-best',best)}catch(e){}}
+  $('finalScore').textContent=score;$('finishBest').textContent=best;
+  $('verdict').textContent=score>=700?'🧠 عبقري التخيل':score>=400?'👀 جيد':'🤔 تدرب أكثر';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+}
+function backStart(){
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('finishScreen').classList.remove('flex');$('finishScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+</script>
+</body>
+</html>
