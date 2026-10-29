@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عجلة الحظ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+body { font-family: 'Cairo', sans-serif; }
+</style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 to-indigo-900 min-h-screen flex items-center justify-center">
+<div class="text-center w-full max-w-lg mx-auto p-4">
+<div id="start-screen">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">🎰</div>
+<h1 class="text-3xl font-bold text-white mb-2">عجلة الحظ</h1>
+<p class="text-slate-300 mb-6">أجب صح لحفظ النقاط</p>
+<div class="bg-white/10 rounded-xl p-4 mb-6">
+<p class="text-sm text-slate-300">الأفضل: <span id="best-display" class="font-bold text-amber-400">0</span></p>
+</div>
+<button onclick="startGame()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">ابدأ اللعب</button>
+</div>
+</div>
+<div id="play-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-6 border border-white/20">
+<div class="flex justify-between items-center mb-4">
+<span class="text-slate-300 font-bold">النقاط المحصّلة: <span id="accumulated" class="text-amber-400">0</span></span>
+<span class="text-slate-300 font-bold">الأفضل: <span id="current-best" class="text-amber-400">0</span></span>
+</div>
+<div id="wheel-area" class="mb-4">
+<div id="wheel-pointer" class="text-3xl mb-1">▼</div>
+<canvas id="wheel-canvas" width="250" height="250" class="mx-auto"></canvas>
+</div>
+<div id="spin-section">
+<button onclick="spinWheel()" id="spin-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition mb-3">دوّر العجلة</button>
+</div>
+<div id="question-section" class="hidden">
+<p id="question-text" class="text-white text-lg font-bold mb-4"></p>
+<div id="answers-container" class="grid grid-cols-1 gap-2 mb-3"></div>
+</div>
+<div id="cashout-section" class="hidden flex gap-2 justify-center">
+<button onclick="cashOut()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-xl transition">احفظ النقاط</button>
+<button onclick="continuePlay()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-6 rounded-xl transition">تابع اللعب</button>
+</div>
+<div id="feedback" class="h-6 text-sm font-bold"></div>
+</div>
+</div>
+<div id="finish-screen" class="hidden">
+<div class="bg-white/10 backdrop-blur rounded-3xl shadow-xl p-8 border border-white/20">
+<div class="text-6xl mb-4">💰</div>
+<h2 class="text-2xl font-bold text-white mb-2">انتهت اللعبة!</h2>
+<p class="text-slate-300 mb-2">النقاط: <span id="final-score" class="font-bold text-amber-400"></span></p>
+<p class="text-slate-300 mb-6">الأفضل: <span id="final-best" class="font-bold text-amber-400"></span></p>
+<button onclick="location.reload()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition">العب مرة أخرى</button>
+</div>
+</div>
+</div>
+<script>
+let audioCtx;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(freq, type, dur) {
+initAudio();
+let o = audioCtx.createOscillator();
+let g = audioCtx.createGain();
+o.type = type; o.frequency.value = freq;
+o.connect(g); g.connect(audioCtx.destination);
+g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+o.start(); o.stop(audioCtx.currentTime + dur);
+}
+let questions = [
+{q:'ما هي عاصمة فرنسا؟', opts:['لندن','باريس','روما','برلين'], correct:1},
+{q:'كم عدد كواكب المجموعة الشمسية؟', opts:['7','8','9','10'], correct:1},
+{q:'ما هو أكبر محيط في العالم؟', opts:['الأطلسي','الهادئ','الهندي','المتجمد'], correct:1},
+{q:'من كتب مسرحية هاملت؟', opts:['شيكسبير','دوستويفسكي','تولستوي','مارك توين'], correct:0},
+{q:'ما هي اللغة الأكثر تحدثاً في العالم؟', opts:['الإنجليزية','الإسبانية','الماندرين','العربية'], correct:2},
+{q:'كم عدد أضلاع المثلث؟', opts:['2','3','4','5'], correct:1},
+{q:'ما هو العنصر الكيميائي الم.symbol له Au؟', opts:['الفضة','الذهب','النحاس','الحديد'], correct:1},
+{q:'في أي قارة تقع مصر؟', opts:['آسيا','أوروبا','أفريقيا','أمريكا'], correct:2},
+{q:'ما هو أصغر كوكب في المجموعة الشمسية؟', opts:['المريخ','عطارد','بلوتون','زحل'], correct:1},
+{q:'كم عدد أرجل العنكبوت؟', opts:['6','8','10','12'], correct:1}
+];
+let accumulated = 0, best = 0;try{best = parseInt(localStorage.getItem('spin-wheel-best') || '0');}catch(e){}
+let spinning = false, spinAngle = 0, usedQuestions = [];
+let wheelSegments = [10,20,30,50,0,100,25,0,40,75];
+let segmentColors = ['#ef4444','#3b82f6','#22c55e','#eab308','#6b7280','#a855f7','#f97316','#6b7280','#ec4899','#14b8a6'];
+function startGame() {
+initAudio(); accumulated = 0; usedQuestions = [];
+$('start-screen').classList.add('hidden');
+$('play-screen').classList.remove('hidden');
+$('accumulated').textContent = 0;
+$('current-best').textContent = best;
+drawWheel();
+}
+function drawWheel() {
+let canvas = $('wheel-canvas');
+let ctx = canvas.getContext('2d');
+let cx = 125, cy = 125, r = 120;
+ctx.clearRect(0, 0, 250, 250);
+let segAngle = (2 * Math.PI) / wheelSegments.length;
+for (let i = 0; i < wheelSegments.length; i++) {
+let startA = spinAngle + i * segAngle;
+let endA = startA + segAngle;
+ctx.beginPath();
+ctx.moveTo(cx, cy);
+ctx.arc(cx, cy, r, startA, endA);
+ctx.fillStyle = segmentColors[i];
+ctx.fill();
+ctx.stroke();
+ctx.save();
+ctx.translate(cx, cy);
+ctx.rotate(startA + segAngle / 2);
+ctx.fillStyle = 'white';
+ctx.font = 'bold 12px Cairo';
+ctx.textAlign = 'center';
+ctx.fillText(wheelSegments[i], r * 0.65, 4);
+ctx.restore();
+}
+}
+function spinWheel() {
+if (spinning) return;
+initAudio();
+spinning = true;
+$('spin-btn').disabled = true;
+$('spin-btn').className = 'bg-slate-500 text-white font-bold py-3 px-8 rounded-xl text-lg mb-3 cursor-not-allowed';
+let spins = 5 + Math.floor(Math.random() * 5);
+let targetAngle = spinAngle + spins * 2 * Math.PI + Math.random() * 2 * Math.PI;
+let startAngle = spinAngle;
+let startTime = Date.now();
+let duration = 3000;
+function animate() {
+let elapsed = Date.now() - startTime;
+let progress = Math.min(elapsed / duration, 1);
+let eased = 1 - Math.pow(1 - progress, 3);
+spinAngle = startAngle + (targetAngle - startAngle) * eased;
+drawWheel();
+if (progress < 1) { requestAnimationFrame(animate); }
+else {
+spinning = false;
+let segAngle = (2 * Math.PI) / wheelSegments.length;
+let normalized = ((2 * Math.PI) - (spinAngle % (2 * Math.PI))) % (2 * Math.PI);
+let idx = Math.floor(normalized / segAngle) % wheelSegments.length;
+let won = wheelSegments[idx];
+if (won === 0) {
+playSound(200, 'square', 0.4);
+$('feedback').textContent = '❌ خسارة!';
+$('feedback').className = 'h-6 text-sm font-bold text-red-400';
+accumulated = 0;
+$('accumulated').textContent = 0;
+$('spin-btn').disabled = false;
+$('spin-btn').className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition mb-3';
+$('feedback').textContent = `فزت بـ ${won}! أجب على السؤال`;
+$('feedback').className = 'h-6 text-sm font-bold text-amber-400';
+showQuestion(won);
+} else {
+playSound(523, 'sine', 0.2);
+$('feedback').textContent = `فزت بـ ${won}! أجب على السؤال`;
+$('feedback').className = 'h-6 text-sm font-bold text-amber-400';
+showQuestion(won);
+}
+}
+}
+animate();
+}
+function showQuestion(pts) {
+let avail = questions.filter((_, i) => !usedQuestions.includes(i));
+if (avail.length === 0) usedQuestions = [];
+avail = questions.filter((_, i) => !usedQuestions.includes(i));
+let qi = Math.floor(Math.random() * avail.length);
+let qObj = avail[qi];
+let realIdx = questions.indexOf(qObj);
+usedQuestions.push(realIdx);
+$('question-text').textContent = qObj.q;
+let ansContainer = $('answers-container');
+ansContainer.innerHTML = '';
+$('spin-section').classList.add('hidden');
+$('question-section').classList.remove('hidden');
+qObj.opts.forEach((opt, i) => {
+let btn = document.createElement('button');
+btn.className = 'bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-4 rounded-xl transition text-sm';
+btn.textContent = opt;
+btn.onclick = () => answerQuestion(i === qObj.correct, pts);
+ansContainer.appendChild(btn);
+});
+}
+function answerQuestion(correct, pts) {
+initAudio();
+$('question-section').classList.add('hidden');
+if (correct) {
+playSound(660, 'sine', 0.3);
+accumulated += pts;
+$('accumulated').textContent = accumulated;
+$('feedback').textContent = `✅ صحيح! +${pts}`;
+$('feedback').className = 'h-6 text-sm font-bold text-emerald-400';
+$('cashout-section').classList.remove('hidden');
+$('cashout-section').style.display = 'flex';
+} else {
+playSound(200, 'square', 0.4);
+$('feedback').textContent = '❌ خطأ! خسرت كل النقاط';
+$('feedback').className = 'h-6 text-sm font-bold text-red-400';
+accumulated = 0;
+$('accumulated').textContent = 0;
+$('spin-btn').disabled = false;
+$('spin-btn').className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition mb-3';
+}
+}
+function cashOut() {
+initAudio();
+playSound(880, 'triangle', 0.4);
+if (accumulated > best) { best = accumulated; try{localStorage.setItem('spin-wheel-best', best);}catch(e){} }
+endGame();
+}
+function continuePlay() {
+initAudio();
+$('cashout-section').classList.add('hidden');
+$('cashout-section').style.display = 'none';
+$('spin-btn').disabled = false;
+$('spin-btn').className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition mb-3';
+$('feedback').textContent = '';
+}
+function endGame() {
+$('play-screen').classList.add('hidden');
+$('finish-screen').classList.remove('hidden');
+$('final-score').textContent = accumulated;
+$('final-best').textContent = best;
+}
+function $(id) { return document.getElementById(id); }
+$('best-display').textContent = best;
+</script>
+</body>
+</html>

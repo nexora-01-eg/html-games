@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ادفع النمط</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 min-h-screen flex items-center justify-center text-white">
+<div id="app" class="w-full max-w-md p-6">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-black mb-4">🧩 ادفع النمط</h1>
+<p class="text-slate-300 mb-6">ادفع الصفوف والأعمدة لمطابقة النمط الهدف في ٥ مستويات!</p>
+<button id="startBtn" class="px-8 py-4 bg-blue-500 hover:bg-blue-400 rounded-2xl text-xl font-bold shadow-lg">ابدأ اللعب</button>
+<div class="mt-6 text-sm text-slate-400">الأفضل (أقل تحركات): <span id="bestDisplay">٠</span></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="flex justify-between items-center mb-3 text-sm">
+<span>المستوى: <span id="level">١</span>/٥</span>
+<span>التحركات: <span id="moves">٠</span></span>
+</div>
+<div class="text-slate-300 text-xs mb-2">النمط الهدف:</div>
+<div id="target" class="grid grid-cols-3 gap-1 w-32 mx-auto mb-4"></div>
+<div class="text-slate-300 text-xs mb-2">نمطك:</div>
+<div id="board" class="grid grid-cols-3 gap-1 w-32 mx-auto mb-2"></div>
+<div class="grid grid-cols-2 gap-3 mt-4">
+<button id="pushRow" class="py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold">ادفع صفاً</button>
+<button id="pushCol" class="py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold">ادفع عموداً</button>
+</div>
+<div id="msg" class="text-sm h-6 mt-3"></div>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-black mb-4">أكملت المستويات! 🎉</h2>
+<p class="text-xl mb-4">إجمالي التحركات: <span id="finalMoves">٠</span></p>
+<p id="isNewBest" class="text-yellow-400 text-sm mb-6">🎖️ رقم قياسي جديد!</p>
+<div class="text-slate-400 mb-6">الأفضل: <span id="finalBest">٠</span></div>
+<button id="restartBtn" class="px-8 py-4 bg-blue-500 hover:bg-blue-400 rounded-2xl text-xl font-bold">العب مرة أخرى</button>
+</div>
+</div>
+<script>
+let ctx,best,level,moves,colorCount,board,target,totalMoves;
+const COLORS=['#ef4444','#3b82f6','#22c55e'];
+function init(){try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}best=parseInt(localStorage.getItem('pattern-push-best')||'0')||0;document.getElementById('bestDisplay').textContent=best;}
+function tone(f,x,d){let o=ctx.createOscillator(),g=ctx.createGain();o.type=f;o.frequency.value=x;o.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(0.12,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.start();o.stop(ctx.currentTime+d);}
+function setScreen(s){document.getElementById('startScreen').classList.toggle('hidden',s!=='start');document.getElementById('playScreen').classList.toggle('hidden',s!=='play');document.getElementById('finishScreen').classList.toggle('hidden',s!=='finish');}
+function toAr(n){return n.toLocaleString('ar-EG');}
+function randArr(n,c){let a=[];for(let i=0;i<n;i++)a.push(Math.floor(Math.random()*c));return a;}
+function shiftArr(a,dir){if(dir>0){let last=a.pop();a.unshift(last);}else{let first=a.shift();a.push(first);}return a;}
+function setupLevel(){moves=0;colorCount=Math.min(2+Math.floor((level-1)*0.5),3);board=randArr(9,colorCount);do{target=randArr(9,colorCount);}while(JSON.stringify(target)===JSON.stringify(board));render();}
+function render(){document.getElementById('level').textContent=toAr(level);document.getElementById('moves').textContent=toAr(moves);let t=document.getElementById('target');t.innerHTML='';for(let i=0;i<9;i++){let d=document.createElement('div');d.className='aspect-square rounded';d.style.background=COLORS[target[i]];t.appendChild(d);}let b=document.getElementById('board');b.innerHTML='';for(let i=0;i<9;i++){let d=document.createElement('div');d.className='aspect-square rounded';d.style.background=COLORS[board[i]];b.appendChild(d);}document.getElementById('msg').textContent='';}
+function rowPush(){for(let r=0;r<3;r++){let row=board.slice(r*3,r*3+3);let last=row.pop();row.unshift(last);for(let i=0;i<3;i++)board[r*3+i]=row[i];}addMove();}
+function colPush(){let cols=[];for(let c=0;c<3;c++){let col=[board[c],board[c+3],board[c+6]];let last=col.pop();col.unshift(last);cols[c]=col[0];cols[c+3]=col[1];cols[c+6]=col[2];}for(let i=0;i<9;i++)board[i]=cols[i];addMove();}
+function addMove(){moves++;totalMoves++;tone('sine',500,0.08);render();if(JSON.stringify(board)===JSON.stringify(target)){tone('square',700,0.12);setTimeout(()=>tone('square',900,0.12),120);document.getElementById('msg').textContent='✅ نمط مطابق!';setTimeout(function(){level++;if(level>5){finish();}else{setupLevel();}},1200);}}
+document.getElementById('pushRow').onclick=rowPush;
+document.getElementById('pushCol').onclick=colPush;
+function finish(){setScreen('finish');document.getElementById('finalMoves').textContent=toAr(totalMoves);let nb=false;if(best===0||totalMoves<best){best=totalMoves;try{localStorage.setItem('pattern-push-best',String(best));}catch(e){}nb=true;}document.getElementById('isNewBest').classList.toggle('hidden',!nb);document.getElementById('finalBest').textContent=toAr(best);tone('triangle',800,0.2);setTimeout(()=>tone('triangle',1000,0.2),150);}
+document.getElementById('startBtn').onclick=function(){if(!ctx)init();level=1;totalMoves=0;tone('sine',500,0.15);setScreen('play');setupLevel();};
+document.getElementById('restartBtn').onclick=function(){totalMoves=0;setScreen('start');init();};
+document.addEventListener('keydown',function(e){if(e.code==='KeyR'){totalMoves=0;setScreen('start');init();}});
+init();
+</script>
+</body>
+</html>

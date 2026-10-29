@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>طابق الأشكال</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}</style>
+</head>
+<body class="bg-gray-800 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">طابق الأشكال</h1>
+<p class="text-gray-400 text-sm">الجولة <span id="round">1</span>/10 | الوقت: <span id="timer">10</span> | النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span></p>
+</div>
+<div class="flex gap-8 mb-6 items-center">
+<div class="text-center"><p class="text-gray-400 text-sm mb-2">الشكل</p><div id="target" class="w-28 h-28"></div></div>
+<div class="text-3xl text-gray-500">←</div>
+<div id="options" class="grid grid-cols-2 gap-3"></div>
+</div>
+<button id="startBtn" class="bg-purple-600 hover:bg-purple-700 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<script>
+let best=0;try{best=+(localStorage.getItem('shape-match-best')||0);}catch(e){}
+let score=0,round=0,maxRounds=10,timerVal=10,timerRef=null,playing=false,shapes=[],correctIdx=0;
+document.getElementById('best').textContent=best;
+const ctx=new(window.AudioContext||window.webkitAudioContext)();
+function beep(f,d,t='sine'){const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.3;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.stop(ctx.currentTime+d);}
+const shapeDefs=[
+{s:'polygon(50% 0%,0% 100%,100% 100%)',n:'مثلث'},
+{s:'circle(50%)',n:'دائرة'},
+{s:'polygon(0 0,100% 0,100% 100%,0 100%)',n:'مربع'},
+{s:'polygon(50% 0%,100% 38%,82% 100%,18% 100%,0% 38%)',n:'خماسي'},
+{s:'polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)',n:'سداسي'},
+{s:'polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)',n:'نجمة'},
+];
+function drawShape(el,def,size=112){
+el.innerHTML='';
+const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+svg.setAttribute('width',size);svg.setAttribute('height',size);
+svg.setAttribute('viewBox','0 0 100 100');
+const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+const p=def.s.match(/[\d.]+/g).map(Number);
+if(def.n==='دائرة'){
+const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+c.setAttribute('cx','50');c.setAttribute('cy','50');c.setAttribute('r','40');
+c.setAttribute('fill','#8b5cf6');c.setAttribute('stroke','#a78bfa');c.setAttribute('stroke-width','2');
+svg.appendChild(c);
+}else{
+const pts=[];
+for(let i=0;i<p.length;i+=2)pts.push(p[i]+','+p[i+1]);
+poly.setAttribute('points',pts.join(' '));
+poly.setAttribute('fill','#8b5cf6');poly.setAttribute('stroke','#a78bfa');poly.setAttribute('stroke-width','2');
+svg.appendChild(poly);
+}
+el.appendChild(svg);
+}
+function genRound(){
+const shapes=shapeDefs.slice();
+for(let i=shapes.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shapes[i],shapes[j]]=[shapes[j],shapes[i]];}
+correctIdx=Math.floor(Math.random()*4);
+const targetDef=shapes[0];
+const opts=[];
+for(let i=0;i<4;i++){
+opts.push(i===correctIdx?targetDef:shapes[i+1]);
+}
+drawShape(document.getElementById('target'),targetDef);
+const optEl=document.getElementById('options');
+optEl.innerHTML='';
+opts.forEach((def,i)=>{
+const d=document.createElement('div');
+d.className='w-24 h-24 bg-gray-700 rounded-xl cursor-pointer hover:bg-gray-600 flex items-center justify-center transition p-2';
+const svgDiv=document.createElement('div');
+drawShape(svgDiv,def,96);
+d.appendChild(svgDiv);
+d.addEventListener('click',()=>pickAnswer(i));
+optEl.appendChild(d);
+});
+}
+function pickAnswer(i){
+if(!playing)return;
+clearInterval(timerRef);
+if(i===correctIdx){
+beep(700,0.15);score+=Math.floor(timerVal)*10+20;
+}else{
+beep(200,0.3,'sawtooth');
+}
+document.getElementById('score').textContent=score;
+round++;
+if(round>=maxRounds){endGame();return;}
+document.getElementById('round').textContent=round+1;
+startTimer();
+setTimeout(genRound,500);
+}
+function startTimer(){
+timerVal=10;
+document.getElementById('timer').textContent=timerVal;
+timerRef=setInterval(()=>{timerVal--;document.getElementById('timer').textContent=timerVal;if(timerVal<=0){clearInterval(timerRef);round++;if(round>=maxRounds)endGame();else{document.getElementById('round').textContent=round+1;genRound();}}},1000);
+}
+function endGame(){
+playing=false;clearInterval(timerRef);
+if(score>best){best=score;try{localStorage.setItem('shape-match-best',score);}catch(e){}document.getElementById('best').textContent=score;}
+document.getElementById('startBtn').style.display='block';
+document.getElementById('startBtn').textContent='العب مرة أخرى';
+}
+function start(){
+score=0;round=0;playing=true;
+document.getElementById('score').textContent=0;
+document.getElementById('round').textContent=1;
+document.getElementById('startBtn').style.display='none';
+genRound();startTimer();
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

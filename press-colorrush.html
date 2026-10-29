@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ملحق الألوان اليومي 📰</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:Georgia,'Times New Roman',serif;background:#f7f4ed;color:#141210}
+.paper{background:#fbf9f2;border-top:4px double #141210;border-bottom:4px double #141210}
+.masthead{font-weight:900;letter-spacing:.06em;border-bottom:2px solid #141210}
+.rule{border:none;border-top:1px solid #141210;margin:0}
+.tile{aspect-ratio:1;border-radius:6px;border:2px solid rgba(20,18,16,.35);cursor:pointer;transition:transform .08s,opacity .25s}
+.tile:hover:not(.done){transform:scale(1.07)}
+.tile.done{opacity:.22;pointer-events:none;background-image:none!important;position:relative}
+.tile.done::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;color:#141210}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+#tfill{transition:width .1s linear;background:#c0392b}
+.spot{color:#c0392b}
+button{font-family:inherit}
+</style>
+</head>
+<body class="select-none">
+
+<main class="max-w-xl mx-auto px-4 py-8">
+
+<header class="masthead text-center pb-3 mb-1">
+<div class="text-[11px] tracking-widest mb-1">عدد خاص · طبعة مسائية · سعر النسخة: نظرة واحدة</div>
+<h1 class="text-3xl md:text-4xl">THE DAILY <span class="spot">TINT</span></h1>
+<div class="text-sm mt-1">ملحق الألوان اليومي — قسم المطابقة الدقيقة</div>
+</header>
+<hr class="rule mb-6">
+
+<div id="startScr" class="paper px-8 py-10 text-center">
+<p class="text-lg leading-relaxed mb-2">ستظهر درجة لون مستهدفة…<br><b>اضغط كل البلاطات التي تحمل نفس الدرجة بالضبط.</b></p>
+<hr class="rule my-4">
+<p class="text-sm leading-relaxed opacity-80">الفروقات خبيثة: أحيانًا فرق إضاءة بنسبة ٣٪ فقط!<br>الخطأ يكلفك ٤ ثوانٍ من وقت الطباعة 🕐</p>
+<button onclick="start()" class="mt-7 border-2 border-[#141210] px-10 py-2.5 font-bold hover:bg-[#141210] hover:text-[#f7f4ed] transition-colors">افتح الملحق ▸</button>
+<p class="mt-6 text-xs opacity-60">أعلى تداول: <span id="bestStart" class="spot font-bold">—</span> نقطة</p>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex justify-between items-end mb-2 text-sm font-bold">
+<span>العددة <span id="waveEl" class="spot">١</span></span>
+<span>المطابقات <span id="foundEl">٠</span>/<span id="needEl">٦</span></span>
+<span>النقاط <span id="scoreEl" class="spot">٠</span></span>
+<span><button onclick="togglePause()" class="underline">إيقاف مؤقت</button></span>
+</div>
+<div class="h-3 w-full border-2 border-[#141210] mb-1"><div id="tfill" class="h-full" style="width:100%"></div></div>
+<div class="flex items-center gap-3 mb-5">
+<span class="text-xs opacity-70">الدرجة المطلوبة:</span>
+<div id="swatchEl" class="w-14 h-8 rounded border-2 border-[#141210]"></div>
+</div>
+
+<div id="gridEl" class="grid gap-2.5" style="grid-template-columns:repeat(5,minmax(0,1fr))"></div>
+<div id="msg" class="h-8 mt-4 text-center text-sm font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden paper px-10 py-10 text-center">
+<div class="text-xs tracking-widest mb-2">— إعلان —</div>
+<h2 class="text-3xl md:text-4xl font-black mb-4">توقفت المطبعة!</h2>
+<div id="finalScore" class="text-6xl font-black spot mb-4">٠</div>
+<p id="endMsg" class="text-sm opacity-85 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="border-2 border-[#141210] px-10 py-2.5 font-bold hover:bg-[#141210] hover:text-[#f7f4ed] transition-colors">طبعة جديدة ↻</button>
+</div>
+
+<footer class="mt-8 text-center text-[10px] tracking-widest opacity-50">يطبع بأحبر ثابت · جميع الدرجات محفوظة الحقوق</footer>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const GRIDN=25,bestKey='press-colorrush-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let wave=0,score=0,target='',need=0,found=0,tLeft=0,tMax=0,timer=null,over=true,ac=null,paused=false;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.09));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.09));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v?AR(v):'—';}catch(e){}}
+loadBest();
+function start(){
+wave=0;score=0;over=false;
+$('scoreEl').textContent='٠';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+nextWave();
+}
+function hsl(h,s,l){return`hsl(${h} ${s}% ${l}%)`;}
+function newWave(){
+wave++;
+$('waveEl').textContent=AR(wave);
+tMax=Math.max(10,17-wave);
+resetTimer();
+buildBoard();
+snd(500,.08,'triangle',.05);
+}
+function togglePause(){
+if(over)return;
+paused=!paused;
+$('msg').textContent=paused?'⏸ مطبعة متوقفة… اضغط Space للمتابعة':'';
+}
+function resetTimer(){
+clearInterval(timer);
+tLeft=tMax;
+timer=setInterval(()=>{
+if(paused)return;
+tLeft-=.1;
+if(tLeft<=0)return finish();
+$('tfill').style.width=(tLeft/tMax*100)+'%';
+},100);
+}
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();togglePause();}});
+function buildBoard(){
+const baseH=Math.floor(Math.random()*360);
+const s=62+Math.random()*20,l=48+Math.random()*10;
+const delta=Math.max(2.5,7-wave*.55);
+target=hsl(baseH,s,l);
+need=5+Math.min(wave+1,4);
+found=0;
+$('foundEl').textContent='٠';$('needEl').textContent=AR(need);
+$('swatchEl').style.background=target;
+const exactIdx=new Set();
+while(exactIdx.size<need)exactIdx.add(Math.floor(Math.random()*GRIDN));
+const g=$('gridEl');g.innerHTML='';
+for(let i=0;i<GRIDN;i++){
+const b=document.createElement('button');
+b.className='tile';
+b.style.background=exactIdx.has(i)?target:hsl(
+baseH+Math.floor(Math.random()*delta*2-delta),
+s+Math.floor(Math.random()*delta*2-delta)*1.4,
+l+Math.floor(Math.random()*delta*2-delta));
+b.dataset.exact=exactIdx.has(i)?'1':'';
+b.onclick=e=>pick(b,e);
+g.appendChild(b);
+}
+$('msg').textContent='';
+}
+function pick(b,e){
+if(over||b.classList.contains('done'))return;
+if(b.dataset.exact){
+b.classList.add('done');
+found++;
+score+=15;
+$('foundEl').textContent=AR(found);
+$('scoreEl').textContent=AR(score);
+snd(650+Math.random()*250,.07,'triangle',.05);
+if(found===need){
+score+=Math.round(tLeft*6);
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`اكتملت المطابقة! بونص ${AR(Math.round(tLeft*6))} نقطة`;
+setTimeout(nextWave,700);
+}
+}else{
+tLeft=Math.max(.5,tLeft-4);
+b.style.outline='3px solid #c0392b';
+setTimeout(()=>b.style.outline='',300);
+$('msg').textContent='✗ درجة قريبة… مو هي! −٤ث';
+$('gridEl').classList.add('shake');
+setTimeout(()=>$('gridEl').classList.remove('shake'),380);
+snd(130,.2,'sawtooth',.05);
+}
+}
+function finish(){
+clearInterval(timer);
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+const v=+localStorage.getItem(bestKey)||0;
+let m=`صمدت حتى العددة ${AR(wave)} من ملحق الألوان.`;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد — عناوين الغد! 🏆';loadBest();}
+else if(v)m+=' أعلى تداول لك: '+AR(v);
+$('endMsg').textContent=m;
+[520,400].forEach((f,i)=>setTimeout(()=>snd(f,.2,'square',.04),i*150));
+}
+</script>
+</body>
+</html>

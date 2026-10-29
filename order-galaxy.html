@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ترتيب المجرات 🌌</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background-color:#0d0a26;background-image:radial-gradient(circle at 15% 25%,rgba(147,51,234,.28),transparent 40%),radial-gradient(circle at 85% 75%,rgba(236,72,153,.2),transparent 45%),radial-gradient(rgba(255,255,255,.65) 1px,transparent 1.5px);background-size:auto,auto,130px 130px}
+.glassy{background:rgba(255,255,255,.05);border:1px solid rgba(196,181,253,.3);backdrop-filter:blur(6px)}
+.planet{color:#fff;font-weight:800;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.slot{width:3.2rem;height:3.2rem;border:2px dashed rgba(196,181,253,.5);border-radius:9999px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#e9d5ff}
+.chip{width:3.6rem;height:3.6rem;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:1.05rem;text-shadow:0 1px 4px rgba(0,0,0,.5);box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;transition:transform .12s}
+.chip:hover:not(:disabled){transform:scale(1.08)}
+.chip:disabled{opacity:.25;cursor:default}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.shake{animation:shk .3s}
+@keyframes glowT{0%,100%{text-shadow:0 0 10px rgba(196,181,253,.9)}50%{text-shadow:0 0 24px rgba(236,72,153,.9)}}
+.titleglow{animation:glowT 3s infinite}
+</style>
+</head>
+<body class="min-h-screen text-purple-100 flex flex-col items-center py-8 px-4">
+<h1 class="text-3xl md:text-4xl font-black titleglow text-purple-200 mb-1">🌌 ترتيب المجرات</h1>
+<p class="text-sm text-purple-300/70 mb-6">اضغط الكواكب من الأخف وزناً إلى الأثقل… قبل نهاية الوقود!</p>
+
+<div class="glassy rounded-2xl p-5 w-full max-w-md text-center">
+  <div class="flex justify-between text-sm mb-4 font-bold">
+    <span>⛽ <span id="fuel" class="text-pink-300">90</span>ث</span>
+    <span>المستوى <span id="lvl" class="text-fuchsia-300">1</span></span>
+    <span>⭐ <span id="score" class="text-amber-300">0</span></span>
+  </div>
+  <div class="h-1.5 rounded bg-purple-950 overflow-hidden mb-6"><div id="bar" class="h-full bg-gradient-to-l from-fuchsia-500 to-purple-400 transition-all duration-100" style="width:100%"></div></div>
+
+  <p class="text-xs text-purple-300/60 mb-2">مسار الانطلاق ←</p>
+  <div id="slots" dir="ltr" class="flex justify-center gap-2 flex-wrap mb-6 min-h-[3.2rem]"></div>
+  <p class="text-xs text-purple-300/60 mb-2">سديم الكويكبات — رتّبها!</p>
+  <div id="pool" dir="ltr" class="flex justify-center gap-3 flex-wrap min-h-[3.6rem]"></div>
+</div>
+
+<div id="endOv" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+  <div class="glassy rounded-2xl p-8 text-center max-w-xs w-full bg-[#160f33]">
+    <div id="eIcon" class="text-5xl mb-2">🚀</div>
+    <h2 class="text-2xl font-black mb-1">نفد الوقود!</h2>
+    <p class="text-4xl font-black text-amber-300 my-3"><span id="eScore">0</span></p>
+    <p id="eRank" class="text-sm text-purple-200 mb-5"></p>
+    <button onclick="startGame()" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black px-8 py-2.5 rounded-xl transition active:scale-95">رحلة جديدة</button>
+  </div>
+</div>
+
+<script>
+let level,score,timeF,timerInt=null,expected=[],eIdx=0,K=4;
+
+const $=function(id){return document.getElementById(id);};
+
+function planetColor(v){var h=(v*7)%360;return 'background:linear-gradient(135deg,hsl('+h+',75%,62%),hsl('+((h+45)%360)+',70%,42%))';}
+
+function startGame(){
+ level=1;score=0;timeF=90;eIdx=0;
+ $('endOv').classList.add('hidden');
+ $('score').textContent='0';$('lvl').textContent='1';
+ clearInterval(timerInt);
+ newLevel();
+ timerInt=setInterval(tick,100);
+ paintFuel();
+}
+
+function tick(){
+ timeF-=0.1;paintFuel();
+ if(timeF<=0)endGame();
+}
+
+function paintFuel(){
+ timeF=Math.max(0,timeF);
+ $('fuel').textContent=Math.ceil(timeF);
+ $('bar').style.width=(timeF/90*100)+'%';
+}
+
+function newLevel(){
+ K=Math.min(3+level,9);
+ const set=new Set();
+ while(set.size<K)set.add(10+Math.floor(Math.random()*90));
+ expected=Array.from(set).sort(function(a,b){return a-b;});
+ eIdx=0;
+ $('lvl').textContent=level;
+
+ const sl=$('slots');sl.innerHTML='';
+ for(let i=0;i<K;i++){const d=document.createElement('div');d.className='slot';sl.appendChild(d);}
+
+ const pool=$('pool');pool.innerHTML='';
+ expected.slice().sort(function(){return Math.random()-.5;}).forEach(function(v){
+   const b=document.createElement('button');
+   b.className='chip';
+   b.setAttribute('style',planetColor(v));
+   b.textContent=v;
+   b.onclick=function(){pick(v,b);};
+   pool.appendChild(b);
+ });
+}
+
+function pick(v,btn){
+ if(v!==expected[eIdx]){
+   timeF=Math.max(0,timeF-3);paintFuel();
+   btn.classList.remove('shake');void btn.offsetWidth;btn.classList.add('shake');
+   return;
+ }
+ btn.disabled=true;btn.style.visibility='hidden';
+ const slot=$('slots').children[eIdx];
+ slot.classList.add('planet');
+ slot.setAttribute('style',planetColor(v));
+ slot.textContent=v;
+ eIdx++;
+ if(eIdx===K){
+   score+=K*10;$('score').textContent=score;
+   timeF=Math.min(90,timeF+4);paintFuel();
+   setTimeout(function(){level++;newLevel();},800);
+ }
+}
+
+function endGame(){
+ clearInterval(timerInt);
+ $('eScore').textContent=score;
+ const cleared=level-1;
+ let r;
+ if(cleared>=8)r='👑 أدميرال المجرات!';
+ else if(cleared>=5)r='🚀 قائد أسطول حقيقي';
+ else if(cleared>=3)r='👨‍🚀 ربان فضاء واعد';
+ else r='👶 راكب جديد… حظ أوفر!';
+ $('eIcon').textContent='💀';
+  $('eRank').textContent='مسحت '+cleared+' مستويات • '+r;
+  let best=0;try{best=Number(localStorage.getItem('order-galaxy-best')||0)}catch(e){}
+  if(score>best)try{localStorage.setItem('order-galaxy-best',score)}catch(e){}
+  $('endOv').classList.remove('hidden');
+}
+
+startGame();
+</script>
+</body>
+</html>

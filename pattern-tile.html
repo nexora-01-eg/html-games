@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>أكمل النمط البصري</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}</style>
+</head>
+<body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">أكمل النمط البصري</h1>
+<p class="text-gray-400 text-sm">الجولة <span id="round">1</span>/8 | النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span></p>
+</div>
+<div class="flex gap-8 mb-6 items-center">
+<div class="text-center"><p class="text-gray-400 text-sm mb-2">النمط</p><div id="pattern" class="grid grid-cols-3 gap-1" style="width:162px"></div></div>
+<div class="text-3xl text-gray-500">←</div>
+<div id="options" class="grid grid-cols-2 gap-3"></div>
+</div>
+<button id="startBtn" class="bg-indigo-600 hover:bg-indigo-700 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<script>
+let best=0;try{best=+(localStorage.getItem('ptile-best')||0);}catch(e){}
+let score=0,round=0,maxRounds=8,playing=false,correctIdx=0;
+document.getElementById('best').textContent=best;
+const ctx=new(window.AudioContext||window.webkitAudioContext)();
+function beep(f,d,t='sine'){const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.3;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.stop(ctx.currentTime+d);}
+const cellColors=['#1e293b','#4f46e5','#ec4899','#22c55e','#f59e0b','#8b5cf6'];
+function makeCell(color,hidden=false){
+const d=document.createElement('div');
+d.className='w-12 h-12 rounded-md flex items-center justify-center';
+d.style.backgroundColor=hidden?'#1e293b':color;
+d.style.border=hidden?'2px dashed #475569':'2px solid transparent';
+if(hidden){d.textContent='?';d.className+=' text-gray-500 text-xl font-bold';}
+return d;
+}
+function genRound(){
+const cells=[];
+for(let i=0;i<9;i++){cells.push(cellColors[Math.floor(Math.random()*cellColors.length)]);}
+for(let i=0;i<9;i+=3){
+const same=Math.random()>0.5;
+if(same)for(let j=1;j<3;j++)cells[i+j]=cells[i];
+}
+for(let i=0;i<3;i++){
+const same=Math.random()>0.5;
+if(same)for(let j=1;j<3;j++)cells[j*3+i]=cells[i];
+}
+const missingIdx=Math.floor(Math.random()*9);
+const correctColor=cells[missingIdx];
+cells[missingIdx]=null;
+const p=document.getElementById('pattern');
+p.innerHTML='';
+cells.forEach((c,i)=>p.appendChild(makeCell(c,c===null)));
+const opts=[];
+opts.push(correctColor);
+while(opts.length<4){
+const r=cellColors[Math.floor(Math.random()*cellColors.length)];
+if(!opts.includes(r))opts.push(r);
+}
+for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}
+correctIdx=opts.indexOf(correctColor);
+const oEl=document.getElementById('options');
+oEl.innerHTML='';
+opts.forEach((c,i)=>{
+const d=document.createElement('div');
+d.className='w-14 h-14 rounded-xl cursor-pointer hover:scale-110 transition-all border-2 border-gray-600 hover:border-white';
+d.style.backgroundColor=c;
+d.addEventListener('click',()=>pickAnswer(i));
+oEl.appendChild(d);
+});
+}
+function pickAnswer(i){
+if(!playing)return;
+if(i===correctIdx){
+beep(700,0.15);score+=25+round*5;
+}else{beep(200,0.3,'sawtooth');}
+document.getElementById('score').textContent=score;
+round++;
+if(round>=maxRounds){endGame();return;}
+document.getElementById('round').textContent=round+1;
+setTimeout(genRound,400);
+}
+function endGame(){
+playing=false;
+if(score>best){best=score;try{localStorage.setItem('ptile-best',score);}catch(e){}document.getElementById('best').textContent=score;}
+document.getElementById('startBtn').style.display='block';
+document.getElementById('startBtn').textContent='العب مرة أخرى';
+}
+function start(){
+score=0;round=0;playing=true;
+document.getElementById('score').textContent=0;
+document.getElementById('round').textContent=1;
+document.getElementById('startBtn').style.display='none';
+genRound();
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

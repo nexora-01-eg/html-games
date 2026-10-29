@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>برج الحلوى 🍰</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#fdeff4,#eaf4ff);color:#5b4b68;min-height:100vh;overflow:hidden}
+.cloud{position:absolute;font-size:2rem;opacity:.55;animation:drift linear infinite}
+@keyframes drift{from{transform:translateX(-90px)}to{transform:translateX(calc(100vw + 90px))}}
+#viewport{position:relative;width:min(92vw,380px);height:64vh;overflow:hidden;border-radius:1.6rem;background:linear-gradient(180deg,#fff5fb,#f3ecff);box-shadow:inset 0 -18px 40px rgba(180,150,220,.15),0 16px 40px rgba(150,120,190,.18);cursor:pointer}
+#world{position:absolute;left:50%;bottom:70px;width:0;height:0}
+.blk{position:absolute;height:26px;border-radius:9px;transform:translateX(-50%);background-image:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 45%)}
+.cutblk{position:absolute;height:26px;border-radius:6px;transform:translateX(-50%);pointer-events:none}
+@keyframes cutfall{to{transform:translate(-50%,340px) rotate(24deg);opacity:0}}
+.ground{position:absolute;left:50%;bottom:-70px;width:300px;height:80px;transform:translateX(-50%);border-radius:14px;background:#d8c7ee}
+.chipc{background:#fff;border-radius:999px;padding:.32rem 1rem;font-weight:800;font-size:.85rem;box-shadow:0 3px 0 rgba(180,150,210,.35)}
+.btn-c{background:#f7a1c4;color:#fff;border-radius:999px;font-weight:900;box-shadow:0 6px 0 #d97ba2;transition:all .09s}
+.btn-c:hover{filter:brightness(1.06)}
+.btn-c:active{transform:translateY(4px);box-shadow:0 2px 0 #d97ba2}
+.perfectpop{position:absolute;font-weight:900;color:#ff8fb3;animation:pup .7s ease-out forwards;font-size:.95rem;text-shadow:0 1px 0 #fff}
+@keyframes pup{to{transform:translateY(-38px);opacity:0}}
+</style>
+</head>
+<body class="select-none">
+<span class="cloud" style="top:9%;animation-duration:30s">☁️</span>
+<span class="cloud" style="top:20%;animation-duration:41s;animation-delay:8s">🍬</span>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="text-center max-w-lg">
+<div class="text-7xl mb-2">🍰</div>
+<h1 class="text-5xl font-black mb-3" style="color:#e58bb1">برج الحلوى</h1>
+<p class="leading-relaxed mb-1">بلوك حلوى يترنّح فوق البرج…<br><b>انقر (أو المسافة)</b> وهو مطابق تمامًا للقطعة التحته!</p>
+<p class="text-sm opacity-60 mb-8">التطابق المثالي يعيد للبلوك عرضه ويرفع الكومبو 🍭</p>
+<button onclick="start()" class="btn-c px-14 py-3.5 text-xl">ابنِ البرج 🧁</button>
+<p class="mt-6 text-sm opacity-60">أعلى طابق: <span id="bestStart" class="font-bold text-[#e58bb1]">٠</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full min-w-[300px] max-w-[380px]">
+<div class="flex justify-between items-center mb-3">
+<span class="chipc">🏢 <span id="floorEl" class="font-black text-pink-400">٠</span></span>
+<span class="chipc">⭐ <span id="scoreEl" class="font-black text-purple-400">٠</span></span>
+<span class="chipc">🔥 <span id="comboEl">×١</span></span>
+<button id="pauseBtn" onclick="togglePause()" class="chipc text-xs" style="cursor:pointer">⏸ إيقاف</button>
+</div>
+<div id="viewport">
+<div class="ground"></div>
+<div id="world"></div>
+</div>
+<p class="mt-3 text-center text-sm opacity-50">انقر على البرج أو اضغط المسافة</p>
+</div>
+
+<div id="endScr" class="hidden text-center card px-12 py-10 max-w-md w-full" style="background:#fffdf8">
+<div class="text-6xl mb-2">🧱</div>
+<h2 class="text-3xl font-black mb-4" style="color:#e58bb1">تدحرجت الحلوى!</h2>
+<div class="flex gap-8 justify-center mb-4">
+<div><div id="finalFloor" class="text-4xl font-black text-pink-400">٠</div><div class="text-xs opacity-60 mt-1">طابق</div></div>
+<div><div id="finalScore" class="text-4xl font-black text-purple-400">٠</div><div class="text-xs opacity-60 mt-1">النقاط</div></div>
+<div><div id="finalPerf" class="text-4xl font-black text-emerald-400">٠</div><div class="text-xs opacity-60 mt-1">مثالي</div></div>
+</div>
+<p id="endMsg" class="opacity-70 mb-8"></p>
+<button onclick="start()" class="btn-c px-12 py-3 text-lg">برج جديد ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const H=26,bestKey='pastel-tower-best';
+const COLORS=['#ffb3c6','#ffd6a5','#fdffb6','#caffbf','#a0c4ff','#bdb2ff','#ffc6ff','#9bf6ff'];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let floors=0,score=0,combo=0,perfects=0,best=0,w=140,x=0,dir=1,speed=200,stack=[],moving=null,raf=null,over=true,lastTs=0,ac=null,paused=false;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){try{best=+localStorage.getItem(bestKey)||0}catch(e){best=0};$('bestStart').textContent=AR(best);}
+loadBest();
+for(let i=0;i<4;i++){
+const c=document.createElement('span');
+c.className='cloud';c.textContent='☁️';
+c.style.top=(8+i*11)+'%';
+c.style.animationDuration=(26+Math.random()*20)+'s';
+c.style.animationDelay=(Math.random()*10)+'s';
+document.body.appendChild(c);
+}
+function makeBlock(wd,color,y){
+const b=document.createElement('div');
+b.className='blk';
+b.style.width=wd+'px';b.style.background=color;b.style.bottom=y+'px';
+$('world').appendChild(b);
+return b;
+}
+function spawn(){
+x=0;dir=Math.random()<.5?1:-1;
+const col=COLORS[floors%COLORS.length];
+moving={el:makeBlock(w,col,camH()+H),w,col};
+tick();
+}
+function camH(){return floors*H;}
+function tick(ts){
+  if(!moving)return;
+  const dt=Math.min(.05,((ts||0)-lastTs)/1000||0);
+  lastTs=ts||0;
+  if(!paused){
+    const lim=$('viewport').clientWidth/2-10;
+    x+=dir*speed*dt;
+    if(x>lim){x=lim;dir=-1;}
+    if(x<-lim){x=-lim;dir=1;}
+    moving.el.style.left=x+'px';
+  }
+  raf=requestAnimationFrame(tick);
+}
+function togglePause(){
+  if(over||!moving)return;
+  paused=!paused;
+  const p=$('pauseBtn');
+  p.textContent=paused?'▶ متابعة':'⏸ إيقاف';
+  p.style.opacity=paused?'.4':'1';
+  snd(paused?300:500,.08,'square',.04);
+}
+function drop(){
+  if(over||paused||!moving)return;
+cancelAnimationFrame(raf);
+const below=stack[stack.length-1];
+const bl=below.x-below.w/2,br=below.x+below.w/2;
+const cl=x-moving.w/2,cr=x+moving.w/2;
+const ovL=Math.max(bl,cl),ovR=Math.min(br,cr);
+const ov=ovR-ovL;
+if(ov<=3){
+moving.el.style.left=x+'px';
+gameOver();
+return;
+}
+const isPerfect=Math.abs(cl-bl)<5&&Math.abs(cr-br)<5;
+let nx,nw;
+if(isPerfect){
+nx=below.x;nw=Math.min(below.w+6,140);
+moving.el.style.left=nx+'px';
+moving.el.style.width=nw+'px';
+}else{
+nx=(ovL+ovR)/2;nw=ov;
+moving.el.style.left=nx+'px';
+moving.el.style.width=nw+'px';
+const cutW=moving.w-ov;
+const cutX=cl<bl?(ovR+cutW/2):(ovL-cutW/2);
+const cb=document.createElement('div');
+cb.className='cutblk';
+cb.style.width=cutW+'px';
+cb.style.background=moving.col;
+cb.style.bottom=camH()+H+'px';
+cb.style.left=cutX+'px';
+cb.style.animation='cutfall .7s ease-in forwards';
+$('world').appendChild(cb);
+setTimeout(()=>cb.remove(),720);
+}
+floors++;
+if(isPerfect){
+perfects++;combo++;
+score+=25*combo;
+snd(880,.1,'triangle',.06);setTimeout(()=>snd(1175,.14,'triangle',.05),90);
+const pp=document.createElement('div');
+pp.className='perfectpop';pp.textContent='PERFECT! ✨';
+pp.style.cssText=`left:${nx}px;bottom:${camH()+34}px;transform:translateX(-50%)`;
+$('world').appendChild(pp);
+setTimeout(()=>pp.remove(),700);
+}else{combo=0;snd(240,.08,'square',.04);}
+score+=10;
+w=nw;
+stack.push({x:nx,w:nw});
+$('floorEl').textContent=AR(floors);
+$('scoreEl').textContent=AR(score);
+$('comboEl').textContent='×'+AR(Math.max(combo,1));
+speed=Math.min(430,170+floors*13);
+camShift();
+moving=null;
+setTimeout(spawn,180);
+}
+function camShift(){
+$('world').style.transition='bottom .25s ease';
+$('world').style.bottom=(70-floors*H)+'px';
+}
+function start(){
+  document.querySelector('#viewport > .ground')?.remove();
+  $('world').innerHTML='<div class="ground" style="bottom:0"></div>';
+  floors=0;score=0;combo=0;perfects=0;w=140;speed=175;over=false;lastTs=0;paused=false;
+  const pb=$('pauseBtn');if(pb){pb.textContent='⏸ إيقاف';pb.style.opacity='1';}
+stack=[{x:0,w:w}];
+makeBlock(w,COLORS[0],0);
+$('floorEl').textContent='٠';$('scoreEl').textContent='٠';$('comboEl').textContent='×١';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+$('world').style.transition='none';
+$('world').style.bottom='70px';
+setTimeout(spawn,350);
+snd(520,.1,'triangle',.05);
+}
+function gameOver(){
+over=true;
+moving.el.style.transition='all .6s ease-in';
+moving.el.style.transform='translateX(-50%) rotate(14deg)';
+moving.el.style.opacity='.4';
+moving.el.style.bottom='10px';
+snd(200,.4,'sawtooth',.05);
+[150,110].forEach((f,i)=>setTimeout(()=>snd(f,.3,'sawtooth',.04),i*180));
+setTimeout(()=>{
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalFloor').textContent=AR(floors);
+$('finalScore').textContent=AR(score);
+$('finalPerf').textContent=AR(perfects);
+const v=+localStorage.getItem(bestKey)||0;
+let m=floors>=25?'مهندس أبراج حلوى معتمد! 🏅':floors>=12?'برج مستقر… تقريبًا 😄':'الحلوى انزلقت!';
+if(floors>v){try{localStorage.setItem(bestKey,floors)}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+$('endMsg').textContent=m;
+},700);
+}
+document.addEventListener('keydown',e=>{
+if(e.code==='Space'&&!over&&!$('playScr').classList.contains('hidden')){e.preventDefault();drop();}
+});
+$('viewport').addEventListener('pointerdown',drop);
+</script>
+</body>
+</html>

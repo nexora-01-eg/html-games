@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>المخطط الهندسي 📐</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Consolas','Courier New',monospace;background:#0a2a4a;color:#bfe3ff}
+.grid-bg{background-image:linear-gradient(rgba(140,200,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(140,200,255,.09) 1px,transparent 1px);background-size:28px 28px}
+.panel{border:1px dashed rgba(160,215,255,.55);position:relative}
+.panel::before,.panel::after{content:'';position:absolute;width:14px;height:14px;border-color:#7fd4ff;border-style:solid}
+.panel::before{top:-1px;right:-1px;border-width:2px 2px 0 0}
+.panel::after{bottom:-1px;left:-1px;border-width:0 0 2px 2px}
+.cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:crosshair;transition:background .1s}
+.cell:hover{background:rgba(127,212,255,.08)}
+.found-ring{position:absolute;inset:12%;border:2px solid #ffd166;border-radius:50%;box-shadow:0 0 12px rgba(255,209,102,.5)}
+.wrong-flash{animation:wf .4s}
+@keyframes wf{0%,100%{background:transparent}40%{background:rgba(255,90,90,.35)}}
+#tfill{transition:width .12s linear;background:#7fd4ff}
+.titleblock{border:1px solid rgba(160,215,255,.5)}
+.pop{animation:pp .22s ease-out}
+@keyframes pp{0%{transform:scale(.5)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+</style>
+</head>
+<body class="grid-bg min-h-screen select-none">
+
+<main class="max-w-3xl mx-auto px-4 py-8">
+
+<header class="flex items-center justify-between mb-6 flex-wrap gap-3">
+<div>
+<h1 class="text-3xl font-bold tracking-widest text-[#7fd4ff]">SPOT·DIFF <span class="text-sm opacity-60">v1.0</span></h1>
+<p class="text-xs opacity-70 mt-1">دورّ على <span class="font-bold text-[#ffd166]">٣ فروقات</span> في الرسمة B — اللمسة الصحيحة تحدد الفرق ✓</p>
+</div>
+<div class="titleblock px-4 py-2 text-xs leading-relaxed">
+<div>SCORE: <span id="scoreEl" class="font-bold text-[#ffd166]">0</span></div>
+<div>BEST: <span id="bestEl" class="opacity-80">—</span></div>
+</div>
+</header>
+
+<div id="startScr" class="panel max-w-md mx-auto p-10 text-center">
+<div class="text-5xl mb-3">📐</div>
+<h2 class="text-xl font-bold mb-4">ورشة الفروقات الهندسية</h2>
+<p class="text-sm leading-relaxed opacity-80 mb-6">٤ مخططات · ٣ فروقات لكل مخطط · ٤٥ ثانية للمخطط<br>الفرق قد يكون دوران، تصغير، أو تغميق خط!</p>
+<button onclick="start()" class="border border-[#7fd4ff] text-[#7fd4ff] px-10 py-2.5 hover:bg-[#7fd4ff] hover:text-[#0a2a4a] transition-colors font-bold">OPEN_PROJECT ▸</button>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex items-center justify-between mb-3 text-xs">
+<span id="roundLbl" class="font-bold">SHEET 1/4</span>
+<span><span id="foundCnt" class="font-bold text-[#ffd166]">0</span>/3 FOUND</span>
+<span><span id="secsEl" class="font-bold">45</span>s</span>
+</div>
+<div class="h-2 w-full mb-6" style="background:rgba(140,200,255,.15)"><div id="tfill" class="h-full" style="width:100%"></div></div>
+
+<div class="grid md:grid-cols-2 gap-5">
+<div>
+<div class="text-[10px] tracking-[.3em] opacity-60 mb-1">FIG.A — REFERENCE</div>
+<div id="panelA" class="panel"></div>
+</div>
+<div>
+<div class="text-[10px] tracking-[.3em] opacity-60 mb-1">FIG.B — FIND DIFFS HERE ▼</div>
+<div id="panelB" class="panel"></div>
+</div>
+</div>
+
+<div id="msg" class="h-9 mt-5 text-center font-bold text-sm"></div>
+
+<div class="titleblock mt-8 mx-auto w-fit px-6 py-2 text-[10px] opacity-70 flex gap-6">
+<span>PROJECT: DIFF-CHECK</span><span>SCALE: 1:1</span><span>SHEET: A0</span>
+</div>
+</div>
+
+<div id="endScr" class="hidden panel max-w-md mx-auto p-12 text-center">
+<div class="text-5xl mb-3">🏁</div>
+<h2 class="text-xl font-bold mb-6">APPROVED ✓ اكتمل الفحص</h2>
+<div id="finalScore" class="text-6xl font-bold text-[#ffd166] mb-4">0</div>
+<p id="endMsg" class="text-sm opacity-80 mb-8"></p>
+<button onclick="start()" class="border border-[#7fd4ff] text-[#7fd4ff] px-10 py-2.5 hover:bg-[#7fd4ff] hover:text-[#0a2a4a] transition-colors font-bold">NEW_PROJECT ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const ROUNDS=4,DIFFS=3,QTIME=45,bestKey='blueprint-diff-best';
+const COLORS=['rgba(175,222,255,.95)','rgba(150,205,250,.9)','rgba(195,232,255,.95)','rgba(135,192,240,.88)'];
+const DIM='rgba(110,165,220,.45)';
+let score=0,ri=0,diffs=[],found=new Set(),tLeft=QTIME,timer=null,cellsB=[],ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestEl').textContent=v||'—';}catch(e){}}
+loadBest();
+const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+function genScene(n){
+return Array.from({length:n},()=>({
+shape:['circle','square','triangle','diamond'][rnd(0,3)],
+color:COLORS[rnd(0,COLORS.length-1)],
+rot:rnd(0,3)*90,
+scale:[.9,1,1.05][rnd(0,2)]
+}));
+}
+function mutate(c){
+switch(rnd(0,2)){
+case 0:return{...c,rot:c.rot+38};
+case 1:return{...c,scale:.72};
+default:return{...c,color:DIM};
+}
+}
+function shapeSVG(c){
+let s='';
+if(c.shape==='circle')s='<circle cx="20" cy="20" r="10"/>';
+else if(c.shape==='square')s='<rect x="11" y="11" width="18" height="18"/>';
+else if(c.shape==='triangle')s='<path d="M20 9 L31 29 L9 29 Z"/>';
+else s='<path d="M20 8 L32 20 L20 32 L8 20 Z"/>';
+return `<svg viewBox="0 0 40 40" class="w-full h-full"><g fill="none" stroke="${c.color}" stroke-width="2" transform="translate(20 20) rotate(${c.rot}) scale(${c.scale}) translate(-20 -20)">${s}</g></svg>`;
+}
+function renderPanel(el,arr,onCell){
+el.innerHTML='';
+el.style.display='grid';
+el.style.gridTemplateColumns='repeat(6,minmax(0,1fr))';
+arr.forEach((c,i)=>{
+const d=document.createElement('div');
+d.className='cell';d.innerHTML=shapeSVG(c);
+if(onCell)d.onclick=e=>clickCell(i,e);
+el.appendChild(d);
+});
+}
+function start(){
+score=0;ri=0;
+$('scoreEl').textContent='0';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+loadRound();
+}
+function loadRound(){
+const base=genScene(24);
+diffs=[];
+while(diffs.length<DIFFS){const k=rnd(0,23);if(!diffs.includes(k))diffs.push(k);}
+found=new Set();
+cellsB=[...base];
+diffs.forEach(k=>cellsB[k]=mutate(base[k]));
+$('roundLbl').textContent=`SHEET ${ri+1}/${ROUNDS}`;
+$('foundCnt').textContent='0';
+$('msg').textContent='';
+renderPanel($('panelA'),base,null);
+renderPanel($('panelB'),cellsB,true);
+tLeft=QTIME;$('tfill').style.width='100%';
+clearInterval(timer);
+timer=setInterval(()=>{
+tLeft-=.12;
+if(tLeft<=0)return endRound(false);
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/QTIME*100)+'%';
+},120);
+snd(500,.07,'square',.03);
+}
+function clickCell(i,e){
+if(found.has(i)){
+flash(i,'wrong-flash');snd(200,.08,'square',.03);return;
+}
+if(diffs.includes(i)){
+found.add(i);
+const d=document.createElement('div');
+d.className='found-ring pop';
+e.currentTarget.style.position='relative';
+e.currentTarget.appendChild(d);
+$('foundCnt').textContent=found.size;
+score+=150;$('scoreEl').textContent=score;
+snd(700,.09,'triangle',.05);setTimeout(()=>snd(950,.12,'triangle',.05),80);
+$('msg').textContent=`✓ فرق ${['أول','ثاني','ثالث'][found.size-1]} تم رصده!`;
+$('msg').style.color='#ffd166';
+if(found.size===DIFFS)endRound(true);
+}else{
+flash(i,'wrong-flash');
+score=Math.max(0,score-20);
+$('scoreEl').textContent=score;
+$('msg').textContent='✗ مو فرق! −20';
+$('msg').style.color='#ff8f8f';
+snd(140,.18,'sawtooth',.04);
+}
+}
+function flash(i,cls){
+const c=$('panelB').children[i];
+c.classList.remove(cls);void c.offsetWidth;c.classList.add(cls);
+setTimeout(()=>c.classList.remove(cls),450);
+}
+function endRound(complete){
+clearInterval(timer);
+let m='';
+if(complete){
+const bonus=Math.round(tLeft*5);
+score+=bonus;
+m=`اكتمل المخطط ${ri+1} · بونص وقت +${bonus}`;
+}else{
+m=`انتهى وقت المخطط ${ri+1} ⌛`;
+diffs.forEach(k=>{
+if(!found.has(k)){found.add(k);
+const cells=$('panelB').children;
+cells[k].style.position='relative';
+const d=document.createElement('div');
+d.className='found-ring';d.style.borderColor='rgba(255,209,102,.4)';
+cells[k].appendChild(d);}
+});
+}
+$('msg').textContent=m;
+$('msg').style.color='#7fd4ff';
+$('scoreEl').textContent=score;
+setTimeout(()=>{ri++;ri>=ROUNDS?finish():loadRound();},complete?1100:2100);
+}
+function finish(){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=score;
+const v=+localStorage.getItem(bestKey)||0;
+let m='';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m='RECORD_BROKEN // رقم قياسي جديد 🏆';loadBest();}
+else if(v)m='previous_best: '+v;
+$('endMsg').textContent=m;
+[600,760,900].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.05),i*130));
+}
+</script>
+</body>
+</html>

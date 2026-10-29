@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ردة الفعل NEON ⚡</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Consolas','Courier New',monospace;background:#05060f;background-image:linear-gradient(rgba(0,240,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.06) 1px,transparent 1px);background-size:42px 42px}
+.neon-box{transition:all .15s ease}
+.glow-c{box-shadow:0 0 24px rgba(0,240,255,.55),inset 0 0 24px rgba(0,240,255,.15);border-color:#00f0ff;color:#8ffcff;text-shadow:0 0 12px rgba(0,240,255,.8)}
+.glow-r{box-shadow:0 0 24px rgba(255,47,110,.55),inset 0 0 24px rgba(255,47,110,.15);border-color:#ff2f6e;color:#ff9ab8;text-shadow:0 0 12px rgba(255,47,110,.8)}
+.glow-g{box-shadow:0 0 34px rgba(57,255,136,.75),inset 0 0 30px rgba(57,255,136,.2);border-color:#39ff88;color:#b8ffd6;text-shadow:0 0 16px rgba(57,255,136,.9)}
+@keyframes pulseK{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
+.pulsing{animation:pulseK .9s infinite}
+</style>
+</head>
+<body class="min-h-screen text-gray-200 flex flex-col items-center justify-center p-4 select-none">
+  <h1 class="text-2xl md:text-3xl mb-1 tracking-[.3em]" style="color:#8ffcff;text-shadow:0 0 14px rgba(0,240,255,.8)">REACTION.EXE</h1>
+  <p class="text-xs mb-6 tracking-widest text-gray-500">// اختبار سرعة ردة الفعل — 5 جولات</p>
+
+  <div id="stage" class="neon-box glow-c w-full max-w-md h-64 rounded-2xl border-2 flex flex-col items-center justify-center cursor-pointer text-center px-6 pulsing">
+    <div id="bigText" class="text-3xl md:text-4xl font-bold mb-3">اضغط للبدء</div>
+    <div id="subText" class="text-sm text-gray-400">انتظر اللون الأخضر… ثم اضغط بأقصى سرعة</div>
+  </div>
+
+  <div class="flex gap-6 mt-6 text-sm text-gray-400 flex-wrap justify-center">
+    <span>الجولة: <b id="round" class="text-cyan-300">0/5</b></span>
+    <span>آخر زمن: <b id="last" class="text-fuchsia-400">—</b></span>
+    <span>أفضل متوسط: <b id="best" class="text-green-400">—</b></span>
+  </div>
+  <div id="log" class="mt-4 text-xs text-gray-500 tracking-wider h-4"></div>
+
+<script>
+const stage=document.getElementById('stage'),big=document.getElementById('bigText'),sub=document.getElementById('subText');
+let state='idle',times=[],tmo=null,t0=0,audio=null;
+
+const RANKS=[[250,'⚡ عين صقر!'],[330,'🔥 سريع جداً'],[430,'👍 فوق المتوسط'],[550,'🙂 بشري طبيعي'],[999999,'🐢 النظام يحتاج تهيئة…']];
+
+function beep(f,d,type,v){
+ try{
+  audio=audio||new (window.AudioContext||window.webkitAudioContext)();
+  const o=audio.createOscillator(),g=audio.createGain();
+  o.type=type||'sine';o.frequency.value=f;
+  g.gain.setValueAtTime(v||.12,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+(d||.15));
+  o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+(d||.15));
+ }catch(e){}
+}
+
+function setUI(cls,txt,s,pulse){
+ stage.className='neon-box w-full max-w-md h-64 rounded-2xl border-2 flex flex-col items-center justify-center cursor-pointer text-center px-6 '+cls+(pulse?' pulsing':'');
+ big.textContent=txt;sub.textContent=s||'';
+}
+
+function beginRound(){
+ state='waiting';
+ setUI('glow-r','⏳ استعد…','اضغط فقط عندما يتحول اللون إلى الأخضر',true);
+ tmo=setTimeout(function(){
+   if(state!=='waiting')return;
+   state='ready';t0=performance.now();
+   setUI('glow-g','اضغط الآن!','',false);
+   beep(1180,.09,'square',.14);
+ },1200+Math.random()*2600);
+}
+
+function finish(){
+ const avg=Math.round(times.reduce(function(a,b){return a+b;},0)/times.length);
+ const rank=RANKS.find(function(r){return avg<r[0];})[1];
+ let prev=0;try{prev=Number(localStorage.getItem('neon-reaction-best')||0);}catch(e){}
+ const isRec=!prev||avg<prev;
+ if(isRec){try{localStorage.setItem('neon-reaction-best',avg);}catch(e){}}
+ document.getElementById('best').textContent=(isRec?avg:prev)+'ms';
+ times=[];
+ state='done';
+ setUI('glow-c',avg+'ms','المتوسط على 5 جولات: '+rank+(isRec?' — رقم قياسي جديد! 🏆':'')+' • اضغط للإعادة',true);
+}
+
+stage.addEventListener('click',function(){
+ if(state==='idle'||state==='done'){
+   document.getElementById('round').textContent='0/5';
+   document.getElementById('last').textContent='—';
+   document.getElementById('log').textContent='';
+   times=[];beginRound();return;
+ }
+ if(state==='waiting'){
+   clearTimeout(tmo);
+   beep(160,.25,'sawtooth',.16);
+   document.getElementById('log').textContent='>> طفّشت قبل الأخضر! الجولة تعاد…';
+   setTimeout(beginRound,900);return;
+ }
+ if(state==='ready'){
+   const dt=Math.round(performance.now()-t0);
+   times.push(dt);
+   beep(Math.max(320,1900-dt*1.6),.12,'triangle',.13);
+   document.getElementById('last').textContent=dt+'ms';
+   document.getElementById('round').textContent=times.length+'/5';
+   if(times.length>=5){
+     state='ending';
+     setUI('glow-c',dt+'ms','جاري حساب المتوسط…',false);
+     setTimeout(finish,700);
+   }else{
+     state='gap';
+     setUI('glow-c',dt+'ms','حلوة! اضغط للجولة التالية ('+(times.length+1)+'/5)',true);
+   }
+   return;
+ }
+ if(state==='gap'){beginRound();}
+});
+
+window.addEventListener('keydown',function(e){
+ if(e.code==='Space'){e.preventDefault();stage.click();}
+});
+
+(function(){try{const b=localStorage.getItem('neon-reaction-best');if(b)document.getElementById('best').textContent=b+'ms';}catch(e){}})();
+</script>
+</body>
+</html>

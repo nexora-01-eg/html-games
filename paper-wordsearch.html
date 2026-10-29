@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>المشنور الصغير 📜</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#fdf6e3;color:#073642;
+background-image:linear-gradient(rgba(147,161,161,.08) 1px,transparent 1px);background-size:100% 30px}
+.cardp{background:#fffbef;border:1px solid #e0d6b3;border-radius:.9rem;box-shadow:0 12px 34px rgba(88,110,110,.16)}
+.chipp{background:#eee8d5;color:#586e75;border-radius:999px;padding:.28rem 1rem;font-weight:700;font-size:.85rem;border:1px solid #ddd6bd}
+#gridWrap{display:grid;gap:3px;touch-action:none;user-select:none}
+.cellw{width:38px;height:40px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;
+background:#f7f1dd;border:1px solid #e7dfc4;border-radius:5px;color:#657b83;cursor:pointer}
+.cellw.prev{background:#d5e8f2;border-color:#268bd2;color:#1a6a99}
+.cellw.found{background:#d3ecdf;border-color:#2aa198;color:#1a7a6d}
+.wchip{padding:.32rem 1rem;border-radius:999px;background:#eee8d5;font-weight:800;font-size:.92rem;color:#586e75;border:1px solid #ddd6bd}
+.wchip.done{text-decoration:line-through;opacity:.45;background:#d3ecdf;color:#1a7a6d;border-color:#2aa198}
+.btn-p{background:#268bd2;color:#fff;font-weight:900;border-radius:999px;padding:.55rem 2rem;box-shadow:0 4px 0 #1a6a99;transition:all .09s}
+.btn-p:hover{filter:brightness(1.06)}
+.btn-p:active{transform:translateY(3px);box-shadow:none}
+</style>
+</head>
+<body class="select-none">
+
+<main class="max-w-lg mx-auto px-4 py-8">
+
+<header class="text-center mb-6">
+<h1 class="text-4xl font-black" style="color:#268bd2">المشنور الصغير 📜</h1>
+<p class="text-sm mt-1 opacity-60">اسحب بالماوس على الحروف لتظلل الكلمة · أفقي وعمودي <span id="diagNote"></span></p>
+</header>
+
+<div id="startScr" class="cardp p-8 text-center">
+<div class="text-5xl mb-2">🔎</div>
+<p class="leading-relaxed mb-2">٣ مشانير متزايدة…<br>في كل واحد كلمات مخبأة في شبكة الحروف!</p>
+<p class="text-sm opacity-60 mb-6">السحب في أي اتجاه بيشتغل · كل ثانية بتوفرها نقاط ✏️</p>
+<button onclick="start()" class="btn-p px-12 py-3 text-lg">ابدأ البحث 🔍</button>
+<p class="mt-5 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold" style="color:#2aa198">—</span></p>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipp">مشنور <span id="pzEl" class="font-black" style="color:#268bd2">١</span>/٣</span>
+<span class="chipp">⭐ <span id="scoreEl" class="font-black" style="color:#cb4b16">٠</span></span>
+<span class="chipp">⏱ <span id="timeEl" class="font-bold">١:٣٠</span></span>
+</div>
+
+<div class="cardp p-4">
+<div id="themeEl" class="text-center font-black mb-3" style="color:#cb4b16"></div>
+<div id="gridWrap" class="mx-auto w-fit"></div>
+<div id="wordsEl" class="flex justify-center gap-2 flex-wrap mt-4"></div>
+</div>
+<div id="msg" class="h-8 mt-3 text-center font-bold" style="color:#2aa198"></div>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='paper-wordsearch-best';
+const FILL='ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+const PUZZLES=[
+{n:8,diag:false,theme:'حيوانات',words:['قط','اسد','حصان','ارنب','فيل']},
+{n:9,diag:true,theme:'فواكه',words:['تفاح','مانجو','موز','عنب','خوخ','تين']},
+{n:10,diag:true,theme:'بلاد',words:['مصر','تونس','عمان','قطر','سوريا','ليبيا','سودان']}
+];
+let pz=0,N=0,grid=[],found=new Set(),curWords=[],score=0,timer=null,timeLeft=90,
+drag=null,over=true,score0=0,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0}catch(e){};$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+function fmt(s){return AR(Math.floor(s/60))+':'+AR(String(s%60).padStart(2,'0'));}
+function buildPuzzle(){
+const P=PUZZLES[pz];
+N=P.n;curWords=P.words.map(w=>({w,done:false}));found=new Set();
+grid=Array.from({length:N},()=>Array(N).fill(''));
+const dirs=[[0,1],[1,0]];
+if(P.diag)dirs.push([1,1],[-1,1]);
+P.words.forEach(word=>{
+for(let t=0;t<300;t++){
+const [dr,dc]=dirs[Math.floor(Math.random()*dirs.length)];
+const r0=Math.floor(Math.random()*N),c0=Math.floor(Math.random()*N);
+const rEnd=r0+dr*(word.length-1),cEnd=c0+dc*(word.length-1);
+if(rEnd<0||rEnd>=N||cEnd<0||cEnd>=N)continue;
+let ok=true;
+for(let i=0;i<word.length;i++){
+const ch=grid[r0+dr*i][c0+dc*i];
+if(ch&&ch!==word[i]){ok=false;break;}
+}
+if(!ok)continue;
+for(let i=0;i<word.length;i++)grid[r0+dr*i][c0+dc*i]=word[i];
+return;
+}
+});
+for(let r=0;r<N;r++)for(let c=0;c<N;c++)
+if(!grid[r][c])grid[r][c]=FILL[Math.floor(Math.random()*FILL.length)];
+renderGrid();
+$('themeEl').textContent=`📂 التصنيف: ${P.theme}`;
+$('pzEl').textContent=AR(pz+1);
+$('diagNote').textContent=P.diag?'وقطري':'بس';
+const wl=$('wordsEl');wl.innerHTML='';
+curWords.forEach(o=>{
+const s=document.createElement('span');
+s.className='wchip';s.textContent=o.w;s.dataset.w=o.w;
+wl.appendChild(s);
+});
+}
+function renderGrid(){
+const g=$('gridWrap');
+g.style.gridTemplateColumns=`repeat(${N},38px)`;
+g.innerHTML='';
+for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+const d=document.createElement('div');
+d.className='cellw';d.textContent=grid[r][c];
+d.dataset.r=r;d.dataset.c=c;
+g.appendChild(d);
+}
+}
+function lineCells(a,b){
+const [r1,c1]=a,[r2,c2]=b;
+const dr=Math.sign(r2-r1),dc=Math.sign(c2-c1);
+const lr=Math.abs(r2-r1),lc=Math.abs(c2-c1);
+if(lr!==0&&lc!==0&&lr!==lc)return null;
+const len=Math.max(lr,lc);
+if(len===0)return [a];
+const out=[];
+for(let i=0;i<=len;i++){
+let r=r1+dr*i,c=c1+dc*i;
+if(r<0||r>=N||c<0||c>=N)return null;
+out.push([r,c]);
+}
+return out;
+}
+function cellsEqual(a,b){return a[0]===b[0]&&a[1]===b[1];}
+function strAlong(cells){
+return cells.map(([r,c])=>grid[r][c]).join('');
+}
+function clearPrev(){
+document.querySelectorAll('.cellw.prev').forEach(d=>d.classList.remove('prev'));
+}
+function checkSelection(cells){
+const s=strAlong(cells);
+const rev=[...cells].reverse();
+const hit=curWords.find(o=>!o.done&&(o.w===s||o.w===strAlong(rev)));
+if(!hit){
+clearPrev();
+snd(180,.1,'square',.03);
+return;
+}
+hit.done=true;
+found.add(hit.w);
+cells.forEach(([r,c])=>{
+document.querySelector(`[data-r="${r}"][data-c="${c}"]`).classList.add('found');
+});
+document.querySelector(`.wchip[data-w="${hit.w}"]`).classList.add('done');
+score+=60;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`✅ «${hit.w}»! +${AR(60)}`;
+snd(620,.09);setTimeout(()=>snd(880,.11),90);
+if(found.size===curWords.length)puzzleDone();
+}
+function puzzleDone(){
+clearInterval(timer);
+const bonus=timeLeft*2;
+score+=bonus;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`🎉 خلاص المشنور! بونص وقت +${AR(bonus)}`;
+snd(700,.1);setTimeout(()=>snd(950,.13),110);
+setTimeout(()=>{
+pz++;
+if(pz>=PUZZLES.length)return finish();
+startPz();
+},1300);
+}
+function startPz(){
+timeLeft=pz===0?90:pz===1?105:120;
+score0=score;
+$('timeEl').textContent=fmt(timeLeft);
+clearInterval(timer);
+timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=fmt(timeLeft);
+if(timeLeft<=0){
+clearInterval(timer);
+finish();
+}
+},1000);
+buildPuzzle();
+$('msg').textContent='';
+}
+function start(){
+score=0;pz=0;over=false;
+$('scoreEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+startPz();
+snd(520,.1,'triangle');
+}
+function finish(){
+over=true;
+clearInterval(timer);
+const v=+localStorage.getItem(bestKey)||0;
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){}}
+$('playScr').innerHTML=`
+<div class="cardp p-10 text-center">
+<div class="text-6xl mb-3">📜</div>
+<h2 class="text-3xl font-black mb-3" style="color:#268bd2">خلصت المشانير!</h2>
+<div class="text-5xl font-black mb-3" style="color:#cb4b16">${AR(score)}</div>
+<p class="opacity-70 mb-2">${score>v?'🏆 رقم قياسي جديد!':'أفضل نتيجة لك: '+AR(Math.max(v,score))}</p>
+<button onclick="location.reload()" class="btn-p px-10 py-2.5 mt-4">مشانير جديدة ↻</button>
+</div>`;
+[600,800,1050].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle'),i*140));
+}
+const wrap=$('gridWrap');
+wrap.addEventListener('pointerdown',e=>{
+if(over)return;
+const t=e.target.closest('.cellw');
+if(!t)return;
+wrap.setPointerCapture(e.pointerId);
+drag={a:[+t.dataset.r,+t.dataset.c],b:[+t.dataset.r,+t.dataset.c]};
+});
+wrap.addEventListener('pointermove',e=>{
+if(!drag)return;
+const t=document.elementFromPoint(e.clientX,e.clientY)?.closest?.('.cellw');
+if(!t)return;
+drag.b=[+t.dataset.r,+t.dataset.c];
+const cells=lineCells(drag.a,drag.b);
+clearPrev();
+if(cells)cells.forEach(([r,c])=>{
+document.querySelector(`[data-r="${r}"][data-c="${c}"]`).classList.add('prev');
+});
+});
+wrap.addEventListener('pointerup',()=>{
+if(!drag)return;
+const cells=lineCells(drag.a,drag.b);
+drag=null;
+if(cells&&!over)checkSelection(cells);
+else clearPrev();
+});
+</script>
+</body>
+</html>

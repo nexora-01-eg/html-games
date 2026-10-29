@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خريطة المناجم 🗺</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:Georgia,'Times New Roman',serif;background:#efe3cb;background-image:radial-gradient(ellipse at 20% 10%,rgba(139,109,71,.12),transparent 50%),radial-gradient(ellipse at 80% 90%,rgba(90,70,52,.12),transparent 50%);color:#5a4634}
+.mapframe{border:3px double #8b6d47;border-radius:6px;box-shadow:0 10px 34px rgba(90,70,52,.28);background:#f4e9d3}
+.cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-weight:bold;border:1px solid #c9b48c;background:#ddcaa3;cursor:pointer;font-size:.95rem;line-height:1}
+.cell:hover:not(.rev){background:#d3bd92}
+.cell.rev{background:#f4ead2;cursor:default;border-color:#dbc9a4}
+.cell.boom{background:#8b3a2e;color:#f4e4c1}
+.n1{color:#7a5230}.n2{color:#9c5f24}.n3{color:#8b3a2e}.n4{color:#5d4a7a}.n5{color:#6e3b1f}.n6{color:#4f6b5d}.n7{color:#3f332a}.n8{color:#2f2a24}
+.stamp{border-radius:999px;background:#8b3a2e;color:#f4e4c1;font-weight:bold;transition:filter .12s,transform .08s}
+.stamp:hover{filter:brightness(1.15)}
+.stamp:active{transform:scale(.94)}
+.stamp.on{outline:3px solid #5a4634;outline-offset:2px}
+.shake{animation:sh .5s}
+@keyframes sh{0%,100%{transform:translateX(0)}20%{transform:translateX(-11px)}60%{transform:translateX(9px)}}
+.rule{letter-spacing:.5em;opacity:.55}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8 px-3 select-none">
+
+<header class="text-center mb-5">
+<h1 class="text-4xl md:text-5xl font-bold tracking-wide">🗺 خريطة المناجم</h1>
+<div class="rule my-2">───── ❦ ─────</div>
+<p class="text-sm opacity-75">رحلة تنقيب عن الألغام في أراضٍ قديمة… انقر للتنقيب، والزر يغيّر الوضع للتعليم 🚩</p>
+</header>
+
+<div class="mapframe px-4 py-4 md:px-6 w-full" style="max-width:560px">
+
+<div class="flex justify-between items-center mb-3 text-sm md:text-base flex-wrap gap-2">
+<span>الألغام المتبقية: <b id="minesEl">٤٠</b></span>
+<span>الوقت: <b id="timeEl">٠٠٠</b></span>
+<button id="modeBtn" onclick="toggleMode()" class="stamp px-4 py-1.5 text-sm">⛏ تنقيب</button>
+<button onclick="newGame()" class="stamp px-4 py-1.5 text-sm">خريطة جديدة ↻</button>
+</div>
+
+<div id="board" class="mx-auto" style="display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:2px"></div>
+
+<div id="msg" class="h-10 mt-4 text-center font-bold text-lg"></div>
+
+<div class="flex justify-between items-center mt-1 text-xs opacity-70 border-t border-[#c9b48c] pt-2">
+<span>الشبكة: ١٦ × ١٦ · الألغام: ٤٠</span>
+<span>أفضل زمن: <b id="bestEl">—</b></span>
+</div>
+
+</div>
+
+<footer class="mt-5 text-center text-sm opacity-70">
+<p class="rule mb-1">✦ ✦ ✦</p>
+<p>اكتشِف كل المربعات الآمنة دون أن تدوس لغمًا واحدًا</p>
+</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const N=16,MINES=40,bestKey='sepia-mines-best';
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let cells=[],started=false,over=false,flags=0,revealed=0,timer=null,secs=0,mode='dig',ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestEl').textContent=v?AR(v)+' ث':'—';}catch(e){}}
+loadBest();
+const idx=(r,c)=>r*N+c;
+const nbrs=i=>{
+const r=Math.floor(i/N),c=i%N,out=[];
+for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+if(!dr&&!dc)continue;
+const nr=r+dr,nc=c+dc;
+if(nr>=0&&nr<N&&nc>=0&&nc<N)out.push(idx(nr,nc));
+}
+return out;
+};
+function newGame(){
+clearInterval(timer);
+cells=Array.from({length:N*N},()=>({mine:false,rev:false,flag:false,n:0}));
+started=false;over=false;flags=0;revealed=0;secs=0;mode='dig';
+$('minesEl').textContent=AR(MINES);
+$('timeEl').textContent='٠٠٠';
+$('msg').textContent='';
+updateModeBtn();
+render();
+snd(330,.09,'triangle',.04);
+}
+function updateModeBtn(){
+const b=$('modeBtn');
+b.textContent=mode==='dig'?'⛏ تنقيب':'🚩 تعليم';
+b.classList.toggle('on',mode==='flag');
+}
+function toggleMode(){mode=mode==='dig'?'flag':'dig';updateModeBtn();snd(mode==='flag'?520:300,.07,'square',.04);}
+function placeMines(safe){
+const banned=new Set([safe,...nbrs(safe)]);
+let placed=0;
+while(placed<MINES){
+const k=Math.floor(Math.random()*N*N);
+if(banned.has(k)||cells[k].mine)continue;
+cells[k].mine=true;placed++;
+}
+cells.forEach((c,i)=>{if(!c.mine)c.n=nbrs(i).filter(j=>cells[j].mine).length;});
+startTimer();
+}
+function startTimer(){
+timer=setInterval(()=>{
+secs++;
+$('timeEl').textContent=String(secs).padStart(3,'0').replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+},1000);
+}
+function render(){
+const b=$('board');
+b.innerHTML='';
+cells.forEach((c,i)=>{
+const d=document.createElement('div');
+d.className='cell'+(c.rev?' rev':'')+(c.boom?' boom':'');
+if(c.rev){
+if(c.mine)d.textContent=c.hit?'💥':'💣';
+else if(c.n)d.textContent=c.n,d.classList.add('n'+c.n);
+}else if(c.flag)d.textContent='🚩';
+d.onclick=()=>tap(i);
+d.oncontextmenu=e=>{e.preventDefault();toggleFlag(i);};
+b.appendChild(d);
+});
+}
+function tap(i){
+if(over)return;
+mode==='flag'?toggleFlag(i):dig(i);
+}
+function toggleFlag(i){
+if(over||cells[i].rev)return;
+cells[i].flag=!cells[i].flag;
+flags+=cells[i].flag?1:-1;
+$('minesEl').textContent=AR(MINES-flags);
+snd(cells[i].flag?260:380,.08,'square',.05);
+render();
+}
+function dig(i){
+if(over||cells[i].flag||cells[i].rev)return;
+if(!started){started=true;placeMines(i);}
+if(cells[i].mine){
+lose(i);return;
+}
+floodReveal(i);
+snd(210,.06,'triangle',.04);
+checkWin();
+render();
+}
+function floodReveal(start){
+const q=[start];
+while(q.length){
+const i=q.pop(),c=cells[i];
+if(c.rev||c.flag||c.mine)continue;
+c.rev=true;revealed++;
+if(c.n===0)nbrs(i).forEach(j=>{if(!cells[j].rev)q.push(j);});
+}
+}
+function lose(hit){
+over=true;clearInterval(timer);
+cells[hit].hit=true;
+cells.forEach(c=>{if(c.mine)c.rev=true;});
+render();
+$('board').classList.add('shake');
+setTimeout(()=>$('board').classList.remove('shake'),550);
+$('msg').textContent='💥 دستَ على لغم! انتهت الرحلة…';
+$('msg').style.color='#8b3a2e';
+snd(120,.55,'sawtooth',.08);setTimeout(()=>snd(70,.5,'sawtooth',.07),120);
+}
+function checkWin(){
+if(revealed===N*N-MINES){
+over=true;clearInterval(timer);
+$('msg').textContent=`🏆 مسحت الخريطة كاملة في ${AR(secs)} ثانية!`;
+$('msg').style.color='#5d4a7a';
+const v=+localStorage.getItem(bestKey)||0;
+if(!v||secs<v){
+try{localStorage.setItem(bestKey,secs);}catch(e){}
+$('msg').textContent+=` · رقم قياسي جديد!`;
+loadBest();
+}
+[523,659,784,1046].forEach((f,i)=>setTimeout(()=>snd(f,.18,'triangle',.05),i*140));
+}
+}
+newGame();
+document.addEventListener('contextmenu',e=>{if(e.target.closest('#board'))e.preventDefault();});
+</script>
+</body>
+</html>

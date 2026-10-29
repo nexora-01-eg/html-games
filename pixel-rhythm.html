@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نمط الإيقاع 🎵</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',monospace;background:#0a0a1a;color:#7fff7f;min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:1.8rem;font-weight:900;color:#7fff7f;text-shadow:0 0 14px rgba(127,255,127,.4)}
+.sub{font-size:.75rem;color:rgba(127,255,127,.4);margin-bottom:1rem}
+.hud{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem}
+.hud span{font-size:.78rem;font-weight:700;padding:.2rem .65rem;border:1.5px solid rgba(127,255,127,.3);border-radius:999px;color:#7fff7f}
+.btn{font-family:inherit;background:#7fff7f;color:#0a0a1a;border:none;padding:.55rem 1.5rem;font-weight:900;font-size:.85rem;border-radius:999px;cursor:pointer;transition:all .08s}
+.btn:hover{filter:brightness(1.1)}.btn:active{transform:scale(.96)}
+.pads{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:1rem 0}
+.pad{width:100px;height:100px;border-radius:16px;border:3px solid rgba(127,255,127,.25);cursor:pointer;
+transition:all .12s;display:flex;align-items:center;justify-content:center;font-size:1.5rem;
+font-weight:900;color:rgba(255,255,255,.8);user-select:none;touch-action:none}
+.pad:active{transform:scale(.9)}
+.pad.p0{background:rgba(255,80,80,.2)}.pad.p1{background:rgba(80,180,255,.2)}
+.pad.p2{background:rgba(255,220,80,.2)}.pad.p3{background:rgba(127,255,127,.2)}
+.pad.flash{box-shadow:0 0 30px rgba(255,255,255,.5)!important;transform:scale(1.08)!important}
+.pad.p0.flash{background:rgba(255,80,80,.7)}.pad.p1.flash{background:rgba(80,180,255,.7)}
+.pad.p2.flash{background:rgba(255,220,80,.7)}.pad.p3.flash{background:rgba(127,255,127,.7)}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.5rem;color:#7fff7f}
+.seq{display:flex;gap:6px;justify-content:center;margin:.5rem 0;min-height:24px}
+.seq .dot{width:12px;height:12px;border-radius:50%;background:rgba(127,255,127,.2);border:1px solid rgba(127,255,127,.3)}
+.seq .dot.show{background:#7fff7f}
+.seq .dot.done{background:rgba(127,255,127,.5)}
+</style>
+</head>
+<body>
+<h1>🎵 نمط الإيقاع</h1>
+<p class="sub">اتبع الإيقاع — عيّده!</p>
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1rem">٤ أزرار — نمط إيقاعي بيزيد مع كل جولة<br>اتبع الألوان بالترتيب</p>
+<button onclick="start()" class="btn">ابدأ النمط 🎵</button>
+<p style="font-size:.7rem;opacity:.4;margin-top:.6rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+<div id="playScr" class="hidden">
+<div class="hud">
+<span>جولة <b id="rzEl">١</b>/١٢</span>
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>🔥 <b id="streakEl">٠</b></span>
+</div>
+<div class="seq" id="seqDots"></div>
+<div class="pads" id="pads">
+<div class="pad p0" data-i="0">🔴</div>
+<div class="pad p1" data-i="1">🔵</div>
+<div class="pad p2" data-i="2">🟡</div>
+<div class="pad p3" data-i="3">🟢</div>
+</div>
+<div class="msg" id="rzMsg"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='pixel-rhythm-best';
+let score=0,streak=0,rz=0,best=0,ac=null,over=true,seq=[],playerIdx=0;try{best=+localStorage.getItem(bestKey)||0;}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+const FREQS=[220,330,440,550];
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function start(){score=0;streak=0;rz=0;$('scoreEl').textContent='٠';$('streakEl').textContent='٠';$('startScr').classList.add('hidden');$('playScr').classList.remove('hidden');nextRound();}
+function nextRound(){
+rz++;$('rzEl').textContent=AR(rz);$('rzMsg').textContent='';over=true;playerIdx=0;
+seq.push(Math.floor(Math.random()*4));
+const dots=$('seqDots');dots.innerHTML='';
+for(let i=0;i<seq.length;i++){const d=document.createElement('div');d.className='dot';dots.appendChild(d);}
+showSeq(0);
+}
+function showSeq(i){
+if(i>=seq.length){
+over=false;
+$('rzMsg').textContent='عيّد النمط!';
+document.querySelectorAll('.seq .dot').forEach(d=>d.classList.remove('show'));
+return;
+}
+document.querySelectorAll('.seq .dot').forEach((d,j)=>{d.classList.toggle('show',j===i);});
+const pad=document.querySelector('.pad.p'+seq[i]);
+pad.classList.add('flash');snd(FREQS[seq[i]],.15,'square',.05);
+setTimeout(()=>{pad.classList.remove('flash');showSeq(i+1);},450);
+}
+document.querySelectorAll('.pad').forEach(p=>{
+p.addEventListener('pointerdown',e=>{
+e.preventDefault();
+if(over)return;
+const idx=+p.dataset.i;
+p.classList.add('flash');snd(FREQS[idx],.12,'square',.04);
+setTimeout(()=>p.classList.remove('flash'),150);
+if(idx===seq[playerIdx]){
+playerIdx++;
+document.querySelectorAll('.seq .dot')[playerIdx-1].classList.add('done');
+if(playerIdx>=seq.length){
+over=true;streak++;
+const gain=seq.length*25+streak*10;
+score+=gain;$('scoreEl').textContent=AR(score);$('streakEl').textContent=AR(streak);
+$('rzMsg').textContent='✅ +'+AR(gain);
+snd(880,.12,'triangle',.05);
+rz>=12?finish():setTimeout(nextRound,800);
+}
+}else{
+over=true;streak=0;$('streakEl').textContent='٠';
+$('rzMsg').textContent='❌ غلط! النمط كان صح...';
+snd(150,.2,'sawtooth',.04);
+rz>=12?finish():setTimeout(nextRound,1200);
+}
+});
+});
+function finish(){
+over=true;
+$('playScr').innerHTML=`
+<div style="text-align:center;border:2px solid rgba(127,255,127,.3);border-radius:16px;padding:2rem;max-width:320px;background:rgba(10,10,26,.8)">
+<p style="font-size:2rem">🎵</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#7fff7f">الإيقاع خلص!</h2>
+<p style="font-size:2rem;font-weight:900;color:#7fff7f">${AR(score)}</p>
+<p style="font-size:.75rem;opacity:.6;margin:.4rem 0" id="finMsg"></p>
+<button onclick="location.reload()" class="btn">جولة جديدة ↻</button>
+</div>`;
+const v=+localStorage.getItem(bestKey)||0;
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}}
+}
+</script>
+</body>
+</html>

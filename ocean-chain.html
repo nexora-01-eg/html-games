@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سلسلة المحيط 🌊</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;
+background:linear-gradient(180deg,#0b1628 0%,#1a3a5c 100%);color:#e8f4f8;
+min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem}
+h1{font-size:2rem;font-weight:900;color:#4ecdc4;text-shadow:0 0 18px rgba(78,205,196,.4)}
+.sub{font-size:.78rem;color:rgba(232,244,248,.55);margin-bottom:1.2rem}
+.hud{display:flex;gap:.65rem;flex-wrap:wrap;justify-content:center;margin-bottom:1rem}
+.hud span{font-size:.8rem;font-weight:700;padding:.22rem .7rem;border:1.5px solid rgba(78,205,196,.35);
+border-radius:999px;color:#4ecdc4}
+.btn{font-family:inherit;background:#4ecdc4;color:#0b1628;border:none;padding:.55rem 1.6rem;
+font-weight:900;font-size:.85rem;border-radius:999px;cursor:pointer;transition:all .08s;
+box-shadow:0 0 16px rgba(78,205,196,.3)}
+.btn:hover{filter:brightness(1.1)}
+.btn:active{transform:scale(.96)}
+.chain{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin:1rem 0;
+max-height:220px;overflow-y:auto;width:100%;max-width:340px}
+.word{padding:.4rem 1.2rem;border:1.5px solid rgba(78,205,196,.3);border-radius:999px;
+font-size:.95rem;font-weight:700;background:rgba(78,205,196,.06);transition:all .3s}
+.word.last{border-color:#4ecdc4;box-shadow:0 0 12px rgba(78,205,196,.3)}
+.word.new{animation:popIn .3s ease-out}
+@keyframes popIn{from{opacity:0;transform:translateY(-12px) scale(.85)}}
+.arrow{color:rgba(78,205,196,.4);font-size:.75rem}
+.inputRow{display:flex;gap:8px;margin:.8rem 0;width:100%;max-width:320px}
+.inputRow input{flex:1;padding:.55rem 1rem;border:2px solid rgba(78,205,196,.4);border-radius:999px;
+background:rgba(255,255,255,.06);color:#e8f4f8;font-family:inherit;font-size:1rem;
+font-weight:700;text-align:center;outline:none;transition:border-color .15s}
+.inputRow input:focus{border-color:#4ecdc4}
+.inputRow input::placeholder{color:rgba(232,244,248,.3)}
+.inputRow button{flex-shrink:0}
+.timer{width:100%;max-width:320px;height:5px;background:rgba(255,255,255,.1);border-radius:99px;
+overflow:hidden;margin-bottom:.5rem}
+.timer>div{height:100%;background:#4ecdc4;box-shadow:0 0 8px rgba(78,205,196,.5);
+border-radius:99px;transition:width .1s linear}
+.msg{height:1.5rem;font-size:.85rem;font-weight:700;text-align:center;margin-top:.4rem;
+color:#4ecdc4}
+.lastLetter{display:inline-block;padding:.1rem .5rem;border:1.5px solid #4ecdc4;border-radius:6px;
+font-weight:900;color:#4ecdc4;margin:0 .2rem}
+</style>
+</head>
+<body>
+
+<h1>🌊 سلسلة المحيط</h1>
+<p class="sub">كلمة جديدة تبدأ بحرف خاتمة اللي قبلها</p>
+
+<div id="startScr" class="text-center">
+<p style="font-size:.85rem;opacity:.7;margin-bottom:1.2rem">
+كلمة تلو الأخرى — الوقت بيقصر مع كل كلمة!<br>
+ صعب: ٤ ثوانٍ ↓ ٢ ثانية
+</p>
+<button onclick="start()" class="btn">ابدأ السلسلة 🌊</button>
+<p style="font-size:.7rem;opacity:.4;margin-top:.7rem">أفضل نتيجة: <b id="bestStart">—</b></p>
+</div>
+
+<div id="playScr" class="hidden text-center">
+<div class="hud">
+<span>⭐ <b id="scoreEl">٠</b></span>
+<span>🔥 سلسلة <b id="streakEl">٠</b></span>
+<span>⏱ <b id="timeEl">٤</b>ث</span>
+<span>📝 <b id="countEl">٠</b> كلمة</span>
+</div>
+<div class="timer"><div id="timerBar" style="width:100%"></div></div>
+<div class="chain" id="chain"></div>
+<div class="inputRow">
+<input id="wordIn" type="text" placeholder="اكتب كلمة تبدأ بحرف..." autocomplete="off" maxlength="20">
+<button class="btn" onclick="submitWord()">→</button>
+</div>
+<div class="msg" id="rzMsg"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const bestKey='ocean-chain-best';
+const origPlay=$('playScr').innerHTML;
+function restartGame(){
+  $('playScr').innerHTML=origPlay;
+  $('wordIn').addEventListener('keydown',e=>{if(e.key==='Enter')submitWord();});
+  start();
+}
+let score=0,streak=0,best=0,ac=null,over=true,words=[],timer=null,timeLeft=0,timerIv=null;
+try{best=+localStorage.getItem(bestKey)||0}catch(e){}
+$('bestStart').textContent=best?AR(best):'—';
+const BANK=new Set([
+'اكل','كلب','برك','كرك','رمل','ملاك','كلمات','تلميح','حيوان','نور',
+'.browser','rama','مطر','تراب','باب','بيت','تاج','جرس','سجادة','دفتر',
+' rules','سنتر','ترمومتر','روبوت','تاج','جدار','رمان','نخلة','هاتف','فستان',
+' قلم','ملعب','بابا','أبجد','جدول','ود','دلو','ليل','ينابيع','عنب',
+' قمر','رعد','درج','رسالة','ة','emat','郃','كوب','برتقال','لا',
+' مفتاح','حديقة','قناة',' annonces','⊿','パン','ても','هاشتاق',
+' تفاحة','أرز','زجاجة','ة','емо','麟','鑫','تقويم','مكرونة',
+'arsed',' japan',' licorice','玉米','のお','ربيع','عيون','نافذة',
+' طماطم','مفتاح',' يخت','تونة','نسر','رق','كلب',
+' برامج','جسر','رمح','حبل','بلاط','تاج',' جدار',' دلو',' ليل',
+' عين','نخلة',' هاتف',' فستان',' قلم',' ملعب',
+' أبجد','جدول',' ود',' dawn',' درج',' رسن',
+' قمر',' رعد',' درج',' رسالة','ة',' كوب',
+' برتقال',' لا',' مفتاح',' حديقة',' قناة',
+' تفاحة',' أرز',' زجاجة','ة',' تقويم',
+' مكرونة',' طماطم',' يخت',' تونة',' نسر',
+' رق',' كلب',' برامج',' جسر',' رمح',
+' حبل',' بلاط',' تاج',' جدار',' دلو',
+' ليل',' عين',' نخلة',' هاتف',' فستان',
+' قلم',' ملعب',' أبجد',' جدول',' ود',
+' درج',' رسن',' قمر',' رعد',' رسالة',
+' كوب',' برتقال',' لا',' مفتاح',' حديقة',
+' قناة',' تفاحة',' أرز',' زجاجة',' تقويم',
+' مكرونة',' طماطم',' يخت',' تونة',' نسر'
+]);
+const WORDS=[...BANK].filter(w=>w.length>=2&&/^[\u0600-\u06FF]/.test(w));
+function lastAr(w){for(let i=w.length-1;i>=0;i--){const c=w.charCodeAt(i);if(c>=0x621&&c<=0x64a)return w[i];}return w[w.length-1];}
+function firstAr(w){for(let i=0;i<w.length;i++){const c=w.charCodeAt(i);if(c>=0x621&&c<=0x64a)return w[i];}return w[0];}
+function getTimer(){return Math.max(2000,4500-streak*200);}
+function start(){
+score=0;streak=0;words=[];over=true;
+$('scoreEl').textContent='٠';$('streakEl').textContent='٠';$('countEl').textContent='٠';
+$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+const sw=WORDS[Math.floor(Math.random()*WORDS.length)];
+words.push(sw);
+renderChain();
+$('rzMsg').textContent='ابدأ بكلمة تبدأ بحرف '+lastAr(sw);
+startTimer();
+over=false;
+$('wordIn').value='';$('wordIn').focus();
+}
+function renderChain(){
+const ch=$('chain');ch.innerHTML='';
+words.forEach((w,i)=>{
+if(i>0){const a=document.createElement('div');a.className='arrow';a.textContent='↓';ch.appendChild(a);}
+const d=document.createElement('div');
+d.className='word'+(i===words.length-1?' last':'');
+d.textContent=w;
+if(i===words.length-1)d.classList.add('new');
+ch.appendChild(d);
+});
+ch.scrollTop=ch.scrollHeight;
+}
+function startTimer(){
+clearInterval(timerIv);clearTimeout(timer);
+const ms=getTimer();
+timeLeft=ms;
+$('timerBar').style.width='100%';
+$('timeEl').textContent=Math.round(ms/1000);
+const step=50;
+timerIv=setInterval(()=>{
+timeLeft-=step;
+$('timerBar').style.width=Math.max(0,timeLeft/ms*100)+'%';
+if(timeLeft<=0){clearInterval(timerIv);endRound(false,'⏰ خلص الوقت!');}
+},step);
+}
+function submitWord(){
+if(over)return;
+const input=$('wordIn').value.trim();
+if(!input)return;
+const last=lastAr(words[words.length-1]);
+const first=firstAr(input);
+if(first!==last){
+$('rzMsg').textContent='❌ لازم تبدأ بحرف '+last;
+snd(200,.12,'sawtooth',.04);
+$('wordIn').value='';
+return;
+}
+if(words.includes(input)){
+$('rzMsg').textContent='❌ الكلمة اتكررت!';
+snd(200,.12,'sawtooth',.04);
+$('wordIn').value='';
+return;
+}
+clearInterval(timerIv);clearTimeout(timer);
+words.push(input);
+streak++;
+const bonus=Math.round(timeLeft/10);
+score+=10+bonus;
+$('scoreEl').textContent=AR(score);
+$('streakEl').textContent=AR(streak);
+$('countEl').textContent=AR(words.length);
+$('rzMsg').textContent='✅ +'+AR(10+bonus);
+snd(500+streak*30,.07,'sine',.035);
+$('wordIn').value='';
+renderChain();
+setTimeout(()=>{
+if(words.length>=30){endRound(true,'🏆 ٣٠ كلمة!');return;}
+startTimer();
+$('wordIn').focus();
+},400);
+}
+function endRound(won,msg){
+over=true;clearInterval(timerIv);clearTimeout(timer);
+$('rzMsg').textContent=msg;
+if(!won&&streak>5){score=Math.max(0,score-20);$('scoreEl').textContent=AR(score);}
+$('playScr').innerHTML=`
+<div style="text-align:center;background:rgba(78,205,196,.08);border:1.5px solid rgba(78,205,196,.3);
+border-radius:18px;padding:2rem;max-width:340px">
+<p style="font-size:2rem;margin-bottom:.3rem">🌊</p>
+<h2 style="font-size:1.2rem;font-weight:900;color:#4ecdc4;margin-bottom:.3rem">${won?'السلسلة اكتملت!':'السلسلة انقطعت!'}</h2>
+<p style="font-size:2rem;font-weight:900;color:#4ecdc4">${AR(score)}</p>
+<p style="font-size:.8rem;opacity:.6;margin:.4rem 0">${AR(words.length)} كلمة في السلسلة</p>
+<p style="font-size:.75rem;opacity:.5" id="finMsg"></p>
+<button class="btn" onclick="restartGame()">سلسلة جديدة ↻</button>
+</div>`;
+const v=+localStorage.getItem(bestKey)||0;
+$('finMsg').textContent=score>v&&score>0?'🏆 رقم قياسي جديد!':'أفضل نتيجة: '+AR(Math.max(v,score));
+if(score>v&&score>0)try{localStorage.setItem(bestKey,score)}catch(e){}
+chord([500,660,880],.12);
+}
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.04,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function chord(fs,d){fs.forEach((f,i)=>setTimeout(()=>snd(f,d||.14,'triangle',.04),i*100));}
+$('wordIn').addEventListener('keydown',e=>{if(e.key==='Enter')submitWord();});
+</script>
+</body>
+</html>

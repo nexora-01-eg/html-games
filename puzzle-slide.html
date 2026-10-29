@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>أحجية الأرقام المرقمة</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-amber-800 min-h-screen flex items-center justify-center font-sans"><div class="bg-amber-900 border-4 border-amber-700 p-8 rounded-3xl w-full max-w-sm text-center text-white shadow-2xl">
+<div class="text-3xl font-bold mb-1">🧩 أحجية الأرقام</div>
+<div id="bestDisp" class="text-amber-400 text-sm mb-4"></div>
+<div id="startScreen">
+<button onclick="startGame()" class="mt-4 bg-amber-600 hover:bg-amber-500 px-8 py-4 rounded-xl text-xl font-bold transition border-2 border-amber-500">ابدأ</button>
+</div>
+<div id="gameScreen" class="hidden">
+<div class="flex justify-between text-sm mb-4 text-amber-300"><span>التقاطات: <span id="moves" class="font-bold text-white">0</span></span><span>الوقت: <span id="timer" class="font-bold text-white">0:00</span></span></div>
+<div id="grid" class="grid grid-cols-4 gap-2 mb-4 mx-auto" style="width:320px"></div>
+<button onclick="shuffleBoard()" class="text-amber-400 hover:text-amber-300 text-sm underline mb-2">🔄 خلط مرة أخرى</button>
+</div>
+<div id="endScreen" class="hidden">
+<div class="text-5xl font-bold mb-4">🎉 أحسنت!</div>
+<div class="text-xl mb-2">التقاطات: <span id="finalMoves" class="text-yellow-300"></span></div>
+<div class="text-xl mb-2">الوقت: <span id="finalTime" class="text-yellow-300"></span></div>
+<div id="newBest" class="text-green-400 font-bold hidden">🏆 أفضل نتيجة!</div>
+<button onclick="startGame()" class="mt-4 bg-amber-600 hover:bg-amber-500 px-8 py-3 rounded-xl font-bold transition">العب مرة أخرى</button>
+</div>
+</div><script>
+let board=[],moves=0,timerVal=0,timerInt=null,best=9999;try{best=+(localStorage.getItem('puzzle-slide-best'))||9999;}catch(e){}
+const ARABIC_NUMS=["٠","١","٢","٣","٤","٥","٦","٧","٨","٩","١٠","١١","١٢","١٣","١٤","١٥"];
+function playSound(f,d,t){let ctx=new(window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+function updateBest(){document.getElementById('bestDisp').textContent=best<9999?'أفضل نتيجة: '+best+' تقاطة':'';}
+updateBest();
+function getPos(r,c){return r*4+c;}
+function findEmpty(){for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(board[r][c]===0)return{r,c};return null;}
+function isSolved(){
+for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+let expected=r*4+c+1;if(expected===16)expected=0;
+if(board[r][c]!==expected)return false;}
+return true;
+}
+function render(){
+let g=document.getElementById('grid');g.innerHTML='';
+for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+let d=document.createElement('div');
+let val=board[r][c];
+if(val===0){
+d.className='w-full aspect-square rounded-xl bg-amber-950/50 border-2 border-amber-800';
+}else{
+d.className='w-full aspect-square rounded-xl flex items-center justify-center text-2xl font-bold cursor-pointer transition-all duration-150 border-2 border-amber-600 shadow-lg select-none';
+d.style.background='linear-gradient(135deg,#f59e0b,#d97706)';
+d.style.color='#451a03';
+d.textContent=ARABIC_NUMS[val];
+d.onclick=()=>tryMove(r,c);
+}
+g.appendChild(d);
+}
+}
+document.addEventListener('keydown',function(e){let d={ArrowLeft:[0,-1],ArrowRight:[0,1],ArrowUp:[-1,0],ArrowDown:[1,0]}[e.key];if(!d)return;if(!document.getElementById('gameScreen').classList.contains('hidden')&&findEmpty()){let e=findEmpty();let r=e.r-d[0],c=e.c-d[1];if(r>=0&&r<4&&c>=0&&c<4)tryMove(r,c);}});
+function tryMove(r,c){
+let e=findEmpty();
+if(!e)return;
+let dr=Math.abs(r-e.r),dc=Math.abs(c-e.c);
+if((dr===1&&dc===0)||(dr===0&&dc===1)){
+const val=board[r][c];
+board[e.r][e.c]=val;
+board[r][c]=0;
+moves++;document.getElementById('moves').textContent=moves;
+playSound(400+val*20,0.08);
+render();
+if(isSolved()){clearInterval(timerInt);setTimeout(endGame,400);}
+}
+}
+function shuffleBoard(){
+board=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
+for(let i=0;i<200;i++){
+let e=findEmpty();
+let neighbors=[];
+if(e.r>0)neighbors.push({r:e.r-1,c:e.c});
+if(e.r<3)neighbors.push({r:e.r+1,c:e.c});
+if(e.c>0)neighbors.push({r:e.r,c:e.c-1});
+if(e.c<3)neighbors.push({r:e.r,c:e.c+1});
+let pick=neighbors[Math.floor(Math.random()*neighbors.length)];
+board[e.r][e.c]=board[pick.r][pick.c];
+board[pick.r][pick.c]=0;
+}
+if(isSolved())shuffleBoard();
+}
+function startGame(){
+moves=0;timerVal=0;
+clearInterval(timerInt);
+shuffleBoard();
+document.getElementById('startScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.add('hidden');
+document.getElementById('gameScreen').classList.remove('hidden');
+document.getElementById('moves').textContent='0';
+render();
+timerInt=setInterval(()=>{timerVal++;let m=Math.floor(timerVal/60),s=timerVal%60;document.getElementById('timer').textContent=m+':'+(s<10?'0':'')+s;},1000);
+}
+function endGame(){
+document.getElementById('gameScreen').classList.add('hidden');
+document.getElementById('endScreen').classList.remove('hidden');
+document.getElementById('finalMoves').textContent=moves;
+let m=Math.floor(timerVal/60),s=timerVal%60;
+document.getElementById('finalTime').textContent=m+':'+(s<10?'0':'')+s;
+let isNew=moves<best;
+if(isNew){best=moves;try{localStorage.setItem('puzzle-slide-best',best);}catch(e){}document.getElementById('newBest').classList.remove('hidden');}
+else document.getElementById('newBest').classList.add('hidden');
+}
+</script></body></html>

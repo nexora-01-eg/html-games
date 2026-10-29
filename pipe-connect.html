@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>وصّل الأنابيب</title><script src="https://cdn.tailwindcss.com"></script><style>body{user-select:none}.pipe{transition:transform 0.2s}</style></head>
+<body class="bg-slate-800 min-h-screen flex flex-col items-center justify-center font-sans">
+<div class="text-3xl text-slate-200 font-bold mb-1">وصّل الأنابيب</div>
+<div class="text-slate-400 text-sm mb-1" id="best">الأفضل: 0</div>
+<div class="text-slate-300 text-sm mb-3" id="levelInfo">اللغز 1 من 5</div>
+<div class="bg-slate-700/50 p-4 rounded-2xl border border-slate-600">
+<div class="grid gap-1" id="grid"></div>
+</div>
+<div class="flex gap-3 mt-4">
+<button onclick="checkWin()" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl">تحقق</button>
+<button onclick="resetPuzzle()" class="bg-slate-600 hover:bg-slate-500 text-white px-6 py-2 rounded-xl">أعد تدوير</button>
+</div>
+<div id="msg" class="text-yellow-300 text-sm mt-2 h-6"></div>
+<div id="win" class="hidden absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+<div class="text-center"><div class="text-5xl mb-2">🔧</div>
+<div class="text-3xl text-green-400 font-bold mb-2">أحسنت!</div>
+<div class="text-slate-300 mb-4" id="nextMsg"></div>
+<button onclick="nextLevel()" class="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl">التالي</button></div></div>
+<script>
+const K='pipe-best';
+let best=0;try{best=parseInt(localStorage.getItem(K)||0);}catch(e){}
+const audio=new(window.AudioContext||window.webkitAudioContext)();
+function play(f,d,t='sine'){const o=audio.createOscillator(),g=audio.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+d);o.stop(audio.currentTime+d);}
+const SHAPES=[['─'],['│'],['─'],['│'],[['L',0]],[['L',1]],[['L',2]],[['L',3]]];
+const LEVELS=[{s:3,pairs:1},{s:4,pairs:2},{s:4,pairs:2},{s:5,pairs:3},{s:5,pairs:3}];
+let level,grid,solved;
+function initGrid(size){
+grid=[];for(let r=0;r<size;r++){grid[r]=[];for(let c=0;c<size;c++)grid[r][c]={shape:0,rot:0};}
+}
+function resetPuzzle(){
+const size=LEVELS[level].s;
+for(let r=0;r<size;r++)for(let c=0;c<size;c++)grid[r][c].rot=Math.floor(Math.random()*4);
+render();document.getElementById('msg').textContent='';
+}
+function startLevel(){
+level=0;solved=0;startPuzzle();
+}
+function startPuzzle(){
+const L=LEVELS[level];
+initGrid(L.s);
+for(let r=0;r<L.s;r++)for(let c=0;c<L.s;c++){grid[r][c].shape=Math.floor(Math.random()*4);grid[r][c].rot=0;}
+placeSolution(L.s,L.pairs);
+resetPuzzle();
+document.getElementById('levelInfo').textContent='اللغز '+(level+1)+' من 5';
+}
+function placeSolution(size,pairs){
+for(let p=0;p<pairs;p++){
+const sr=Math.floor(Math.random()*size);const sc=Math.floor(Math.random()*(size-1));
+grid[sr][sc].shape=0;grid[sr][sc].solutionRot=0;
+grid[sr][sc+1].shape=0;grid[sr][sc+1].solutionRot=0;
+}
+for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+if(grid[r][c].solutionRot===undefined)grid[r][c].solutionRot=Math.floor(Math.random()*4);
+}
+}
+function render(){
+const L=LEVELS[level];const g=document.getElementById('grid');g.innerHTML='';
+g.style.gridTemplateColumns='repeat('+L.s+',1fr)';
+for(let r=0;r<L.s;r++)for(let c=0;c<L.s;c++){
+const d=document.createElement('div');const cell=grid[r][c];
+d.className='w-14 h-14 bg-slate-600 rounded-lg flex items-center justify-center cursor-pointer text-3xl pipe';
+d.style.transform='rotate('+cell.rot*90+'deg)';
+const shapes=['━','┃','╌','┄'];
+d.textContent=shapes[cell.shape];
+d.onclick=()=>{cell.rot=(cell.rot+1)%4;play(500,0.05);render();};
+g.appendChild(d);
+}
+}
+function checkWin(){
+const L=LEVELS[level];let correct=true;
+for(let r=0;r<L.s;r++)for(let c=0;c<L.s;c++){
+if(grid[r][c].rot!==grid[r][c].solutionRot)correct=false;
+}
+if(correct){
+play(523,0.1);play(659,0.1);setTimeout(()=>play(784,0.2),100);
+if(level+1>=LEVELS.length){
+if(best===0||best>level+1){best=level+1;try{localStorage.setItem(K,best);}catch(e){}}
+document.getElementById('nextMsg').textContent='أكملت جميع اللغزات!';
+}else{
+document.getElementById('nextMsg').textContent='اللغز '+(level+1)+' من 5 مكتمل';
+}
+document.getElementById('win').classList.remove('hidden');
+}else{document.getElementById('msg').textContent='❌ الأنابيب غير متصلة بعد';play(200,0.15,'square');}
+}
+function nextLevel(){
+document.getElementById('win').classList.add('hidden');
+if(level+1<LEVELS.length){level++;startPuzzle();}
+else{level=0;solved=0;startPuzzle();}
+}
+startLevel();render();
+</script>
+</body>
+</html>

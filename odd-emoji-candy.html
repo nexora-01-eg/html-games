@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>لقّ الشاذة 🍭</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Comic Sans MS','Segoe UI',cursive,sans-serif;background:linear-gradient(160deg,#ffeaf4,#e6f7ff 55%,#fff8dc)}
+.card{background:#fff;border:5px solid #ffd6ea;border-radius:1.6rem;box-shadow:0 12px 0 rgba(255,93,162,.18)}
+.cellbtn{background:#fff;border:4px solid #ffe1ef;border-radius:1rem;display:flex;align-items:center;justify-content:center;aspect-ratio:1;cursor:pointer;transition:transform .1s}
+.cellbtn:hover{transform:scale(1.06)}
+.cellbtn.okflash{background:#c6f6d5;border-color:#68d391}
+.flipx{transform:scaleX(-1);display:inline-block}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.shake{animation:shk .35s}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 text-pink-950">
+<div class="card w-full max-w-md p-5 md:p-6 text-center relative">
+  <h1 class="text-3xl md:text-4xl font-bold mb-1"><span class="text-pink-500">🍭</span> لقّ الشاذة!</h1>
+  <p class="text-sm text-pink-400 mb-4">فيه إيموجي واحد مقلوب وسط الحشد… دوس عليه! 🔍</p>
+
+  <div class="flex justify-between text-sm font-bold mb-4 bg-pink-50 rounded-xl py-2 px-3">
+    <span>⏰ <span id="tLeft">45</span>ث</span>
+    <span>المرحلة <span id="lvl" class="text-pink-500">1</span></span>
+    <span>🍬 <span id="score">0</span></span>
+  </div>
+
+  <div id="grid" class="grid gap-2 mb-4"></div>
+
+  <p class="text-xs text-pink-300">كل إجابة صح = نقاط + ثواني إضافية • كل غلطة −٣ ثواني</p>
+</div>
+
+<div id="endOv" class="hidden fixed inset-0 bg-pink-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="card p-8 text-center max-w-xs w-full">
+    <div id="eIcon" class="text-6xl mb-2">🍭</div>
+    <h2 class="text-2xl font-bold mb-2">خلص الوقت!</h2>
+    <p class="text-4xl font-bold text-pink-500 my-3"><span id="eScore">0</span></p>
+    <p id="eRank" class="text-sm mb-5 text-pink-400"></p>
+    <button onclick="startGame()" class="bg-pink-500 hover:bg-pink-400 text-white font-bold px-8 py-2.5 rounded-full shadow-[0_5px_0_#be185d] active:translate-y-[3px] active:shadow-none transition">لعب تاني 🎀</button>
+  </div>
+</div>
+
+<script>
+const EM=['🐱','🐶','🐰','🐻','🦊','🐸','🐼','🐷','🐵','🐔','🦉','🐝','🐙','🦄','🐢','🐧'];
+let lvl,score,timeF,timerInt=null,oddIdx=0,locked=false;
+
+const $=function(id){return document.getElementById(id);};
+
+function gridSize(l){return Math.min(3+Math.floor((l-1)/2),8);}
+
+function paintTime(){timeF=Math.max(0,timeF);$('tLeft').textContent=Math.ceil(timeF);}
+
+function startGame(){
+ lvl=1;score=0;timeF=45;locked=false;
+ $('endOv').classList.add('hidden');
+ $('score').textContent='0';$('lvl').textContent='1';
+ paintTime();
+ clearInterval(timerInt);
+ timerInt=setInterval(function(){
+   timeF-=0.1;paintTime();
+   if(timeF<=0)endGame();
+ },100);
+ newRound();
+}
+
+function newRound(){
+ locked=false;
+ const n=gridSize(lvl);
+ const em=EM[Math.floor(Math.random()*EM.length)];
+ oddIdx=Math.floor(Math.random()*n*n);
+ $('lvl').textContent=lvl;
+ const g=$('grid');
+ g.style.gridTemplateColumns='repeat('+n+',minmax(0,1fr))';
+ g.innerHTML='';
+ for(let i=0;i<n*n;i++){
+   const b=document.createElement('button');
+   b.className='cellbtn text-3xl md:text-4xl';
+   const sp=document.createElement('span');
+   sp.textContent=em;
+   if(i===oddIdx)sp.className='flipx';
+   b.appendChild(sp);
+   b.onclick=function(){pick(i,b);};
+   g.appendChild(b);
+ }
+}
+
+function pick(i,btn){
+ if(locked)return;
+ if(i===oddIdx){
+   locked=true;
+   btn.classList.add('okflash');
+   score+=lvl*5;
+   $('score').textContent=score;
+   timeF=Math.min(60,timeF+1.5);paintTime();
+   setTimeout(function(){lvl++;newRound();},350);
+ }else{
+   timeF=Math.max(0,timeF-3);paintTime();
+   btn.classList.remove('shake');void btn.offsetWidth;btn.classList.add('shake');
+ }
+}
+
+function endGame(){
+ clearInterval(timerInt);locked=true;
+ $('eScore').textContent=score;
+ let best=0;try{best=Number(localStorage.getItem('odd-emoji-best')||0)}catch(e){};
+ let r,icon;
+ if(score>=250){r='👁️ عينك أسرع من الواي فاي!';icon='👑';}
+ else if(score>=120){r='🎉 حاسة سادسة بالحقيقة!';icon='🌟';}
+ else if(score>=50){r='🙂 شغل ممتاز يا نجم.';icon='🍬';}
+ else{r='😴 النوم غلب عليك؟!';icon='🛏️';}
+ $('eIcon').textContent=icon;
+  $('eRank').textContent=r+' • أفضل نتيجة: '+Math.max(score,best);
+  if(score>best)try{localStorage.setItem('odd-emoji-best',score)}catch(e){};
+ $('endOv').classList.remove('hidden');
+}
+
+startGame();
+</script>
+</body>
+</html>

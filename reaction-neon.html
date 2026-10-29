@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نيون ريفلكس ⚡</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#05050f;background-image:radial-gradient(circle at 15% 15%,rgba(255,45,149,.18),transparent 45%),radial-gradient(circle at 85% 85%,rgba(0,229,255,.14),transparent 45%)}
+.pad{transition:background-color .07s,border-color .07s,box-shadow .2s}
+.glow-pink{box-shadow:0 0 70px rgba(255,45,149,.5)}
+.glow-green{box-shadow:0 0 80px rgba(57,255,20,.6)}
+.glow-orange{box-shadow:0 0 70px rgba(255,150,0,.5)}
+.glow-cyan{box-shadow:0 0 70px rgba(0,229,255,.4)}
+@keyframes pulse-wait{0%,100%{opacity:1}50%{opacity:.55}}
+.waiting{animation:pulse-wait 1s infinite}
+</style>
+</head>
+<body class="min-h-screen text-white flex flex-col items-center justify-center select-none">
+
+<h1 class="text-5xl font-black tracking-wide mb-1" style="color:#ff2d95;text-shadow:0 0 30px rgba(255,45,149,.9)">نيون ريفلكس</h1>
+<p class="text-lg mb-10 font-light" style="color:#00e5ff;text-shadow:0 0 15px rgba(0,229,255,.8)">اصبر… واضغط في اللحظة اللي يشتعل فيها القرص أخضر ⚡</p>
+
+<div id="pad" class="pad w-72 h-72 md:w-80 md:h-80 rounded-full flex items-center justify-center cursor-pointer border-4 glow-pink" style="background:#141428;border-color:#ff2d95">
+<span id="label" class="text-3xl font-black text-center px-8 leading-relaxed">اضغط للبدء</span>
+</div>
+
+<div class="flex gap-12 mt-10 text-center bg-white/5 rounded-2xl px-10 py-4 border border-white/10">
+<div><div class="text-xs text-gray-400 mb-1">الجولة</div><div id="round" class="text-2xl font-mono font-bold">0/5</div></div>
+<div><div class="text-xs text-gray-400 mb-1">آخر زمن</div><div id="last" class="text-2xl font-mono font-bold" style="color:#00e5ff">—</div></div>
+<div><div class="text-xs text-gray-400 mb-1">أفضل متوسط</div><div id="best" class="text-2xl font-mono font-bold" style="color:#ffd60a">—</div></div>
+</div>
+
+<div id="final" class="hidden mt-8 text-center text-xl"></div>
+
+<script>
+const pad=document.getElementById('pad'),label=document.getElementById('label'),roundEl=document.getElementById('round'),lastEl=document.getElementById('last'),bestEl=document.getElementById('best'),finalEl=document.getElementById('final');
+let state='idle',timer=null,t0=0,times=[],ac=null;
+const TOTAL=5;
+function beep(f,d,type,g){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.08,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.15));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.15));}catch(e){}}
+function loadBest(){try{const v=localStorage.getItem('neon-reflex-best');if(v)bestEl.textContent=v+' ms';}catch(e){}}
+loadBest();
+function look(bg,border,glow){pad.style.background=bg;pad.style.borderColor=border;pad.classList.remove('glow-pink','glow-green','glow-orange','glow-cyan','waiting');if(glow)glow.split(' ').forEach(c=>pad.classList.add(c));}
+function idle(msg){state='idle';look('#141428','#ff2d95','glow-pink');label.innerHTML=msg;}
+function startWait(){state='wait';look('#2b0b20','#ff2d95','glow-pink waiting');label.textContent='انتظر…';beep(220,.1,'sine',.05);timer=setTimeout(go,1200+Math.random()*2300);}
+function go(){if(state!=='wait')return;state='go';t0=performance.now();look('#0f3d0f','#39ff14','glow-green');label.innerHTML='<span style="color:#39ff14;text-shadow:0 0 25px #39ff14">اضغط!</span>';beep(660,.09,'square',.06);}
+function early(){clearTimeout(timer);beep(130,.35,'sawtooth',.1);idle('بدري! 😅<br>اضغط من جديد');}
+function record(){const dt=Math.round(performance.now()-t0);times.push(dt);roundEl.textContent=times.length+'/'+TOTAL;lastEl.textContent=dt+' ms';beep(dt<250?1100:700,.12,'triangle',.09);
+if(times.length>=TOTAL){finish();return;}
+look('#101024','#00e5ff','glow-cyan');state='result';label.innerHTML=dt+' ms 🔥';setTimeout(startWait,900);}
+function finish(){const avg=Math.round(times.reduce((a,b)=>a+b,0)/TOTAL);let msg='متوسطك: <span class="font-mono font-bold" style="color:#39ff14">'+avg+' ms</span>';
+const v=+localStorage.getItem('neon-reflex-best')||0;
+if(!v||avg<v){try{localStorage.setItem('neon-reflex-best',avg);}catch(e){}msg+='<br>🏆 رقم قياسي جديد!';bestEl.textContent=avg+' ms';}
+msg+='<br><button onclick="reset()" class="mt-4 px-6 py-2 rounded-full border-2 font-bold hover:bg-pink-500/10 transition" style="border-color:#ff2d95;color:#ff2d95">العب تاني</button>';
+finalEl.innerHTML=msg;finalEl.classList.remove('hidden');
+look('#141428','#ff2d95','glow-pink');label.innerHTML='خلصنا! 🏁';state='done';}
+function reset(){times=[];roundEl.textContent='0/'+TOTAL;lastEl.textContent='—';finalEl.classList.add('hidden');idle('اضغط للبدء');}
+pad.addEventListener('pointerdown',()=>{
+if(state==='done')reset();
+if(state==='idle')startWait();
+else if(state==='wait')early();
+else if(state==='go')record();});
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();pad.dispatchEvent(new PointerEvent('pointerdown'));}});
+</script>
+</body>
+</html>

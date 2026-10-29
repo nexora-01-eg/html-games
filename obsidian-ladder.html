@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>جسر النجوم 🌌</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#07070d;color:#e8e9f3}
+.haze{position:absolute;width:420px;height:420px;border-radius:50%;background:#5b4a8f;filter:blur(110px);opacity:.14;pointer-events:none}
+.star{position:absolute;background:#cfd3ff;border-radius:50%;pointer-events:none}
+.cardo{background:rgba(13,13,22,.85);border:1px solid rgba(190,195,230,.16);border-radius:1.5rem;
+box-shadow:0 20px 50px rgba(0,0,0,.55)}
+.chipo{background:#101018;border:1px solid rgba(190,195,230,.18);border-radius:999px;padding:.3rem 1rem;font-size:.85rem;font-weight:700;color:#b9bdda}
+.slot{width:58px;height:64px;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;
+background:#12121c;border:1.5px solid rgba(190,195,230,.25);border-radius:.8rem;cursor:pointer;transition:all .15s}
+.slot.active{border-color:#b9a7ff;box-shadow:0 0 18px rgba(150,120,255,.45);color:#cdbdff}
+.slot.done{color:#8de6b8}
+.key{width:38px;height:40px;font-weight:800;font-size:1.05rem;background:#14141f;color:#cfd3f5;
+border:1px solid rgba(190,195,230,.14);border-radius:.5rem;transition:all .08s}
+.key:hover{background:#23233a;border-color:#8d7fd0}
+.btn-ob{background:linear-gradient(135deg,#cfcfe8,#9a93c9);color:#0a0a12;font-weight:900;border-radius:999px;
+box-shadow:0 5px 0 #55507e;transition:all .09s}
+.btn-ob:hover{filter:brightness(1.06)}
+.btn-ob:active{transform:translateY(4px);box-shadow:0 1px 0 #55507e}
+.shake{animation:sh .3s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.arrowv{font-size:1.6rem;opacity:.5;margin:0 .4rem}
+</style>
+</head>
+<body class="select-none overflow-hidden">
+<div class="fixed inset-0 pointer-events-none"><div class="haze" style="top:-140px;left:-90px"></div><div class="haze" style="bottom:-160px;right:-110px"></div></div>
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="cardo px-10 py-12 text-center max-w-lg">
+<div class="text-6xl mb-2">🌌</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3" style="color:#cdbdff">جسر النجوم</h1>
+<p class="leading-relaxed mb-2">حوّل الكلمة الأولى للثانية…<br><b>حرف واحد بس في كل خطوة</b>، ولازم تطلع كلمة حقيقية!</p>
+<p class="text-sm opacity-60 mb-8">٦ مراحل · بدون وقت · التلميح يخصم ٣٠ ⭐<br>كمّل بعدد خطوات أقل = نقاط أكبر</p>
+<button onclick="start()" class="btn-ob px-14 py-3.5 text-xl">ابنِ الجسر ✨</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#cdbdff]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipo">مرحلة <span id="lvlEl" class="font-black text-[#cdbdff]">١</span>/٦</span>
+<span class="chipo">خطوات <span id="stepsEl" class="font-black">٠</span></span>
+<span class="chipo">⭐ <span id="scoreEl" class="font-black text-[#cdbdff]">٠</span></span>
+</div>
+
+<div class="cardo p-6 text-center">
+<div class="flex items-center justify-center mb-2 text-sm opacity-60">
+<span id="startEl"></span><span class="arrowv">←</span><span id="targetEl" class="font-bold" style="color:#8de6b8"></span>
+</div>
+<div id="wordEl" class="flex justify-center gap-2 mb-5" dir="rtl"></div>
+<div id="keysEl" class="grid grid-cols-9 gap-1.5 max-w-xs mx-auto mb-4" dir="rtl"></div>
+<button onclick="hint()" class="btn-ob text-sm !py-2 px-6">💡 تلميح (−٣٠)</button>
+</div>
+<div id="msg" class="h-8 mt-3 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden cardo px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🌠</div>
+<h2 class="text-3xl font-black mb-5" style="color:#cdbdff">عبرت الجسر!</h2>
+<div id="finalScore" class="text-6xl font-black mb-3" style="color:#8de6b8">٠</div>
+<p id="endMsg" class="opacity-80 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-ob px-12 py-3 text-lg">مجرّة جديدة ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const bestKey='obsidian-ladder-best';
+const CHAINS=[['كلب','قلب','قلم','علم'],['دار','نار','بار','باب'],['جمل','جبل','حبل','عسل']];
+const DICT=new Set(CHAINS.flat());
+const ALPHA='ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let rounds=[],ri=0,cur='',target='',chain=[],sel=0,steps=0,score=0,over=true,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){let v=0;try{v=+localStorage.getItem(bestKey)||0}catch(e){};$('bestStart').textContent=v?AR(v):'—';}
+loadBest();
+for(let i=0;i<40;i++){
+const s=document.createElement('span');
+s.className='star';
+const sz=Math.random()<.8?2:3;
+s.style.width=s.style.height=sz+'px';
+s.style.left=Math.random()*100+'vw';s.style.top=Math.random()*100+'vh';
+s.style.opacity=.15+Math.random()*.65;
+document.body.appendChild(s);
+}
+function renderWord(){
+const w=$('wordEl');
+w.innerHTML='';
+[...cur].forEach((ch,i)=>{
+const d=document.createElement('button');
+d.className='slot'+(i===sel?' active':'');
+d.textContent=ch;
+d.onclick=()=>{sel=i;renderWord();snd(300+i*30,.04,'sine',.03);};
+w.appendChild(d);
+});
+$('stepsEl').textContent=AR(steps);
+}
+function buildKeys(){
+const k=$('keysEl');
+k.innerHTML='';
+ALPHA.forEach(L=>{
+const b=document.createElement('button');
+b.className='key';b.textContent=L;
+b.onclick=()=>tryLetter(L);
+k.appendChild(b);
+});
+}
+buildKeys();
+function tryLetter(L){
+if(over)return;
+if(cur[sel]===L){$('msg').textContent='نفس الحرف يا بدوية 🙃';return;}
+const arr=[...cur];
+arr[sel]=L;
+const next=arr.join('');
+if(next===target){
+cur=next;steps++;
+score+=120;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`🌉 وصلت للهدف! +${AR(120)}`;
+$('msg').style.color='#8de6b8';
+[640,850].forEach((f,i)=>setTimeout(()=>snd(f,.12,'triangle',.05),i*100));
+setTimeout(()=>{ri++;nextRound();},1000);
+return;
+}
+if(!DICT.has(next)){
+const box=$('playScr').querySelector('.cardo');
+box.classList.add('shake');
+setTimeout(()=>box.classList.remove('shake'),320);
+$('msg').textContent=`«${next}» مش كلمة معروفة ❌`;
+$('msg').style.color='#e08585';
+snd(150,.16,'sawtooth',.05);
+return;
+}
+if(steps>=8){
+$('msg').textContent='خلصت محاولات المرحلة 💫 جرّب تلميح أو إعادة';
+$('msg').style.color='#e0c485';
+snd(200,.2,'square',.04);
+return;
+}
+cur=next;steps++;
+score+=20;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent='';
+snd(430,.07,'triangle',.04);
+renderWord();
+if(cur===target){
+score+=60;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent='🎉 اتقفلت الجسر!';
+$('msg').style.color='#8de6b8';
+setTimeout(()=>{ri++;nextRound();},900);
+}
+}
+function hint(){
+if(over||cur===target)return;
+score=Math.max(0,score-30);
+$('scoreEl').textContent=AR(score);
+const i=chain.indexOf(cur);
+if(i>-1&&i<chain.length-1){
+const nxt=chain[i+1];
+for(let p=0;p<nxt.length;p++){
+if(nxt[p]!==cur[p]){sel=p;break;}
+}
+$('msg').textContent=`💡 غيّر الحرف المضيء لـ «${nxt[sel]}»`;
+}else{
+$('msg').textContent='💡 اتبع السلسلة الصح…';
+}
+$('msg').style.color='#cdbdff';
+snd(500,.08,'sine',.04);
+renderWord();
+}
+function nextRound(){
+if(ri>=rounds.length)return finish();
+const r=rounds[ri];
+chain=r.chain;cur=r.from;target=r.to;
+steps=0;sel=0;
+$('lvlEl').textContent=AR(ri+1);
+$('startEl').textContent=r.from;
+$('targetEl').textContent=target;
+$('msg').textContent='';
+renderWord();
+snd(480,.09,'triangle',.04);
+}
+function start(){
+score=0;ri=0;over=false;
+rounds=[];
+CHAINS.forEach(c=>{
+rounds.push({chain:c,from:c[0],to:c[c.length-1]});
+rounds.push({chain:[...c].reverse(),from:c[c.length-1],to:c[0]});
+});
+rounds.sort(()=>Math.random()-.5);
+$('scoreEl').textContent='٠';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+nextRound();
+}
+function finish(){
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+const v=+localStorage.getItem(bestKey)||0;
+let m='ستة جسور من الحروف… مهندس لغوي 🏗️';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score)}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+[650,820,1050].forEach((f,i)=>setTimeout(()=>snd(f,.15,'triangle',.05),i*140));
+}
+document.addEventListener('keydown',e=>{
+if($('playScr').classList.contains('hidden')||over)return;
+if(ALPHA.includes(e.key))tryLetter(e.key);
+else if(e.key==='ArrowLeft'){sel=Math.min(cur.length-1,sel+1);renderWord();}
+else if(e.key==='ArrowRight'){sel=Math.max(0,sel-1);renderWord();}
+});
+</script>
+</body>
+</html>

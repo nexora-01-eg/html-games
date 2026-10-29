@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ابحث في السماء ☁️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#9fd8f5,#e3f4ff);color:#274b63;min-height:100vh;overflow:hidden}
+.cloudcss{position:absolute;background:#fff;border-radius:999px;filter:drop-shadow(0 6px 14px rgba(120,170,210,.25));animation:floatby linear infinite}
+.cloudcss::before,.cloudcss::after{content:'';position:absolute;background:#fff;border-radius:50%}
+.cloudcss::before{width:55%;height:160%;left:12%;bottom:22%}
+.cloudcss::after{width:38%;height:110%;right:14%;bottom:30%}
+@keyframes floatby{from{transform:translateX(-260px)}to{transform:translateX(calc(100vw + 260px))}}
+.cardw{background:rgba(255,255,255,.92);border-radius:1.8rem;box-shadow:0 16px 44px rgba(80,140,190,.25)}
+.tile{aspect-ratio:1;border-radius:.9rem;background:#ddf0fc;border:2px solid rgba(120,180,220,.35);display:flex;align-items:center;justify-content:center;font-size:clamp(1.3rem,4.5vw,2.1rem);cursor:pointer;transition:transform .08s}
+.tile:hover{transform:scale(1.07)}
+.tile.nope{background:#ffc9c9;border-color:#ff8787}
+.chips{background:#fff;border-radius:999px;padding:.32rem 1rem;font-weight:800;font-size:.85rem;box-shadow:0 3px 0 rgba(120,170,210,.3)}
+#tfill{transition:width .1s linear;background:#4dabf7}
+.btn-sky{background:#4dabf7;color:#fff;border-radius:999px;font-weight:900;box-shadow:0 6px 0 #339af0;transition:all .09s}
+.btn-sky:hover{filter:brightness(1.07)}
+.btn-sky:active{transform:translateY(4px);box-shadow:0 2px 0 #339af0}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body class="select-none">
+
+<main class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="cardw px-10 py-12 text-center max-w-lg">
+<div class="text-7xl mb-2">☁️</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3 text-[#3b82c4]">ابحث في السماء</h1>
+<p class="leading-relaxed mb-2">شبكة مليانة رموز متطابقة…<br>وواحد <b>شاذ</b> يختبئ بينها — اضغطه!</p>
+<p class="text-sm opacity-60 mb-8">٦٠ ثانية · الشبكة تكبر والشذوذ يصير أخبث 🕵️<br>كل خطأ −٣ ثوانٍ</p>
+<button onclick="start()" class="btn-sky px-14 py-3.5 text-xl">حلّق! 🕊️</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#3b82c4]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="flex justify-between items-center mb-4 flex-wrap gap-1.5">
+<span class="chips">⭐ <span id="scoreEl" class="font-black text-[#3b82c4]">٠</span></span>
+<span class="chips">🎯 متتالية <span id="streakEl" class="font-black text-emerald-500">٠</span></span>
+<span class="chips">⏱ <span id="secsEl" class="font-black text-[#3b82c4]">60</span>ث</span>
+</div>
+<div class="w-full h-3 rounded-full bg-white/70 overflow-hidden mb-5"><div id="tfill" class="h-full" style="width:100%"></div></div>
+<div id="gridEl" class="grid gap-2.5 cardw p-3"></div>
+<div id="msg" class="h-9 mt-4 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden cardw px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🪁</div>
+<h2 class="text-3xl font-black mb-5 text-[#3b82c4]">هبوط اضطراري!</h2>
+<div class="flex gap-8 justify-center mb-4">
+<div><div id="finalScore" class="text-4xl font-black text-[#3b82c4]">٠</div><div class="text-xs opacity-60 mt-1">النقاط</div></div>
+<div><div id="finalSolved" class="text-4xl font-black text-emerald-500">٠</div><div class="text-xs opacity-60 mt-1">شواذ صيدتهم</div></div>
+</div>
+<p id="endMsg" class="opacity-70 mb-8"></p>
+<button onclick="start()" class="btn-sky px-12 py-3 text-lg">إقلاع آخر ↻</button>
+</div>
+
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const DUR=60,bestKey='sky-odd-best';
+const PAIRS=[
+['😀','😃'],['🐶','🐕'],['🌸','🌺'],['⭐','🌟'],['🍎','🍏'],
+['🐸','🐢'],['🌞','🌝'],['🎈','🎉'],['🐝','🪲'],['🚗','🚙']
+];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let score=0,streak=0,solved=0,tLeft=DUR,timer=null,over=true,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v?AR(v):'—';}catch(e){}}
+loadBest();
+(function(){
+for(let i=0;i<3;i++){
+const c=document.createElement('div');
+c.className='cloudcss';
+const w=90+Math.random()*90;
+c.style.width=w+'px';c.style.height=(w*.34)+'px';
+c.style.top=(6+i*13)+'%';
+c.style.animationDuration=(34+i*11)+'s';
+c.style.animationDelay=(-i*7)+'s';
+document.body.appendChild(c);
+}
+})();
+function gridSize(){return solved<3?3:solved<7?4:5;}
+function buildPuzzle(){
+const n=gridSize();
+const g=$('gridEl');
+g.style.gridTemplateColumns=`repeat(${n},minmax(0,1fr))`;
+g.innerHTML='';
+const pair=PAIRS[Math.floor(Math.random()*PAIRS.length)];
+const mode=solved<2?'partner':['partner','rotate','filter'][Math.floor(Math.random()*3)];
+const base=mode==='rotate'||mode==='filter'?pair[0]:pair[0];
+const oddVal=mode==='partner'?pair[1]:base;
+const total=n*n,oddIdx=Math.floor(Math.random()*total);
+for(let i=0;i<total;i++){
+const t=document.createElement('button');
+t.className='tile';
+t.textContent=i===oddIdx?oddVal:base;
+if(i===oddIdx){
+if(mode==='rotate')t.style.transform='rotate(180deg)';
+if(mode==='filter')t.style.filter='saturate(.45) brightness(1.06)';
+}else{
+t.style.transform='';t.style.filter='';
+}
+t.onclick=e=>{
+if(over)return;
+if(i===oddIdx){
+solved++;streak++;
+const gain=(n*n<=9?10:n*n<=16?15:20)+streak*2;
+score+=gain;
+$('scoreEl').textContent=AR(score);
+$('streakEl').textContent=AR(streak);
+$('msg').textContent=`✓ لقيته! +${AR(gain)}`;
+$('msg').style.color='#2f9e44';
+snd(700,.07,'triangle',.05);setTimeout(()=>snd(950,.09,'triangle',.05),70);
+buildPuzzle();
+}else{
+streak=0;tLeft=Math.max(.5,tLeft-3);
+$('streakEl').textContent='٠';
+$('msg').textContent='مو هو! −٣ث';
+$('msg').style.color='#e03131';
+t.classList.add('nope');
+snd(150,.18,'sawtooth',.05);
+$('gridEl').classList.add('shake');
+setTimeout(()=>$('gridEl').classList.remove('shake'),380);
+setTimeout(()=>t.classList.remove('nope'),300);
+}
+};
+g.appendChild(t);
+}
+}
+function start(){
+score=0;streak=0;solved=0;tLeft=DUR;over=false;
+$('scoreEl').textContent='٠';$('streakEl').textContent='٠';$('secsEl').textContent=DUR;
+$('msg').textContent='';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+buildPuzzle();
+clearInterval(timer);
+timer=setInterval(()=>{
+tLeft-=.1;
+if(tLeft<=0)return finish();
+$('secsEl').textContent=Math.ceil(tLeft);
+$('tfill').style.width=(tLeft/DUR*100)+'%';
+},100);
+snd(540,.1,'triangle',.05);
+}
+function finish(){
+clearInterval(timer);
+over=true;
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=AR(score);
+$('finalSolved').textContent=AR(solved);
+const v=+localStorage.getItem(bestKey)||0;
+let m=solved>=15?'عين صقر حقيقية! 🦅':solved>=8?'رصد جوي محترم 👀':'الغيوم أعمتك اليوم 😅';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+$('endMsg').textContent=m;
+[600,450].forEach((f,i)=>setTimeout(()=>snd(f,.16,'triangle',.04),i*140));
+}
+</script>
+</body>
+</html>

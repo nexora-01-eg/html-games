@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>غشّاشة الألوان STROOP ❄️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#d9effc,#f7fbff)}
+@keyframes driftK{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+.snow{position:absolute;animation:driftK 5s ease-in-out infinite;opacity:.25;pointer-events:none;user-select:none}
+.optS{border:2px solid #e2e8f0;background:#fff;border-radius:1rem;padding:.7rem .5rem;display:flex;flex-direction:column;align-items:center;gap:.4rem;transition:all .12s}
+.optS:hover:not(:disabled){border-color:#38bdf8;transform:translateY(-3px)}
+.optS:disabled{cursor:default}
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 text-sky-950 relative overflow-hidden">
+<span class="snow text-4xl" style="top:8%;right:10%">❄️</span>
+<span class="snow text-2xl" style="top:18%;left:12%;animation-delay:1.2s">❄️</span>
+<span class="snow text-3xl" style="bottom:14%;right:16%;animation-delay:.6s">❄️</span>
+<span class="snow text-xl" style="bottom:22%;left:8%;animation-delay:1.8s">❄️</span>
+
+<main class="w-full max-w-md bg-white/85 backdrop-blur border-4 border-sky-200 rounded-3xl shadow-[0_18px_50px_rgba(14,165,233,.18)] p-6 relative z-10">
+
+  <section id="home" class="text-center py-4">
+    <h1 class="text-3xl md:text-4xl font-black text-sky-700 mb-3">❄️ غشّاشة الألوان</h1>
+    <p class="leading-7 text-sm mb-5">الكلمة بتقول لون… والحبر بلون ثاني!<br><b>اضغط اللون الذي مكتوب «به» الكلمة</b>، لا معناها.<br>٤٥ ثانية من الفوضى العصبية 🧠</p>
+    <p class="text-sm mb-5 font-semibold">🏅 أفضل نتيجة: <span id="bestHome">—</span></p>
+    <button onclick="startGame()" class="bg-sky-500 hover:bg-sky-400 text-white font-bold text-lg px-10 py-3 rounded-2xl shadow-lg shadow-sky-300 active:scale-95 transition">ابدأ الذوبان ❄️</button>
+  </section>
+
+  <section id="play" class="hidden">
+    <div class="flex justify-between text-sm font-bold mb-4">
+      <span>⏰ <span id="tLeft" class="text-sky-600">45</span></span>
+      <span>🍬 <span id="score">0</span></span>
+      <span>🔥 <span id="streak">0</span></span>
+    </div>
+    <div class="h-32 flex items-center justify-center rounded-2xl bg-sky-50 border-2 border-dashed border-sky-300 mb-5">
+      <span id="wordEl" class="text-5xl font-black tracking-wide"></span>
+    </div>
+    <div id="opts" class="grid grid-cols-2 gap-3"></div>
+    <div id="fb" class="h-7 mt-3 text-center text-sm font-bold"></div>
+  </section>
+
+  <section id="end" class="hidden text-center py-6">
+    <div id="eIcon" class="text-6xl mb-2">🥶</div>
+    <h2 class="text-2xl font-black mb-1">انتهى الجليد!</h2>
+    <p class="text-5xl font-black text-sky-600 my-4"><span id="fScore">0</span></p>
+    <p id="fDetail" class="text-sm font-semibold mb-6"></p>
+    <button onclick="startGame()" class="bg-sky-500 hover:bg-sky-400 text-white font-bold px-10 py-3 rounded-2xl shadow-lg active:scale-95 transition">مرة ثانية 🔄</button>
+  </section>
+</main>
+
+<script>
+const COLORS=[
+ {n:'أحمر',c:'#ef4444'},{n:'أزرق',c:'#3b82f6'},{n:'أخضر',c:'#22c55e'},
+ {n:'أصفر',c:'#eab308'},{n:'بنفسجي',c:'#a855f7'},{n:'برتقالي',c:'#f97316'}
+];
+const DUR=45;
+let score,streak,timeF,timerInt=null,curInk;
+
+const $=function(id){return document.getElementById(id);};
+let ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'sine';o.frequency.value=f;v.gain.setValueAtTime(g||.06,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function newRound(){
+ curInk=COLORS[ri(0,COLORS.length-1)];
+ let word=COLORS[ri(0,COLORS.length-1)];
+ if(Math.random()<.78&&word.n===curInk.n){
+   do{word=COLORS[ri(0,COLORS.length-1)];}while(word.n===curInk.n);
+ }
+ const w=$('wordEl');
+ w.textContent=word.n;
+ w.style.color=curInk.c;
+ w.className='text-5xl font-black tracking-wide pop-in';
+
+ const others=shuffle(COLORS.filter(function(c){return c!==curInk;})).slice(0,3);
+ const opts=shuffle(others.concat([curInk]));
+ const box=$('opts');box.innerHTML='';
+ opts.forEach(function(c){
+   const b=document.createElement('button');
+   b.className='optS';
+   b.innerHTML='<span style="background:'+c.c+'" class="w-12 h-12 rounded-xl border border-black/10 shadow-inner"></span><span class="text-xs font-bold text-slate-400">'+c.n+'</span>';
+   b.onclick=function(){answer(c);};
+   box.appendChild(b);
+ });
+ $('fb').textContent='';
+}
+
+function answer(c){
+ if(ac===null)snd(0,.01,'sine',0);
+ if(c===curInk){
+  streak++;
+  score+=10+streak*2;
+  timeF=Math.min(DUR,timeF+.5);
+  snd(660+streak*30,.08,'triangle',.05);
+  $('fb').className='h-7 mt-3 text-center text-sm font-bold text-emerald-500';
+  $('fb').textContent='✓ صحيح! +'+(10+streak*2)+(streak>=3?' 🔥':'');
+ }else{
+  streak=0;
+  timeF=Math.max(1,timeF-2);
+  snd(150,.2,'sawtooth',.05);
+  $('fb').className='h-7 mt-3 text-center text-sm font-bold text-rose-500';
+  $('fb').textContent='✗ هذا معنى الكلمة مش لونها! −٢ ثوانٍ 😵';
+ }
+ $('score').textContent=score;$('streak').textContent=streak;
+ paintTime();
+ newRound();
+}
+
+function paintTime(){
+ timeF=Math.max(0,timeF);
+ $('tLeft').textContent=Math.ceil(timeF);
+ $('tLeft').className=timeF<=10?'text-rose-500 animate-pulse':'text-sky-600';
+}
+
+function tick(){
+ timeF-=0.1;paintTime();
+ if(timeF<=0)endGame();
+}
+
+function startGame(){
+ score=0;streak=0;timeF=DUR;
+ $('home').classList.add('hidden');$('end').classList.add('hidden');$('play').classList.remove('hidden');
+ $('score').textContent='0';$('streak').textContent='0';
+ clearInterval(timerInt);
+ paintTime();newRound();
+ timerInt=setInterval(tick,100);
+}
+
+function endGame(){
+ clearInterval(timerInt);
+ $('play').classList.add('hidden');$('end').classList.remove('hidden');
+ $('fScore').textContent=score;
+ let best=0;try{best=Number(localStorage.getItem('stroop-arctic-best')||0);}catch(e){}
+ let rec='';
+ if(score>best){best=score;try{localStorage.setItem('stroop-arctic-best',score);}catch(e){}rec=' — رقم قياسي! 🏅';}
+ let icon,r;
+ if(score>=400){icon='🥇';r='عين مخبرية لا تخطئ!';}
+ else if(score>=250){icon='🧊';r='بارد ومركّز… تصفيق حاد';}
+ else if(score>=120){icon='🙂';r='جيد، بس المخ لسه يتسخن';}
+ else{icon='🌀';r='اتلخبطت بين المعنى والحبر!';}
+ $('eIcon').textContent=icon;
+ $('fDetail').textContent=r+rec+' • أفضل: '+Math.max(score,best);
+}
+
+(function(){try{const b=localStorage.getItem('stroop-arctic-best');if(b)$('bestHome').textContent=b;}catch(e){}})();
+</script>
+</body>
+</html>

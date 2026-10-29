@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ربّط الإيقاع</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:linear-gradient(135deg,#0a001a,#1a0033);min-height:100vh;display:flex;align-items:center;justify-content:center}
+.pad{width:100px;height:100px;border-radius:16px;cursor:pointer;transition:all 0.15s;border:3px solid rgba(255,255,255,0.2)}
+.pad.lit{box-shadow:0 0 30px currentColor;transform:scale(1.08)}
+</style>
+</head>
+<body class="text-white">
+<div id="startScreen" class="text-center">
+<h1 class="text-4xl font-bold mb-4 text-fuchsia-400">ربّط الإيقاع</h1>
+<p class="mb-6 text-lg text-gray-300">تذكّر التسلسل واضغط بالأ correct ترتيب</p>
+<button onclick="startGame()" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-xl text-xl font-bold">ابدأ</button>
+<div id="best1" class="mt-4 text-sm text-fuchsia-300"></div>
+</div>
+<div id="playScreen" class="hidden text-center">
+<div class="mb-4 text-lg font-bold"><span id="levelDisplay">المستوى: 1</span> | <span id="scoreDisplay">النقاط: 0</span></div>
+<div id="pads" class="grid grid-cols-2 gap-4 mx-auto" style="width:220px"></div>
+<p id="statusText" class="mt-6 text-xl font-bold text-fuchsia-300">شاهد التسلسل...</p>
+</div>
+<div id="finishScreen" class="hidden text-center">
+<h2 class="text-3xl font-bold mb-4 text-fuchsia-400">انتهى!</h2>
+<p id="finalStats" class="text-lg mb-6"></p>
+<button onclick="startGame()" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-3 rounded-xl text-xl font-bold">مرّة أخرى</button>
+<button onclick="goHome()" class="bg-gray-500 hover:bg-gray-600 text-white px-8 py-3 rounded-xl text-xl font-bold mt-3">القائمة</button>
+</div>
+<script>
+let level=1,score=0,sequence=[],playerIdx=0,playing=false;
+let padColors=['#f43f5e','#3b82f6','#22c55e','#f59e0b'];
+let padFreqs=[330,440,550,660];
+let best=0;try{best=parseInt(localStorage.getItem('rhythm-tap-best'))||0;}catch(e){}
+function $(id){return document.getElementById(id)}
+function audioCtx(){return new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(f,t,d){let c=audioCtx(),o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.12;o.connect(g);g.connect(c.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.stop(c.currentTime+d);}
+function goHome(){$('startScreen').classList.remove('hidden');$('playScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('best1').textContent=best?'أفضل نتيجة: '+best+' نقطة':'';}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+function startGame(){
+$('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');$('playScreen').classList.remove('hidden');
+level=1;score=0;$('levelDisplay').textContent='المستوى: 1';$('scoreDisplay').textContent='النقاط: 0';
+buildPads();newRound();
+}
+function buildPads(){
+let c=$('pads');c.innerHTML='';
+for(let i=0;i<4;i++){
+let p=document.createElement('button');p.className='pad';p.style.background=padColors[i];p.style.color=padColors[i];
+p.dataset.idx=i;p.onclick=()=>tapPad(i);
+c.appendChild(p);
+}
+}
+function newRound(){
+playing=false;$('statusText').textContent='شاهد التسلسل...';
+sequence.push(Math.floor(Math.random()*4));playerIdx=0;
+showSequence();
+}
+function showSequence(){
+let i=0;let iv=setInterval(()=>{
+if(i>=sequence.length){clearInterval(iv);playing=true;$('statusText').textContent='دورك الآن — كرر النمط!';return;}
+flashPad(sequence[i]);i++;
+},600);
+}
+function flashPad(idx){
+let pads=document.querySelectorAll('.pad');
+pads[idx].classList.add('lit');playTone(padFreqs[idx],'square',0.15);
+setTimeout(()=>pads[idx].classList.remove('lit'),350);
+}
+function tapPad(idx){
+if(!playing)return;
+playTone(padFreqs[idx],'triangle',0.1);
+flashPad(idx);
+if(idx===sequence[playerIdx]){
+playerIdx++;
+if(playerIdx>=sequence.length){
+score+=level*10;$('scoreDisplay').textContent='النقاط: '+score;
+level++;$('levelDisplay').textContent='المستوى: '+level;
+playing=false;$('statusText').textContent='صحيح! المستوى '+level;
+setTimeout(()=>newRound(),800);
+}
+}else{
+playing=false;$('statusText').textContent='خطأ! انتهى';
+if(score>best){best=score;try{localStorage.setItem('rhythm-tap-best',best);}catch(e){}}
+$('finalStats').textContent='النتيجة: '+score+' نقطة | وصلت المستوى '+level;
+setTimeout(()=>{$('playScreen').classList.add('hidden');$('finishScreen').classList.remove('hidden');},800);
+playTone(150,'sawtooth',0.3);
+}
+}
+goHome();
+</script>
+</body>
+</html>

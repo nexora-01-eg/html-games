@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>رتّب بسرعة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body{margin:0;overflow:hidden}</style>
+</head>
+<body class="bg-gray-900 flex flex-col items-center justify-center min-h-screen text-white font-sans">
+<div class="text-center mb-4">
+<h1 class="text-2xl font-bold mb-1">رتّب بسرعة</h1>
+<p class="text-gray-400 text-sm">الجولة <span id="round">1</span> | النتيجة: <span id="score">0</span> | الأفضل: <span id="best">0</span> | الوقت: <span id="timeLeft">30</span>s</p>
+</div>
+<div class="mb-2"><p class="text-gray-400 text-sm">اضغط الأرقام تصاعدياً</p></div>
+<div id="board" class="flex flex-wrap gap-3 justify-center mb-6" style="max-width:400px"></div>
+<div id="feedback" class="text-lg h-6 mb-4"></div>
+<button id="startBtn" class="bg-cyan-600 hover:bg-cyan-700 px-8 py-3 rounded-xl text-lg font-bold transition">ابدأ</button>
+<script>
+let best=0;try{best=+(localStorage.getItem('speedsort-best')||0);}catch(e){}
+let score=0,round=1,playing=false,nums=[],nextVal=0,totalTime=0,startTime=0,endTimeout=null,timeRemain=30,countInt=null;
+document.getElementById('best').textContent=best;
+const ctx=new(window.AudioContext||window.webkitAudioContext)();
+function beep(f,d,t='sine'){const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=0.3;o.connect(g);g.connect(ctx.destination);o.start();g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.stop(ctx.currentTime+d);}
+function genRound(){
+const count=Math.min(4+round,12);
+const maxVal=10+round*5;
+const pool=[];
+while(pool.length<count){
+const v=Math.floor(Math.random()*maxVal)+1;
+if(!pool.includes(v))pool.push(v);
+}
+nums=pool.slice().sort((a,b)=>a-b);
+const display=pool.slice();
+for(let i=display.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[display[i],display[j]]=[display[j],display[i]];}
+nextVal=0;
+const b=document.getElementById('board');
+b.innerHTML='';
+const fb=document.getElementById('feedback');
+fb.textContent='';fb.className='text-lg h-6 mb-4 text-white';
+display.forEach(v=>{
+const d=document.createElement('div');
+d.className='w-16 h-16 bg-gray-700 hover:bg-gray-600 rounded-xl flex items-center justify-center text-2xl font-bold cursor-pointer transition-all';
+d.textContent=v;
+d.dataset.val=v;
+d.addEventListener('click',()=>tapNum(d,v));
+b.appendChild(d);
+});
+startTime=Date.now();
+}
+function tapNum(el,v){
+if(!playing)return;
+if(v===nums[nextVal]){
+el.style.opacity='0';
+el.style.transform='scale(0.5)';
+el.style.pointerEvents='none';
+beep(400+nextVal*30,0.1);
+nextVal++;
+if(nextVal===nums.length){
+const elapsed=(Date.now()-startTime)/1000;
+const pts=Math.max(1,Math.floor(30-elapsed*2))*round;
+score+=pts;
+document.getElementById('score').textContent=score;
+document.getElementById('feedback').textContent=`+${pts} نقطة!`;
+document.getElementById('feedback').className='text-lg h-6 mb-4 text-green-400 font-bold';
+round++;
+document.getElementById('round').textContent=round;
+setTimeout(()=>{if(playing)genRound();},1000);
+}
+}else{
+beep(200,0.2,'sawtooth');
+document.getElementById('feedback').textContent='خطأ! حاول الأصغر';
+document.getElementById('feedback').className='text-lg h-6 mb-4 text-red-400 font-bold';
+score=Math.max(0,score-5);
+document.getElementById('score').textContent=score;
+}
+}
+function endGame(){
+playing=false;
+clearTimeout(endTimeout);
+clearInterval(countInt);
+document.getElementById('startBtn').style.display='block';
+document.getElementById('startBtn').textContent='العب مرة أخرى';
+if(score>best){best=score;try{localStorage.setItem('speedsort-best',score);}catch(e){}document.getElementById('best').textContent=score;}
+}
+function start(){
+score=0;round=1;playing=true;timeRemain=30;
+document.getElementById('score').textContent=0;
+document.getElementById('round').textContent=1;
+document.getElementById('timeLeft').textContent=30;
+document.getElementById('startBtn').style.display='none';
+genRound();
+endTimeout=setTimeout(endGame,30000);
+countInt=setInterval(()=>{
+timeRemain--;
+document.getElementById('timeLeft').textContent=Math.max(0,timeRemain);
+document.getElementById('timeLeft').style.color=timeRemain<=5?'red':'';
+},1000);
+}
+document.getElementById('startBtn').addEventListener('click',start);
+</script>
+</body>
+</html>

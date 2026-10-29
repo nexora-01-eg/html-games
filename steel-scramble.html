@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ورشة الكلمات 🏭</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#232b33;color:#dbe6ef}
+.hazard{height:12px;background:repeating-linear-gradient(45deg,#ffb340 0 16px,#20262c 16px 32px)}
+.metal{background:linear-gradient(180deg,#39444f,#2a333c);border:1px solid #55636f;border-radius:.9rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 26px rgba(0,0,0,.35);position:relative}
+.rivets::before,.rivets::after{content:'';position:absolute;top:8px;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#93a5b5,#4a5866)}
+.rivets::before{right:8px}.rivets::after{left:8px}
+.tile{width:52px;height:52px;font-size:1.35rem;font-weight:900;color:#eaf2f8;background:linear-gradient(180deg,#4d5a66,#39434d);border:1px solid #66757f;border-bottom-width:4px;border-radius:.6rem;transition:all .07s}
+.tile:hover:not(:disabled){filter:brightness(1.12)}
+.tile:active:not(:disabled){transform:translateY(2px)}
+.tile:disabled{opacity:.25;cursor:default}
+.slot{width:52px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:900;border-radius:.6rem;background:#1c2228;border:2px dashed #4d5a66;color:#ffd28f}
+.slot.filled{border-style:solid;border-color:#ff8c42;background:#2a333c}
+.btn-ind{background:#ff8c42;color:#24170a;font-weight:900;border-radius:.55rem;padding:.55rem 1.6rem;box-shadow:0 4px 0 #b85f22;transition:all .08s}
+.btn-ind:hover{filter:brightness(1.06)}
+.btn-ind:active{transform:translateY(3px);box-shadow:none}
+.chipst{background:#1c2228;border:1px solid #4d5a66;border-radius:.45rem;padding:.28rem .95rem;font-weight:700;font-size:.85rem;color:#b8c9d9}
+.shake{animation:sh .3s}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.okflash{animation:ok .5s}
+@keyframes ok{30%{background:#2f7d4f!important}}
+</style>
+</head>
+<body class="select-none">
+<div class="hazard"></div>
+
+<main class="min-h-[92vh] flex flex-col items-center justify-center p-4">
+
+<div id="startScr" class="metal rivets px-10 py-11 text-center max-w-lg">
+<div class="text-5xl mb-2">🏭</div>
+<h1 class="text-4xl md:text-5xl font-black mb-3" style="color:#ff8c42">ورشة الكلمات</h1>
+<p class="leading-relaxed mb-2">حروف اتفرقت على طاولة الورشة…<br><b>دوس عليها بالترتيب</b> وركّب الكلمة الصحيحة!</p>
+<p class="text-sm opacity-65 mb-8">١٠ كلمات · دقيقة و٣٠ ثانية شيفت واحد<br>التلميح موجود، والخطأ بيكلّفك ١٠ نقاط ⚙️</p>
+<button onclick="start()" class="btn-ind px-12 py-3 text-xl">ابدأ الشيفت 🔧</button>
+<p class="mt-6 text-sm opacity-60">أفضل نتيجة: <span id="bestStart" class="font-bold text-[#ff8c42]">—</span></p>
+</div>
+
+<div id="playScr" class="hidden w-full max-w-md">
+<div class="flex justify-between items-center mb-3 flex-wrap gap-1.5">
+<span class="chipst">قطعة <span id="roundEl" class="text-[#ff8c42] font-black">١</span>/١٠</span>
+<span class="chipst">⭐ <span id="scoreEl" class="text-[#ff8c42] font-black">٠</span></span>
+<span class="chipst">⏱ <span id="timeEl" class="font-black">١:٣٠</span></span>
+</div>
+
+<div class="metal rivets p-5 text-center">
+<div class="text-xs opacity-60 mb-1">تلميح الآلة:</div>
+<div id="hintEl" class="font-bold mb-6" style="color:#ff8c42"></div>
+<div id="slotsEl" class="flex justify-center gap-2 flex-wrap-reverse mb-6 min-h-[56px]" dir="rtl"></div>
+<div id="tilesEl" class="flex justify-center gap-2 flex-wrap-reverse mb-5" dir="rtl"></div>
+<div class="flex gap-2 justify-center">
+<button onclick="undo()" class="btn-ind text-sm !py-2">↩ تراجع</button>
+<button onclick="clearAll()" class="btn-ind text-sm !py-2">🗑 تفريغ</button>
+<button onclick="skip()" class="btn-ind text-sm !py-2">⏭ تخطي (−٢٠)</button>
+</div>
+</div>
+<div id="msg" class="h-8 mt-3 text-center font-bold"></div>
+</div>
+
+<div id="endScr" class="hidden metal rivets px-12 py-12 text-center max-w-md w-full">
+<div class="text-6xl mb-2">🔩</div>
+<h2 class="text-3xl font-black mb-6" style="color:#ff8c42">انتهى الشيفت!</h2>
+<div id="finalScore" class="text-6xl font-black mb-3" style="color:#ffd28f">٠</div>
+<p id="endMsg" class="opacity-80 mb-8 leading-relaxed"></p>
+<button onclick="start()" class="btn-ind px-12 py-3 text-lg">شيفت جديد ↻</button>
+</div>
+
+</main>
+<div class="hazard fixed bottom-0 inset-x-0"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const bestKey='steel-scramble-best';
+const BANK=[
+['مدرسة','مكان التعلم'],['قلم','تكتب به'],['نافذة','فتحة في الحيطة'],['مطبخ','مكان الطبخ'],
+['حديقة','خضرة وأشجار'],['سيارة','مواصلات بأربع عجلات'],['مكتبة','بيت الكتب'],['ساعة','بتقول الوقت'],
+['مصباح','نور في الليل'],['جزيرة','أرض وسط المية'],['عصفور','يطير ويزقزق'],['مفتاح','يفتح الباب'],
+['سلة','تحط فيها المشتريات'],['قميص','يلبسكه فوق'],['جمل','سفينة الصحراء'],['نهر','مية جارية']
+];
+const AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+let picks=[],idx=0,word='',placed=[],score=0,timer=null,timeLeft=90,over=true,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'triangle';o.frequency.value=f;v.gain.setValueAtTime(g||.05,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.12));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.12));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v?AR(v):'—';}catch(e){}}
+loadBest();
+function shuffle(a){
+const b=[...a];
+for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
+return b;
+}
+function fmt(s){return AR(Math.floor(s/60))+':'+AR(String(s%60).padStart(2,'0'));}
+function renderRound(){
+word=picks[idx][0];
+$('hintEl').textContent=picks[idx][1];
+$('roundEl').textContent=AR(idx+1);
+placed=[];
+let shuf=shuffle([...word]);
+if(shuf.join('')===word&&word.length>2)shuf=shuffle(shuf);
+const slots=$('slotsEl'),tiles=$('tilesEl');
+slots.innerHTML='';tiles.innerHTML='';
+for(let i=0;i<word.length;i++){
+const s=document.createElement('div');
+s.className='slot';s.dataset.i=i;
+slots.appendChild(s);
+}
+shuf.forEach((ch,i)=>{
+const t=document.createElement('button');
+t.className='tile';t.textContent=ch;
+t.onclick=()=>place(i,t);
+tiles.appendChild(t);
+});
+$('msg').textContent='';
+}
+function place(ti,btn){
+if(over)return;
+const empty=[...$('slotsEl').children].find(s=>!s.textContent);
+if(!empty)return;
+empty.textContent=btn.textContent;
+empty.classList.add('filled');
+btn.disabled=true;
+placed.push({ti,slot:empty});
+snd(360+placed.length*40,.05,'sine',.04);
+if(placed.length===word.length)check();
+}
+function check(){
+const guess=[...$('slotsEl').children].map(s=>s.textContent).join('');
+const panel=$('playScr').querySelector('.metal');
+if(guess===word){
+panel.classList.add('okflash');
+setTimeout(()=>panel.classList.remove('okflash'),520);
+score+=word.length*15;
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`✅ مركّبة صح! +${AR(word.length*15)}`;
+$('msg').style.color='#7ee2a8';
+snd(660,.1);setTimeout(()=>snd(880,.13),100);
+idx++;
+setTimeout(()=>{
+if(idx>=picks.length)return finish(true);
+renderRound();
+},900);
+}else{
+panel.classList.add('shake');
+setTimeout(()=>panel.classList.remove('shake'),320);
+score=Math.max(0,score-10);
+$('scoreEl').textContent=AR(score);
+$('msg').textContent='❌ التركيب غلط — جرّب تاني (−١٠)';
+$('msg').style.color='#ff7b6b';
+snd(150,.18,'sawtooth',.05);
+clearAll();
+}
+}
+function undo(){
+if(over||!placed.length)return;
+const last=placed.pop();
+last.slot.textContent='';
+last.slot.classList.remove('filled');
+document.querySelectorAll('#tilesEl .tile')[last.ti].disabled=false;
+snd(240,.05,'sine',.03);
+}
+function clearAll(){
+while(placed.length)undo();
+}
+function skip(){
+if(over)return;
+score=Math.max(0,score-20);
+$('scoreEl').textContent=AR(score);
+$('msg').textContent=`⏭ كانت: ${word} (−٢٠)`;
+$('msg').style.color='#ffcf70';
+snd(200,.15,'square',.04);
+idx++;
+setTimeout(()=>{
+if(idx>=picks.length)return finish(true);
+renderRound();
+},800);
+}
+function start(){
+over=false;idx=0;score=0;timeLeft=90;
+picks=shuffle(BANK).slice(0,10);
+$('scoreEl').textContent='٠';
+$('endScr').classList.add('hidden');$('startScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+clearInterval(timer);
+timer=setInterval(()=>{
+timeLeft--;
+$('timeEl').textContent=fmt(timeLeft);
+if(timeLeft<=0){clearInterval(timer);finish(false);}
+},1000);
+$('timeEl').textContent=fmt(timeLeft);
+renderRound();
+snd(520,.1,'triangle',.05);
+}
+function finish(complete){
+over=true;
+clearInterval(timer);
+if(complete){
+const bonus=timeLeft*3;
+score+=bonus;
+$('msg').textContent=`🎁 بونص الوقت المتبقي: +${AR(bonus)}`;
+snd(700,.1);setTimeout(()=>snd(950,.14),110);
+}
+$('finalScore').textContent=AR(score);
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+const v=+localStorage.getItem(bestKey)||0;
+let m=complete?'الورشة سلمت الشغل في المعاد ✅':'الوقت خلص والماكينات وقفت…';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m+=' رقم قياسي جديد 🏆';loadBest();}
+else if(v)m+=' أفضل نتيجة لك: '+AR(v);
+$('endMsg').textContent=m;
+}
+</script>
+</body>
+</html>

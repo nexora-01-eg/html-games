@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>اختبار سرعة الفعل</title><script src="https://cdn.tailwindcss.com"></script></head><body id="bg" class="bg-gray-900 min-h-screen flex items-center justify-center font-sans transition-colors duration-100"><div class="text-center">
+<div id="info" class="text-white mb-4">
+<div class="text-3xl font-bold mb-2">اختبار سرعة الفعل</div>
+<div id="status" class="text-xl mb-4">جاهز؟</div>
+<div id="roundInfo" class="text-gray-400 mb-2"></div>
+<div id="times" class="space-y-1 mb-4"></div>
+<div id="result" class="hidden text-2xl font-bold text-yellow-400"></div>
+</div>
+<button id="mainBtn" onclick="handleClick()" class="bg-white/20 hover:bg-white/30 text-white text-2xl font-bold px-16 py-12 rounded-3xl transition-all duration-200 cursor-pointer border-2 border-white/30">ابدأ</button>
+<div id="bestDisp" class="text-gray-500 mt-4"></div>
+</div><script>
+let state='idle',round=0,maxRounds=8,times=[],startT=0,timeoutId=null,best=99999;try{best=+(localStorage.getItem('react-test-best'))||99999;}catch(e){}
+function playSound(f,d,t){let ctx=new(window.AudioContext||window.webkitAudioContext)(),o=ctx.createOscillator(),g=ctx.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=0.3;g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d);}
+function updateBest(){document.getElementById('bestDisp').textContent=best<99999?'أفضل نتيجة: '+best+'ms':'';}
+updateBest();
+function handleClick(){
+if(state==='idle'){startRound();return;}
+if(state==='waiting'){clearTimeout(timeoutId);playSound(200,0.3,'sawtooth');document.getElementById('bg').classList.remove('bg-red-600');document.getElementById('bg').classList.add('bg-yellow-600');document.getElementById('status').textContent='⚠️ نقرة مبكرة! حاول مرة أخرى';state='idle';document.getElementById('mainBtn').textContent='إعادة المحاولة';return;}
+if(state==='go'){
+let elapsed=Date.now()-startT;
+times.push(elapsed);
+playSound(800,0.15);
+document.getElementById('bg').classList.remove('bg-green-600');
+document.getElementById('bg').classList.add('bg-gray-900');
+document.getElementById('times').innerHTML+='<div class="text-white">الجولة '+(round+1)+': <span class="text-green-400 font-bold">'+elapsed+'ms</span></div>';
+document.getElementById('status').textContent='ممتاز! '+elapsed+'ms';
+round++;
+if(round>=maxRounds){endGame();return;}
+state='idle';
+document.getElementById('mainBtn').textContent='الجولة التالية';
+}
+}
+function startRound(){
+document.getElementById('times').innerHTML='';
+document.getElementById('result').classList.add('hidden');
+document.getElementById('mainBtn').textContent='انتظر...';
+document.getElementById('bg').classList.remove('bg-gray-900','bg-green-600');
+document.getElementById('bg').classList.add('bg-red-600');
+document.getElementById('status').textContent='لا تنظر... انتظر الأخضر!';
+document.getElementById('roundInfo').textContent='الجولة '+(round+1)+'/'+maxRounds;
+state='waiting';
+let delay=1500+Math.random()*3000;
+timeoutId=setTimeout(()=>{
+state='go';startT=Date.now();
+document.getElementById('bg').classList.remove('bg-red-600');
+document.getElementById('bg').classList.add('bg-green-600');
+document.getElementById('status').textContent='🟢 انقر الآن!';
+playSound(500,0.1);
+},delay);
+}
+function endGame(){
+state='idle';
+let total=times.reduce((a,b)=>a+b,0);
+let avg=Math.round(total/times.length);
+let bestTime=Math.min(...times);
+let worstTime=Math.max(...times);
+let isNew=avg<best;
+if(isNew){best=avg;try{localStorage.setItem('react-test-best',best);}catch(e){}}
+document.getElementById('bg').classList.remove('bg-green-600','bg-red-600');
+document.getElementById('bg').classList.add('bg-gray-900');
+document.getElementById('mainBtn').classList.remove('hidden');
+    document.getElementById('mainBtn').textContent='العب مرة أخرى';
+    state='idle';round=0;times=[];
+    let bestLines=isNew?'<div class="text-green-400">🏆 رقم قياسي جديد!</div>':'';
+document.getElementById('result').classList.remove('hidden');
+document.getElementById('result').innerHTML='📊 متوسط: '+avg+'ms<br>⚡ الأفضل: '+bestTime+'ms<br>🐢 الأبطأ: '+worstTime+'ms<br><span class="text-yellow-300 text-sm">النتيجة: '+Math.max(0,8000-total)+' نقطة</span>'+bestLines;
+document.getElementById('roundInfo').textContent='انتهت الاختبار!';
+updateBest();
+}
+</script></body></html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ارسم بالبكسل</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif}
+.cell{transition:background .12s}
+.cell:hover{filter:brightness(1.3)}
+</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-fuchsia-900 via-purple-900 to-indigo-900 text-white">
+<div id="startScreen" class="min-h-screen flex flex-col items-center justify-center gap-6 text-center px-6">
+  <h1 class="text-5xl font-black">🎨 ارسم بالبكسل</h1>
+  <p class="text-xl text-purple-200 max-w-lg">انظر إلى النموذج الأصلي ثم أعد إنشاءه بالتلوين على الشبكة. كلما اقتربت من النموذج زادت نقاطك!</p>
+  <div class="bg-purple-800/50 rounded-2xl p-5">
+    <p class="text-lg mb-1">أفضل نتيجة: <span id="startBest">0</span></p>
+    <p class="text-sm text-purple-200">٥ مستويات من الرسومات</p>
+  </div>
+  <button onclick="startGame()" class="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">ابدأ الرسم</button>
+</div>
+
+<div id="playScreen" class="hidden min-h-screen flex-col items-center justify-center p-6 gap-4">
+  <div class="w-full max-w-2xl flex items-center justify-between mb-2">
+    <p class="text-lg">المستوى: <span id="lvl" class="font-black">1 / 5</span></p>
+    <p class="text-lg">النتيجة: <span id="score" class="font-black">0</span></p>
+  </div>
+  <div class="flex flex-col items-center gap-3">
+    <p class="text-purple-200 text-sm">النموذج الأصلي:</p>
+    <div id="targetGrid" class="rounded-xl overflow-hidden border-2 border-white/30"></div>
+  </div>
+  <div class="flex flex-col items-center gap-3 mt-3">
+    <p class="text-purple-200 text-sm">ارسم هنا:</p>
+    <div id="drawGrid" class="rounded-xl overflow-hidden border-2 border-white/50 shadow-2xl"></div>
+  </div>
+  <div id="toolbar" class="flex gap-2 mt-2"></div>
+  <button id="nextBtn" onclick="nextLevel()" class="hidden bg-emerald-600 hover:bg-emerald-500 font-bold px-8 py-3 rounded-full transition">المستوى التالي</button>
+</div>
+
+<div id="finishScreen" class="hidden min-h-screen flex-col items-center justify-center gap-5 text-center px-6">
+  <h1 class="text-5xl font-black">اكتملت اللوحة!</h1>
+  <p class="text-2xl font-bold">نتيجتك: <span id="finalScore">0</span></p>
+  <p class="text-purple-200">أفضل نتيجة: <span id="finishBest">0</span></p>
+  <div id="stars" class="text-5xl"></div>
+  <button onclick="backStart()" class="bg-fuchsia-600 hover:bg-fuchsia-500 font-bold text-xl px-10 py-4 rounded-full shadow-lg transition">العودة للبداية</button>
+</div>
+
+<script>
+function $(id){return document.getElementById(id)}
+let size=8;
+let patterns=[
+  {n:'قلب',mat:[[0,0,1,1,1,1,0,0],[0,0,0,1,0,1,1,0],[1,0,0,1,0,0,1,1],[1,1,0,1,0,0,0,1],[0,1,1,0,0,0,1,0],[0,0,1,1,0,1,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0]],c:'#ef4444'},
+  {n:'شمس',mat:[[0,0,1,0,0,1,0,0],[0,1,1,1,0,1,1,0],[1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,0],[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1],[0,1,1,1,0,1,1,0],[0,0,1,0,0,1,0,0]],c:'#eab308'},
+  {n:'نجمة',mat:[[0,0,0,1,0,0,0,0],[0,0,1,1,1,0,0,0],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,1,1,1,0,0,0],[0,1,1,0,1,1,0,0],[1,1,0,0,0,1,1,0],[0,0,0,0,0,0,0,0]],c:'#3b82f6'},
+  {n:'منزل',mat:[[0,0,0,1,1,0,0,0],[0,0,1,1,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1],[0,1,0,0,0,0,1,0],[0,1,0,1,1,0,1,0],[0,1,0,1,1,0,1,0],[0,1,1,1,1,1,1,0]],c:'#22c55e'},
+  {p:'x',mat:[[0,0,0,0,0,0,0,0],[0,1,1,1,1,1,1,0],[0,1,0,1,0,1,0,0],[0,1,1,1,1,0,1,0],[0,1,0,1,0,0,0,0],[0,1,1,1,1,1,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,1,0,0,0]],c:'#a855f7'}
+];
+let level,pattern,score,currentColor,draws=[];
+let best=+localStorage.getItem('pixel-paint-best')||0;
+$('startBest').textContent=best;$('finishBest').textContent=best;
+let palette=['#ef4444','#eab308','#22c55e','#3b82f6','#a855f7','#a3a3a3','#ffffff'];
+function tone(f,dur,type='sine',vol=0.2){
+  let ac=new (window.AudioContext||window.webkitAudioContext)();
+  let o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.value=f;o.connect(g);g.connect(ac.destination);
+  g.gain.setValueAtTime(vol,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+dur);
+  o.start();o.stop(ac.currentTime+dur);
+}
+function startGame(){
+  $('startScreen').classList.add('hidden');$('finishScreen').classList.add('hidden');
+  $('finishScreen').classList.remove('flex');
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  score=0;level=0;$('score').textContent=0;nextLevel();
+}
+function nextLevel(){
+  level++;
+  if(level>5){finish();return}
+  $('lvl').textContent=level+' / 5';
+  $('nextBtn').classList.add('hidden');
+  pattern=patterns[(level-1)];
+  buildGrid($('targetGrid'),pattern.mat,pattern.c,false);
+  draws=[];buildGrid($('drawGrid'),null,currentColor||palette[0],true);
+  buildToolbar();
+}
+function buildGrid(container,mat,color,interactive){
+  container.innerHTML='';
+  let cell=32;
+  for(let r=0;r<size;r++){
+    for(let c=0;c<size;c++){
+      let d=document.createElement('div');
+      d.className='cell';
+      d.style.width=cell+'px';d.style.height=cell+'px';
+      d.style.background=container.id==='targetGrid'?(mat[r][c]?color:'#1e1b4b'):'#1e1b4b';
+      if(interactive){
+        d.style.outline='1px solid #ffffff22';
+        d.dataset.r=r;d.dataset.c=c;
+        d.onclick=()=>paint(d);
+      }
+      container.appendChild(d);
+    }
+  }
+}
+function buildToolbar(){
+  let t=$('toolbar');t.innerHTML='';
+  palette.forEach(col=>{
+    let b=document.createElement('button');
+    b.className='w-9 h-9 rounded-full shadow';
+    b.style.background=col;
+    b.style.outline=col===currentColor?'3px solid white':'1px solid #ffffff44';
+    b.style.cursor='pointer';
+    b.onclick=()=>{currentColor=col;tone(500,0.08,'triangle',0.1);buildToolbar()};
+    t.appendChild(b);
+  });
+  let er=document.createElement('button');
+  er.className='w-9 h-9 rounded-full shadow bg-black border border-white/40';
+  er.textContent='🧽';er.style.cursor='pointer';
+  er.onclick=()=>{currentColor=null;tone(500,0.08,'triangle',0.1);buildToolbar()};
+  t.appendChild(er);
+}
+function paint(d){
+  let r=+d.dataset.r,c=+d.dataset.c;
+  let on=currentColor?1:0;
+  d.style.background=on?currentColor:'#1e1b4b';
+  let key=r+'x'+c;
+  if(on){draws[key]=currentColor}else{delete draws[key]}
+  tone(400+Math.random()*300,0.05,'sine',0.08);
+  checkComplete();
+}
+function checkComplete(){
+  let total=0,correct=0;
+  for(let r=0;r<size;r++){for(let c=0;c<size;c++){
+    total++;
+    let k=r+'x'+c;
+    let want=pattern.mat[r][c]?pattern.c:null;
+    if((draws[k]?'on':null)===(want?'on':null)){correct++}
+  }}
+let acc=Math.round(correct/total*100);
+if(acc>=70){score+=Math.round(acc*1.2);$('score').textContent=score;tone(700,0.3,'triangle',0.2);$('nextBtn').classList.remove('hidden');$('nextBtn').textContent='المستوى التالي ('+acc+'% مطابقة)';}
+}
+function finish(){
+  if(score>best){best=score;localStorage.setItem('pixel-paint-best',best)}
+  $('finalScore').textContent=score;$('finishBest').textContent=best;
+  $('stars').textContent=score>=450?'⭐⭐⭐':score>=300?'⭐⭐':'⭐';
+  $('finishScreen').classList.remove('hidden');$('finishScreen').classList.add('flex');
+  $('playScreen').classList.remove('flex');$('playScreen').classList.add('hidden');
+}
+function backStart(){
+  $('playScreen').classList.remove('hidden');$('playScreen').classList.add('flex');
+  $('finishScreen').classList.remove('flex');$('finishScreen').classList.add('hidden');
+  $('startScreen').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

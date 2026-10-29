@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PATTERN.EXE</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:'Consolas','Courier New',monospace;background:#050805;color:#33ff66;text-shadow:0 0 7px rgba(51,255,102,.45)}
+.scan::after{content:'';position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,255,65,.05) 0px,rgba(0,255,65,.05) 1px,transparent 1px,transparent 4px)}
+.frame{border:1px solid rgba(0,255,65,.4);box-shadow:0 0 24px rgba(0,255,65,.12),inset 0 0 40px rgba(0,255,65,.05)}
+.opt{border:1px dashed rgba(0,255,65,.5);transition:all .1s;width:100%;text-align:left;padding:.6rem 1rem}
+.opt:hover:not(.dead){background:#33ff66;color:#050805;text-shadow:none;box-shadow:0 0 22px rgba(51,255,102,.5)}
+.dead{opacity:.35;pointer-events:none}
+.hit{background:#33ff66!important;color:#050805!important;text-shadow:none!important;border-style:solid!important}
+.miss{border:1px solid #ff3355!important;color:#ff3355!important;text-shadow:0 0 8px rgba(255,51,85,.6)!important;background:rgba(255,51,85,.08)!important}
+.cursor{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.glow{text-shadow:0 0 14px rgba(51,255,102,.8)}
+#bar{transition:all .1s linear}
+</style>
+</head>
+<body class="scan min-h-screen flex items-center justify-center p-4 select-none">
+
+<div class="frame w-full max-w-2xl p-6 md:p-10 relative">
+
+<div class="flex justify-between text-xs opacity-60 mb-6 border-b border-dashed border-[#33ff66]/30 pb-3">
+<span>PATTERN.EXE v5.0</span>
+<span>LOGIC_CORE // NEURAL-LINK OK</span>
+</div>
+
+<div id="startScr">
+<h1 class="text-3xl md:text-4xl font-bold glow mb-4">&gt; PATTERN_DETECTOR <span class="cursor">█</span></h1>
+<pre class="text-xs md:text-sm opacity-60 leading-relaxed mb-6">&gt; boot sequence............ OK
+&gt; loading logic puzzles.... OK
+&gt; mission: solve 10 sequences
+&gt; reward: glory + highscore</pre>
+<p class="text-sm mb-8 opacity-80">اكتشف النمط واختر الرقم الناقص. عندك ٢٠ ثانية لكل سؤال.</p>
+<button onclick="startRun()" class="opt max-w-[200px] font-bold">&gt; RUN_PROGRAM ▸</button>
+<p class="mt-6 text-xs opacity-50">BEST_SCORE: <span id="bestStart">0</span></p>
+</div>
+
+<div id="playScr" class="hidden">
+<div class="flex justify-between items-center text-xs md:text-sm mb-6 gap-4">
+<span>QUERY <span id="qnum" class="glow font-bold">1/10</span></span>
+<span>SCORE <span id="scoreEl" class="glow font-bold">0</span></span>
+<span class="whitespace-nowrap"><span id="secs" class="font-bold">20</span>s [<span id="bar" class="tracking-tighter">■■■■■■■■■■</span>]</span>
+</div>
+
+<div class="text-xs opacity-50 mb-2">&gt; detected_sequence:</div>
+<div id="seq" class="text-xl md:text-3xl font-bold glow tracking-wider min-h-[2.5em]"></div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8" id="opts"></div>
+
+<div id="msg" class="h-8 mt-6 text-sm font-bold tracking-wide"></div>
+</div>
+
+<div id="endScr" class="hidden text-center py-6">
+<h2 class="text-2xl md:text-3xl font-bold glow mb-2">&gt; SESSION_COMPLETE</h2>
+<pre class="inline-block text-left text-[#33ff66] my-6 text-sm md:text-base leading-relaxed">╔═══════════════════════╗
+║  FINAL_SCORE: <span id="finalScore" class="font-bold">0</span>
+║  SOLVED:      <span id="solved">0</span>/10
+║  BEST:        <span id="bestEnd">0</span>
+╚═══════════════════════╝</pre>
+<p id="endMsg" class="text-sm opacity-70 mb-8"></p>
+<button onclick="startRun()" class="opt max-w-[220px] mx-auto font-bold">&gt; REBOOT ▸</button>
+</div>
+
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const TOTAL_Q=10,QTIME=20,bestKey='cyber-pattern-best';
+let qi=0,score=0,streak=0,q=null,timer=null,timeLeft=QTIME,ac=null;
+function snd(f,d,type,g){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain();o.type=type||'square';o.frequency.value=f;v.gain.setValueAtTime(g||.035,ac.currentTime);v.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+(d||.1));o.connect(v);v.connect(ac.destination);o.start();o.stop(ac.currentTime+(d||.1));}catch(e){}}
+function loadBest(){try{const v=+localStorage.getItem(bestKey)||0;$('bestStart').textContent=v;$('bestEnd').textContent=v;}catch(e){}}
+loadBest();
+function genQ(){
+const kinds=['arith','geo','fib','alt','square','prime'];
+let seq=[],ans;
+switch(kinds[rnd(0,kinds.length-1)]){
+case 'arith':{const s=rnd(1,30),d=rnd(2,12);for(let i=0;i<5;i++)seq.push(s+i*d);ans=s+5*d;break;}
+case 'geo':{const s=rnd(1,5),r=rnd(2,3);for(let i=0;i<5;i++)seq.push(s*Math.pow(r,i));ans=s*Math.pow(r,5);break;}
+case 'fib':{seq=[rnd(1,6),rnd(2,8)];while(seq.length<6)seq.push(seq[seq.length-1]+seq[seq.length-2]);ans=seq.pop();break;}
+case 'alt':{const a=rnd(6,15),b=rnd(1,4);let cur=rnd(2,25);for(let i=0;i<5;i++){cur+=i%2===0?a:-b;seq.push(cur);}ans=cur+a;break;}
+case 'square':{const st=rnd(1,6);for(let i=0;i<5;i++)seq.push((st+i)*(st+i));ans=(st+5)*(st+5);break;}
+default:{const P=[2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97];const i=rnd(0,11);seq=P.slice(i,i+5);ans=P[i+5];}
+}
+const opts=new Set([ans]);
+while(opts.size<4){let d=ans+rnd(-14,14)*rnd(1,3);if(d!==ans&&(d>0||ans<20))opts.add(d);}
+return{seq,ans,options:shuffle([...opts])};
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function typewrite(el,text){
+el.textContent='';
+let i=0;
+const t=setInterval(()=>{
+el.textContent=text.slice(0,++i);
+if(i>=text.length)clearInterval(t);
+},16);
+snd(880,.03,'square',.02);
+}
+function startRun(){
+qi=0;score=0;streak=0;
+$('scoreEl').textContent='0';
+$('startScr').classList.add('hidden');
+$('endScr').classList.add('hidden');
+$('playScr').classList.remove('hidden');
+nextQ();
+}
+function nextQ(){
+if(qi>=TOTAL_Q)return finish();
+q=genQ();
+streakShow();
+$('qnum').textContent=(qi+1)+'/'+TOTAL_Q;
+typewrite($('seq'),q.seq.join(',  ')+',  [ ? ]');
+const box=$('opts');box.innerHTML='';
+const letters=['A','B','C','D'];
+q.options.forEach((o,i)=>{
+const b=document.createElement('button');
+b.className='opt';b.textContent=`[${letters[i]}]  ${o}`;
+b.onclick=()=>pick(o,b);
+box.appendChild(b);
+});
+$('msg').textContent='';
+timeLeft=QTIME;drawTime();
+clearInterval(timer);
+timer=setInterval(step,100);
+}
+function streakShow(){$('msg').textContent=streak>=3?'> STREAK x'+streak+' 🔥':'';}
+function step(){
+timeLeft-=0.1;
+if(timeLeft<=0){reveal(null,null);return;}
+drawTime();
+}
+function drawTime(){
+$('secs').textContent=Math.ceil(timeLeft);
+const filled=Math.round(timeLeft/QTIME*10);
+$('bar').textContent='■'.repeat(filled)+'□'.repeat(10-filled);
+$('bar').style.color=timeLeft<QTIME*.25?'#ff3355':'#33ff66';
+$('bar').style.textShadow=timeLeft<QTIME*.25?'0 0 8px rgba(255,51,85,.7)':'none';
+}
+function pick(v,btn){if(timeLeft<=0&&!timer)return;reveal(v,btn);}
+function reveal(v,btn){
+clearInterval(timer);timer=null;
+document.querySelectorAll('.opt').forEach(b=>b.classList.add('dead'));
+const m=$('msg');
+if(v===q.ans){
+score+=100;streak++;
+$('scoreEl').textContent=score;
+btn.classList.add('hit');
+m.textContent=streak>=3?'> ACCESS_GRANTED ✓  STREAK x'+streak:'> ACCESS_GRANTED ✓';
+m.style.color='#33ff66';
+snd(700,.09,'square',.05);setTimeout(()=>snd(1050,.12,'square',.05),90);
+}else{
+streak=0;
+if(btn)btn.classList.add('miss');
+document.querySelectorAll('.opt').forEach(b=>{if(b.textContent.includes(''+q.ans))b.classList.add('hit');});
+m.textContent=v===null?'> TIMEOUT ✗  ANSWER='+q.ans:'> ACCESS_DENIED ✗  ANSWER='+q.ans;
+m.style.color='#ff3355';
+snd(110,.35,'sawtooth',.06);
+}
+qi++;
+setTimeout(nextQ,1600);
+}
+function finish(){
+$('playScr').classList.add('hidden');
+$('endScr').classList.remove('hidden');
+$('finalScore').textContent=score;
+$('solved').textContent=score/100;
+const v=+localStorage.getItem(bestKey)||0;
+let m='';
+if(score>v&&score>0){try{localStorage.setItem(bestKey,score);}catch(e){}m='NEW_RECORD // تم مسح النتيجة القديمة 🏆';loadBest();}
+else if(v)m='previous_best: '+v;
+$('endMsg').textContent=m;
+snd(523,.12,'square',.05);setTimeout(()=>snd(659,.12,'square',.05),120);setTimeout(()=>snd(784,.12,'square',.05),240);setTimeout(()=>snd(1046,.2,'square',.05),360);
+}
+</script>
+</body>
+</html>
